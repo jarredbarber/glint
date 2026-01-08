@@ -215,6 +215,17 @@ tr:nth-child(even) {
     text-align: center;
 }
 
+/* Mermaid Diagrams */
+.mermaid {
+    display: flex;
+    justify-content: center;
+    margin: 2rem 0;
+    background-color: var(--code-bg);
+    /* Subtle box background */
+    padding: 1rem;
+    border-radius: 8px;
+}
+
 /* File Tree */
 .file-tree ul {
     list-style: none;

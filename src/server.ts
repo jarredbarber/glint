@@ -20,6 +20,7 @@ import { buildFileTree, renderFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { preprocessGlintMath } from './remark-glint-math.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
+import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 
 interface CacheEntry {
     html: string;
@@ -34,8 +35,9 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
+        .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)
-        .use(remarkRehype)
+        .use(remarkRehype, { allowDangerousHtml: true }) // Allow div.mermaid injection
         .use(rehypeKatex, {
             macros,
             trust: true // Enable \htmlClass support
@@ -44,7 +46,7 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
         .use(rehypeExtractHeadings)
-        .use(rehypeStringify);
+        .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
 const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
@@ -61,6 +63,7 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
     <link rel="stylesheet" href="/assets/themes/${config.theme}.css">
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
     <aside class="sidebar">
@@ -91,6 +94,24 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
             ${content}
         </div>
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'dark',
+                securityLevel: 'loose',
+                themeVariables: {
+                    fontFamily: '"Inter", sans-serif',
+                    primaryColor: '#a7c080',
+                    primaryTextColor: '#2d353b',
+                    primaryBorderColor: '#a7c080',
+                    lineColor: '#d3c6aa',
+                    secondaryColor: '#dbbc7f',
+                    tertiaryColor: '#e67e80'
+                }
+            });
+        });
+    </script>
 </body>
 </html>
 `;
