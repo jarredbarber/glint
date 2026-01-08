@@ -22,6 +22,7 @@ import { preprocessGlintMath } from './remark-glint-math.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
+import { remarkSlashCheckbox } from './remark-slash-checkbox.js';
 
 interface CacheEntry {
     html: string;
@@ -37,6 +38,7 @@ function createProcessor(config: GlintConfig) {
     return unified()
         .use(remarkParse)
         .use(remarkGfm) // Support GFM (tables, autolink literals, strikethrough, tasklists)
+        .use(remarkSlashCheckbox) // Support [/] syntax
         .use(remarkWikiLinkGlint) // Resolve [[links]] early
         .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)
@@ -70,26 +72,26 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
 </head>
 <body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
     <aside class="sidebar">
-        <div class="sidebar-header">
-            <strong>Files</strong>
-        </div>
-        <nav class="file-tree">
-            <ul>${renderFileTree(fileTree, currentPath)}</ul>
-        </nav>
+        <details open class="sidebar-section">
+            <summary class="sidebar-header">Files</summary>
+            <nav class="file-tree">
+                <ul>${renderFileTree(fileTree, currentPath)}</ul>
+            </nav>
+        </details>
         
         ${headings.length > 0 ? `
-        <div class="sidebar-header" style="margin-top: 2rem;">
-            <strong>Outline</strong>
-        </div>
-        <nav class="outline-tree">
-            <ul>
-                ${headings.map(h => `
-                    <li class="depth-${h.depth}">
-                        <a href="#${h.id}">${h.text}</a>
-                    </li>
-                `).join('')}
-            </ul>
-        </nav>
+        <details open class="sidebar-section" style="margin-top: 1rem;">
+            <summary class="sidebar-header">Outline</summary>
+            <nav class="outline-tree">
+                <ul>
+                    ${headings.map(h => `
+                        <li class="depth-${h.depth}">
+                            <a href="#${h.id}">${h.text}</a>
+                        </li>
+                    `).join('')}
+                </ul>
+            </nav>
+        </details>
         ` : ''}
     </aside>
     <main class="content">

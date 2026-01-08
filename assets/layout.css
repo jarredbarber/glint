@@ -44,19 +44,52 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
+.sidebar-section {
+    margin-bottom: 1rem;
+}
+
 .sidebar-header {
-    padding-bottom: 1rem;
+    padding-bottom: 0.5rem;
     margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
     color: var(--text-dim);
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    position: sticky;
-    top: 0;
-    background-color: var(--bg-dim);
-    /* Cover content when scrolling */
-    z-index: 10;
+    cursor: pointer;
+    list-style: none;
+    /* Remove default summary marker */
+    font-weight: 700;
+}
+
+.sidebar-header::-webkit-details-marker {
+    display: none;
+}
+
+.sidebar-header::after {
+    content: '▾';
+    float: right;
+    transition: transform 0.2s;
+}
+
+details:not([open]) .sidebar-header::after {
+    transform: rotate(-90deg);
+}
+
+/* Indent Guides */
+.file-tree ul,
+.outline-tree ul {
+    border-left: 1px solid var(--border-color);
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+}
+
+/* Remove border for top-level */
+.file-tree>ul,
+.outline-tree>ul {
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 
 .content {
@@ -186,6 +219,32 @@ ul.contains-task-list {
 .task-list-item input[type="checkbox"] {
     margin-right: 0.5em;
     transform: translateY(1px);
+}
+
+/* In-Progress Checkbox [/] */
+input[data-state="in-progress"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    border: 1px solid var(--text-dim);
+    border-radius: 3px;
+    position: relative;
+    cursor: not-allowed;
+    background: var(--code-bg);
+}
+
+input[data-state="in-progress"]::after {
+    content: "/";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: var(--green);
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 hr {

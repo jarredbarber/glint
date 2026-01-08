@@ -107,6 +107,15 @@ Stretch goals:
 - File outliner in left panel.
 - Anchor links to subsections.
 
+#### MVP polish
+
+After each feature is done, push to github.
+
+- add "indent guides" for sections to help visually separate sections.
+- visually separate out folders from files in the FILES drawer
+- auto-reload on glint.json update
+- expand/collapse the files and outlines drawers
+
 ### V2: Editing
 
 In-browser editing. I am partial to Neovim so the design here will need to be very careful.

@@ -44,9 +44,10 @@ export async function buildFileTree(dir: string, basePath: string = ''): Promise
         }
     }
 
-    // Sort: directories first, then alphabetically
+    // Sort: Directories first, then alphabetical
     return nodes.sort((a, b) => {
-        if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+        if (a.isDir && !b.isDir) return -1;
+        if (!a.isDir && b.isDir) return 1;
         return a.name.localeCompare(b.name);
     });
 }
