@@ -264,6 +264,55 @@ tr:nth-child(even) {
     background-color: var(--bg-highlight);
 }
 
+/* Outline Tree */
+.outline-tree ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.outline-tree li {
+    margin: 0.25rem 0;
+}
+
+.outline-tree a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    /* Truncate long lines */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.outline-tree a:hover {
+    color: var(--text-color);
+    background-color: var(--bg-highlight);
+}
+
+/* Indentation based on depth */
+.outline-tree .depth-1 {
+    padding-left: 0;
+}
+
+.outline-tree .depth-2 {
+    padding-left: 0.75rem;
+}
+
+.outline-tree .depth-3 {
+    padding-left: 1.5rem;
+}
+
+.outline-tree .depth-4,
+.outline-tree .depth-5,
+.outline-tree .depth-6 {
+    padding-left: 2.25rem;
+}
+
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

@@ -19,6 +19,7 @@ import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, renderFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { preprocessGlintMath } from './remark-glint-math.js';
+import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 
 interface CacheEntry {
     html: string;
@@ -42,10 +43,11 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
+        .use(rehypeExtractHeadings)
         .use(rehypeStringify);
 }
 
-const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean) => `
+const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -65,6 +67,21 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
         <nav class="file-tree">
             <ul>${renderFileTree(fileTree, currentPath)}</ul>
         </nav>
+        
+        ${headings.length > 0 ? `
+        <div class="sidebar-header" style="margin-top: 2rem;">
+            <strong>Outline</strong>
+        </div>
+        <nav class="outline-tree">
+            <ul>
+                ${headings.map(h => `
+                    <li class="depth-${h.depth}">
+                        <a href="#${h.id}">${h.text}</a>
+                    </li>
+                `).join('')}
+            </ul>
+        </nav>
+        ` : ''}
     </aside>
     <main class="content">
         <div class="content-wrapper">
@@ -168,11 +185,12 @@ export async function createServer(contentDir: string) {
             const preprocessedContent = preprocessGlintMath(mdContent);
             const result = await processor.process(preprocessedContent);
             const title = extractedTitle || path.basename(fullPath, '.md');
+            const headings = result.data.headings || [];
 
             // Equation numbering logic
             const enableNumbering = (frontmatter as any)['eqn-numbers'] === true;
 
-            const html = renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering);
+            const html = renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering, headings);
 
             // Cache the result
             cache.set(fullPath, { html, mtime });
