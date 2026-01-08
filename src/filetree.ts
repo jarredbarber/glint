@@ -13,8 +13,12 @@ export async function buildFileTree(dir: string, basePath: string = ''): Promise
     const nodes: FileNode[] = [];
 
     for (const entry of entries) {
-        // Skip hidden files and glint.json
-        if (entry.name.startsWith('.') || entry.name === 'glint.json') {
+        // Skip hidden files, node_modules, assets, dist, and glint.json
+        if (entry.name.startsWith('.') ||
+            entry.name === 'node_modules' ||
+            entry.name === 'assets' ||
+            entry.name === 'dist' ||
+            entry.name === 'glint.json') {
             continue;
         }
 

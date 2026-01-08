@@ -1,0 +1,9 @@
+{
+    "theme": "everforest-dark",
+    "latex-macros": {
+        "R": "\\mathbb{R}",
+        "N": "\\mathbb{N}",
+        "pd": "\\frac{\\partial #1}{\\partial #2}",
+        "vf": "\\mathbf{#1}"
+    }
+}

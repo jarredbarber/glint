@@ -6,6 +6,7 @@ import { LRUCache } from 'lru-cache';
 
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkRehype from 'remark-rehype';
 import rehypeKatex from 'rehype-katex';
@@ -17,6 +18,7 @@ import rehypeStringify from 'rehype-stringify';
 import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, renderFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
+import { preprocessGlintMath } from './remark-glint-math.js';
 
 interface CacheEntry {
     html: string;
@@ -27,16 +29,11 @@ interface CacheEntry {
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
 function createProcessor(config: GlintConfig) {
-    // Convert latex-macros to KaTeX format (add backslash prefix)
-    const macros: Record<string, string> = {};
-    if (config['latex-macros']) {
-        for (const [key, value] of Object.entries(config['latex-macros'])) {
-            macros[`\\${key}`] = value;
-        }
-    }
+    const macros = config['latex-macros'] || {};
 
     return unified()
         .use(remarkParse)
+        .use(remarkGfm)
         .use(remarkMath)
         .use(remarkRehype)
         .use(rehypeKatex, { macros })
@@ -160,7 +157,8 @@ export async function createServer(contentDir: string) {
 
             const rawContent = await fs.readFile(fullPath, 'utf-8');
             const { content: mdContent, title: extractedTitle } = parseMarkdown(rawContent);
-            const result = await processor.process(mdContent);
+            const preprocessedContent = preprocessGlintMath(mdContent);
+            const result = await processor.process(preprocessedContent);
             const title = extractedTitle || path.basename(fullPath, '.md');
             const html = renderHtml(result.toString(), title, config, fileTree, urlPath);
 

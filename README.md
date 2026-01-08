@@ -2,6 +2,8 @@
 
 A self-contained Markdown server with math rendering and zero external dependencies.
 
+$$ G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu} $$
+
 ## Features
 
 - **Server-side math rendering** — KaTeX bundled locally, no CDN calls
