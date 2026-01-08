@@ -1,6 +1,6 @@
-# MD-View Design Specification
+# Glint Design Specification
 
-A self-contained, directory-backed Markdown web server with high-quality math rendering and zero external dependencies.
+**Glint** is a fully self-contained, directory-backed Markdown web server with high-quality math rendering and zero external dependencies or API calls.
 
 ## 🧐 Research: Does this already exist?
 
@@ -35,28 +35,86 @@ We use the `unified` ecosystem to ensure consistent, extensible rendering:
 - **Backend**: Fastify (Node.js) using ESM.
 - **Dynamic Routing**: A `/*` catch-all route mapping URLs to the `content/` directory.
 - **Security**: Hardened path resolution to prevent directory traversal.
+- **Caching** (LRU):
+  - Cache rendered HTML files; invalidate on file updates.
+  - Cache individual equations; need to investigate equation rendering time. it's very slow on other platforms like hackmd.io.
 
 ### 3. Assets & Theming
 
 - **Local KaTeX**: Bundled in `assets/katex/` to avoid external calls.
 - **CSS Themes**: Simple, responsive themes in `assets/themes/`.
 
----
+### 4. Web UI
 
-## 🚀 Deployment & Usage
+- Pages at `/path/file.md`
+- Left-side tree browser for browsing files
+- Page title, in order:
+  - YAML frontmatter `title:`
+  - First `#` section
+  - Filename
 
-### Local Setup
+### 5. CLI & Configuration
 
-1. Place markdown files in the `content/` folder.
-2. Run the server:
+- Question: Can CLI be "compiled" into a minimal-dependency package for distribution?
+- Server launched with a path to the content files: `glint serve /path/to/notes` (default: $PWD)
+- Configuration is done via an (optional) `glint.json` file in the content root directory.
+  - Store defaults in `config.ts` and overwrite with glint.json if available.
+- Configuration schema:
 
-   ```bash
-   node server.js
-   ```
+```json
+{
+   "port": "3000",
+   "baseFile": "README.md", // what happens accessing / or /folder
+   "host": "0.0.0.0", // or whatever this is supposed to be
+   "theme": "everforest-dark"
+}
+```
 
-3. Access at `http://localhost:3000`.
+## Roadmap
 
-### Configuration
+CRITICAL: DO NOT IMPLEMENT ANYTHING BEYOND V1. V2+ features are handled well by external tools and will only be implemented if the value exceeds the complexity.
 
-- **Port**: Default is `3000`.
-- **Content Root**: The `content/` directory relative to `server.js`.
+### V1: MVP
+
+- Rendering
+- Aesthetics (themes/CSS)
+  - Config only for now
+  - Light/dark as separate themes. Only care about dark right now.
+- File serving
+- Browsing UI
+
+Stretch goals:
+
+- Images (using relative paths in content directory)
+- Diagrams
+- Inter-note links
+- Latex features. These may need to be re-scoped a bit because we aren't running a full latex engine.
+  - `$$$ ... $$$` goes into align mode
+  - Custom latex macros in glint.json:
+
+```json
+   {
+      ...
+      "latex-macros": {
+         "R": "\\mathbb{R}",
+         "trace": "\\operatorname{Tr}\{#1\}"
+      }
+   }
+```
+
+- Filetype highlighting (json, python, bash, markdown at least)
+- Turn on / off equation numbers, maybe via frontmatter `eqn-numbers: true`? off by default. Syntax `$$*` or `$$$*` turns off eqn numbers if they are enabled.
+- File outliner in left panel.
+- Anchor links to subsections.
+
+### V2: Editing
+
+In-browser editing. I am partial to Neovim so the design here will need to be very careful.
+
+### V3: AI integration
+
+Interact with the notes via a chatbot
+
+### V4: Multi-user service
+
+Serve multiple users with permissions / sharing; concurrent editing.
