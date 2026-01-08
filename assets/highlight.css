@@ -1,10 +1,9 @@
 /* Syntax Highlighting - Everforest-inspired */
 .hljs {
-    background: var(--code-bg, #343f44);
+    /* Background/Padding handled by pre in layout.css to prevent inline rendering artifacts */
+    background: transparent;
     color: var(--text-color, #d3c6aa);
-    padding: 1rem;
-    border-radius: 8px;
-    overflow-x: auto;
+    padding: 0;
 }
 
 .hljs-comment,
