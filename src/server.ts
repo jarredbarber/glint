@@ -33,17 +33,19 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
-        .use(remarkGfm)
         .use(remarkMath)
         .use(remarkRehype)
-        .use(rehypeKatex, { macros })
+        .use(rehypeKatex, {
+            macros,
+            trust: true // Enable \htmlClass support
+        })
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
         .use(rehypeStringify);
 }
 
-const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string) => `
+const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,7 +57,7 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
 </head>
-<body>
+<body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
     <aside class="sidebar">
         <div class="sidebar-header">
             <strong>Files</strong>
@@ -65,7 +67,9 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
         </nav>
     </aside>
     <main class="content">
-        ${content}
+        <div class="content-wrapper">
+            ${content}
+        </div>
     </main>
 </body>
 </html>
@@ -156,11 +160,19 @@ export async function createServer(contentDir: string) {
             }
 
             const rawContent = await fs.readFile(fullPath, 'utf-8');
-            const { content: mdContent, title: extractedTitle } = parseMarkdown(rawContent);
+            const configData = parseMarkdown(rawContent);
+            const mdContent = configData.content;
+            const extractedTitle = configData.title;
+            const frontmatter = configData.frontmatter || {};
+
             const preprocessedContent = preprocessGlintMath(mdContent);
             const result = await processor.process(preprocessedContent);
             const title = extractedTitle || path.basename(fullPath, '.md');
-            const html = renderHtml(result.toString(), title, config, fileTree, urlPath);
+
+            // Equation numbering logic
+            const enableNumbering = (frontmatter as any)['eqn-numbers'] === true;
+
+            const html = renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering);
 
             // Cache the result
             cache.set(fullPath, { html, mtime });

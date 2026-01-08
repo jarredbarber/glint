@@ -8,7 +8,10 @@
 
 html,
 body {
-    height: 100%;
+    height: 100vh;
+    /* Force viewport height */
+    overflow: hidden;
+    /* Prevent window scroll */
 }
 
 body {
@@ -26,12 +29,12 @@ body {
 .sidebar {
     width: 250px;
     min-width: 250px;
-    height: 100vh;
-    position: sticky;
-    top: 0;
+    height: 100%;
+    /* Fill flex container */
     background-color: var(--bg-dim);
     border-right: 1px solid var(--border-color);
     overflow-y: auto;
+    /* Independent scroll */
     padding: 1rem;
 }
 
@@ -43,13 +46,27 @@ body {
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-dim);
+    /* Cover content when scrolling */
+    z-index: 10;
 }
 
 .content {
     flex: 1;
-    max-width: 800px;
-    padding: 2rem;
+    height: 100%;
+    /* Fill flex container */
     overflow-y: auto;
+    /* Independent scroll */
+    padding: 2rem;
+    padding-bottom: 4rem;
+    /* Extra space at bottom */
+}
+
+/* Container for text to keep max-width but allow full background */
+.content-wrapper {
+    max-width: 800px;
     margin: 0 auto;
 }
 
@@ -256,4 +273,26 @@ tr:nth-child(even) {
     .content {
         padding: 1rem;
     }
+}
+
+/* Equation Numbering */
+body.eqn-numbers {
+    counter-reset: equation;
+}
+
+body.eqn-numbers .katex-display:not(:has(.no-number)) {
+    counter-increment: equation;
+    position: relative;
+    padding-right: 2rem;
+    /* Make room for number */
+}
+
+body.eqn-numbers .katex-display:not(:has(.no-number))::after {
+    content: "(" counter(equation) ")";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9em;
+    color: var(--text-dim);
 }
