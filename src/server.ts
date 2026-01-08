@@ -36,6 +36,7 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
+        .use(remarkGfm) // Support GFM (tables, autolink literals, strikethrough, tasklists)
         .use(remarkWikiLinkGlint) // Resolve [[links]] early
         .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)

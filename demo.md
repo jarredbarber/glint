@@ -63,7 +63,20 @@ Or go back to [[README|Home]].
 ## Math Demontinuous symmetry
 
 Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
-$$* \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$
+$$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$
+
+## GFM Features Check
+
+| Feature | Status |
+| :--- | :--- |
+| Tables | Testing |
+| Strikethrough | ~Wait~ Testing |
+| Checkboxes | [ ] Testing |
+
+- [ ] Task 1
+- [x] Task 2
+- [/] Task 3 (In Progress?)
+- ~~Strikethrough text~~
 
 Substituting the Euler-Lagrange equation $\frac{\partial \mathcal{L}}{\partial \phi} = \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)}$:
 $$$*

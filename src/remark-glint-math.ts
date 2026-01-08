@@ -2,11 +2,11 @@
  * Preprocessor for extended math syntax:
  * - $$$ ... $$$ → align environment
  * - $$$* ... $$$ → align* environment (no equation numbers)
- * - $$* ... $$ → display math (auto block-level)
- * - $$ ... $$ → display math (auto block-level)
+ * - $$* ... $$ → display math (auto block-level, NO NUMBER)
+ * - $$ ... $$ → display math (auto block-level, NUMBERED)
  * 
- * Uses a token replacement strategy.
- * FIX: Uses replacement functions to ensure $$ aren't interpreted as special chars.
+ * Uses tokens to preserve blocks.
+ * FIX: Injects \htmlClass{no-number}{} to suppress numbering via CSS :has() selector.
  */
 
 export function preprocessGlintMath(markdown: string): string {
@@ -24,21 +24,25 @@ export function preprocessGlintMath(markdown: string): string {
         (_match, star, content) => {
             const env = star === '*' ? 'align*' : 'align';
             const latex = `\\begin{${env}}\n${content}\n\\end{${env}}`;
+
+            if (star === '*') {
+                // Inject marker class for CSS detection
+                return pushBlock(`\\htmlClass{no-number}{}\n${latex}`);
+            }
+
             return pushBlock(latex);
         }
     );
 
-    // 2. Handle $$* ... $$ (Display Math, explicit star)
-    // We trim content to prevent extra newlines inside the block
+    // 2. Handle $$* ... $$ (Display Math, explicit star -> NO NUMBER)
     markdown = markdown.replace(
         /\$\$\*\s*([\s\S]*?)\s*\$\$/g,
         (_match, content) => {
-            return pushBlock(content.trim());
+            return pushBlock(`\\htmlClass{no-number}{}\n${content.trim()}`);
         }
     );
 
-    // 3. Handle $$ ... $$ (Standard Display Math)
-    // Ensure we consume the surrounding $$ 
+    // 3. Handle $$ ... $$ (Standard Display Math -> NUMBERED)
     markdown = markdown.replace(
         /\$\$([\s\S]*?)\$\$/g,
         (_match, content) => {
@@ -46,16 +50,16 @@ export function preprocessGlintMath(markdown: string): string {
         }
     );
 
-    // 4. Restore blocks wrapped in fencing newlines
+    // 4. Restore blocks
     blocks.forEach((content, index) => {
         const id = `__GLINT_MATH_BLOCK_${index}__`;
-        // Use a function for replacement to prevent $$ -> $ strings
+        // Use callback to strictly preserve content including any $ characters
         markdown = markdown.replace(id, () => {
             return `\n\n$$\n${content}\n$$\n\n`;
         });
     });
 
-    // 5. Cleanup excessive newlines
+    // 5. Cleanup
     markdown = markdown.replace(/\n{4,}/g, '\n\n');
 
     return markdown;

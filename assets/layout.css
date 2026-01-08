@@ -172,6 +172,22 @@ li {
     margin: 0.25em 0;
 }
 
+/* Task Lists */
+ul.contains-task-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.task-list-item {
+    display: flex;
+    align-items: baseline;
+}
+
+.task-list-item input[type="checkbox"] {
+    margin-right: 0.5em;
+    transform: translateY(1px);
+}
+
 hr {
     border: none;
     border-top: 1px solid var(--border-color);
