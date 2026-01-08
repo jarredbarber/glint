@@ -54,9 +54,7 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
-const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
-<!DOCTYPE html>
-<html lang="en">
+const renderHead = (title: string, theme: string) => `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -65,42 +63,43 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/katex/katex.min.css">
-    <link rel="stylesheet" href="/assets/themes/${config.theme}.css">
+    <link rel="stylesheet" href="/assets/themes/${theme}.css">
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
-<body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
-    <aside class="sidebar">
-        <details open class="sidebar-section">
-            <summary class="sidebar-header">Files</summary>
-            <nav class="file-tree">
-                <ul>${renderFileTree(fileTree, currentPath)}</ul>
-            </nav>
-        </details>
-        
-        ${headings.length > 0 ? `
-        <details open class="sidebar-section" style="margin-top: 1rem;">
-            <summary class="sidebar-header">Outline</summary>
-            <nav class="outline-tree">
-                <ul>
-                    ${headings.map(h => `
-                        <li class="depth-${h.depth}">
-                            <a href="#${h.id}">${h.text}</a>
-                        </li>
-                    `).join('')}
-                </ul>
-            </nav>
-        </details>
-        ` : ''}
-    </aside>
-    <main class="content">
-        <div class="content-wrapper">
-            ${content}
-        </div>
-    </main>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
+`;
+
+const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = []) => `
+<aside class="sidebar">
+    <details open class="sidebar-section">
+        <summary class="sidebar-header">Files</summary>
+        <nav class="file-tree">
+            <ul>${renderFileTree(fileTree, currentPath)}</ul>
+        </nav>
+    </details>
+    
+    ${headings.length > 0 ? `
+    <details open class="sidebar-section" style="margin-top: 1rem;">
+        <summary class="sidebar-header">Outline</summary>
+        <nav class="outline-tree">
+            <ul>
+                ${headings.map(h => `
+                    <li class="depth-${h.depth}">
+                        <a href="#${h.id}">${h.text}</a>
+                    </li>
+                `).join('')}
+            </ul>
+        </nav>
+    </details>
+    ` : ''}
+</aside>
+`;
+
+const renderScripts = () => `
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof mermaid !== 'undefined') {
             mermaid.initialize({
                 startOnLoad: true,
                 theme: 'dark',
@@ -115,8 +114,23 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
                     tertiaryColor: '#e67e80'
                 }
             });
-        });
-    </script>
+        }
+    });
+</script>
+`;
+
+const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
+<!DOCTYPE html>
+<html lang="en">
+${renderHead(title, config.theme)}
+<body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
+    ${renderSidebar(fileTree, currentPath, headings)}
+    <main class="content">
+        <div class="content-wrapper">
+            ${content}
+        </div>
+    </main>
+    ${renderScripts()}
 </body>
 </html>
 `;
