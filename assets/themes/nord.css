@@ -1,0 +1,17 @@
+/* Nord Theme */
+:root {
+    --bg-color: #2e3440;
+    --bg-dim: #242933;
+    --bg-highlight: #3b4252;
+    --text-color: #eceff4;
+    --text-dim: #d8dee9;
+    --green: #a3be8c;
+    --red: #bf616a;
+    --orange: #d08770;
+    --yellow: #ebcb8b;
+    --blue: #81a1c1;
+    --aqua: #88c0d0;
+    --purple: #b48ead;
+    --border-color: #434c5e;
+    --code-bg: #3b4252;
+}

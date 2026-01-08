@@ -136,14 +136,40 @@ ${renderHead(title, config.theme)}
 `;
 
 export async function createServer(contentDir: string) {
-    const config = await loadConfig(contentDir);
+    let config = await loadConfig(contentDir);
     const assetsDir = path.join(import.meta.dirname, '..', 'assets');
-    const processor = createProcessor(config);
+    let processor = createProcessor(config);
 
     const fastify = Fastify({ logger: true });
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
+
+    // Watch for config changes
+    const configPath = path.join(contentDir, 'glint.json');
+    const watchConfig = async () => {
+        try {
+            const watcher = (await import('fs')).watch(configPath, async (event) => {
+                if (event === 'change') {
+                    try {
+                        // Small delay to ensure file is written
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        config = await loadConfig(contentDir);
+                        processor = createProcessor(config);
+                        cache.clear();
+                        fastify.log.info('Config reloaded successfully');
+                    } catch (err) {
+                        fastify.log.error(err as any, 'Failed to reload config');
+                    }
+                }
+            });
+
+            // Clean up watcher on server close if needed, but for now we just let it run
+        } catch (err) {
+            // File might not exist
+        }
+    };
+    watchConfig();
 
     // Serve bundled assets
     fastify.register(fastifyStatic, {

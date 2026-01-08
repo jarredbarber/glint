@@ -1,0 +1,17 @@
+/* Solarized Light Theme */
+:root {
+    --bg-color: #fdf6e3;
+    --bg-dim: #eee8d5;
+    --bg-highlight: #e6e0cc;
+    --text-color: #657b83;
+    --text-dim: #93a1a1;
+    --green: #859900;
+    --red: #dc322f;
+    --orange: #cb4b16;
+    --yellow: #b58900;
+    --blue: #268bd2;
+    --aqua: #2aa198;
+    --purple: #d13682;
+    --border-color: #d6d0ba;
+    --code-bg: #fcf4dc;
+}
