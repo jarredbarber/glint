@@ -53,7 +53,14 @@ $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \
 
 ## 3. Noether's Theorem (Field Theory)
 
-**Goal:** To derive the conserved current $j^\mu$ associated with a continuous symmetry.
+**Glint** is a minimal, self-hosted Markdown knowledge base server.
+
+## Wiki Links
+
+Check out the [[diagrams]] page!
+Or go back to [[README|Home]].
+
+## Math Demontinuous symmetry
 
 Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
 $$* \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$

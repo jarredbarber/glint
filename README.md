@@ -6,9 +6,18 @@ $$ G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu} $$
 
 ## Features
 
-- **Server-side math rendering** — KaTeX bundled locally, no CDN calls
-- **File browser sidebar** — Navigate your notes with collapsible folders
-- **Dark themes** — Everforest dark included
+- **No-Build**: Just run `glint` on any directory.
+- **Git Friendly**: Works great with existing repos.
+- **Live Reload**: Updates instantly when you save.
+- **Math First**:
+  - Full LaTeX support via KaTeX.
+  - Align blocks `$$$ ... $$$`.
+  - Numbered equations (enabled in frontmatter).
+  - Unnumbered display blocks `$$* ... $$*`.
+- **Diagrams**: Mermaid support (Code blocks with language `mermaid`).
+- **Wiki-links**: Use `[[Note Name]]` or `[[Note Name|Label]]` to link pages.
+- **Beautiful**: Dark mode by default (Everforest), syntax highlighting, and responsive layout.
+- **File Outliner**: Automatic table of contents for long documents.cluded
 - **Zero config** — Just point at a directory and go
 
 ## Installation

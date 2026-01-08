@@ -21,6 +21,7 @@ import { parseMarkdown } from './markdown.js';
 import { preprocessGlintMath } from './remark-glint-math.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
+import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 
 interface CacheEntry {
     html: string;
@@ -35,6 +36,7 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
+        .use(remarkWikiLinkGlint) // Resolve [[links]] early
         .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)
         .use(remarkRehype, { allowDangerousHtml: true }) // Allow div.mermaid injection

@@ -117,6 +117,13 @@ a:hover {
     color: var(--aqua);
 }
 
+/* Wiki Links */
+a.internal-link {
+    text-decoration-color: var(--green);
+    /* Subtle indicator */
+    text-decoration-thickness: 2px;
+}
+
 p {
     margin-bottom: 1.5rem;
 }
