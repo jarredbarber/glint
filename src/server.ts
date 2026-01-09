@@ -116,6 +116,23 @@ const renderScripts = () => `
             });
         }
     });
+
+    // Hot Reloading
+    const evtSource = new EventSource("/events");
+    evtSource.onmessage = (event) => {
+        if (event.data === "reload") {
+            console.log("Config changed, reloading...");
+            window.location.reload();
+        }
+    };
+    evtSource.onerror = () => {
+        // Try to reconnect if server goes down
+        setTimeout(() => {
+            if (evtSource.readyState === EventSource.CLOSED) {
+                window.location.reload();
+            }
+        }, 1000);
+    };
 </script>
 `;
 
@@ -142,34 +159,61 @@ export async function createServer(contentDir: string) {
 
     const fastify = Fastify({ logger: true });
 
+    // Track active SSE clients for hot reloading
+    const clients = new Set<any>();
+    const broadcast = (data: string) => {
+        for (const client of clients) {
+            client.raw.write(`data: ${data}\n\n`);
+        }
+    };
+
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
 
-    // Watch for config changes
-    const configPath = path.join(contentDir, 'glint.json');
-    const watchConfig = async () => {
+    // Unified Watcher
+    const watchAll = async () => {
         try {
-            const watcher = (await import('fs')).watch(configPath, async (event) => {
-                if (event === 'change') {
+            const fs = await import('fs');
+            fs.watch(contentDir, { recursive: true }, async (event, filename) => {
+                if (!filename) return;
+
+                if (filename === 'glint.json') {
                     try {
-                        // Small delay to ensure file is written
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        fastify.log.info('glint.json changed, reloading config...');
+                        await new Promise(resolve => setTimeout(resolve, 200)); // Wait for write
                         config = await loadConfig(contentDir);
                         processor = createProcessor(config);
                         cache.clear();
+                        broadcast('reload');
                         fastify.log.info('Config reloaded successfully');
                     } catch (err) {
                         fastify.log.error(err as any, 'Failed to reload config');
                     }
+                } else if (filename.endsWith('.md')) {
+                    cache.clear();
+                    broadcast('reload');
+                    fastify.log.info(`Content changed (${filename}), broadcasting reload`);
                 }
             });
-
-            // Clean up watcher on server close if needed, but for now we just let it run
         } catch (err) {
-            // File might not exist
+            fastify.log.error(err as any, 'Failed to initialize watcher');
         }
     };
-    watchConfig();
+    watchAll();
+
+    // SSE Endpoint for Hot Reloading
+    fastify.get('/events', (request, reply) => {
+        reply.raw.setHeader('Content-Type', 'text/event-stream');
+        reply.raw.setHeader('Cache-Control', 'no-cache');
+        reply.raw.setHeader('Connection', 'keep-alive');
+        reply.raw.write('\n');
+
+        clients.add(reply);
+
+        request.raw.on('close', () => {
+            clients.delete(reply);
+        });
+    });
 
     // Serve bundled assets
     fastify.register(fastifyStatic, {
