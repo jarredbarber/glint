@@ -172,10 +172,28 @@ h6 {
 }
 
 h1 {
-    font-size: 2.5rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5em;
+    font-size: 2.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     margin-top: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    position: relative;
+    background: linear-gradient(135deg, var(--green) 0%, var(--aqua) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+h1::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--green), var(--aqua));
+    border-radius: 2px;
 }
 
 h2 {
@@ -504,6 +522,7 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
     font-size: 0.9em;
     color: var(--text-dim);
 }
+
 /* Empty State */
 .empty-state {
     display: flex;
