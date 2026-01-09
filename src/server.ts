@@ -157,13 +157,26 @@ const renderScripts = () => `
 `;
 
 const renderMetadata = (frontmatter: Record<string, unknown>) => {
-    const date = frontmatter.date as string | undefined;
+    const rawDate = frontmatter.date;
     const author = frontmatter.author as string | undefined;
 
-    if (!date && !author) return '';
+    if (!rawDate && !author) return '';
 
     const parts = [];
-    if (date) parts.push(`<span class="meta-date">${date}</span>`);
+    if (rawDate) {
+        // Format date nicely
+        let dateStr: string;
+        if (rawDate instanceof Date) {
+            dateStr = rawDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else if (typeof rawDate === 'string') {
+            // Try to parse and format, fallback to raw string
+            const parsed = new Date(rawDate);
+            dateStr = isNaN(parsed.getTime()) ? rawDate : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else {
+            dateStr = String(rawDate);
+        }
+        parts.push(`<span class="meta-date">${dateStr}</span>`);
+    }
     if (author) parts.push(`<span class="meta-author">by ${author}</span>`);
 
     return `<div class="article-meta">${parts.join(' · ')}</div>`;
