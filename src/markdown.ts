@@ -13,7 +13,17 @@ export interface ParsedMarkdown {
  * 3. null (caller should fall back to filename)
  */
 export function parseMarkdown(raw: string): ParsedMarkdown {
-    const { data: frontmatter, content } = matter(raw);
+    let frontmatter: Record<string, unknown> = {};
+    let content = raw;
+
+    try {
+        const result = matter(raw);
+        frontmatter = result.data;
+        content = result.content;
+    } catch (e) {
+        // Fallback: treat everything as content if frontmatter parsing fails
+        console.warn('Failed to parse frontmatter, treating as plain markdown.');
+    }
 
     // Priority 1: frontmatter title
     if (frontmatter.title && typeof frontmatter.title === 'string') {
