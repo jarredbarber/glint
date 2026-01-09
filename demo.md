@@ -1,9 +1,14 @@
 ---
 title: Classic derivations in math and physics
 eqn-numbers: true
+author: Jarred/Gemini/Claude
+date: 2026-01-08
+category: Math
+updated: 2026-01-08
+reading-time: 4 years
+description: A brief introduction to Einstein's field equations.
 ---
 
-# Classic derivations in math and physics
 
 ## 1. The Gaussian Integral
 

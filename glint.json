@@ -1,5 +1,8 @@
 {
-    "theme": "catppuccin-mocha",
+    "port": 3000,
+    "host": "0.0.0.0",
+    "theme": "nord",
+    "baseFile": "README.md",
     "latex-macros": {
         "R": "\\mathbb{R}",
         "N": "\\mathbb{N}",

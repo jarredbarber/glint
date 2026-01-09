@@ -1,3 +1,4 @@
+
 # Glint
 
 A self-contained Markdown server with math rendering and zero external dependencies.
