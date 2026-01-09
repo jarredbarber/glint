@@ -504,3 +504,14 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
     font-size: 0.9em;
     color: var(--text-dim);
 }
+/* Empty State */
+.empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50vh;
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 1.1rem;
+    text-align: center;
+}

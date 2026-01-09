@@ -314,8 +314,27 @@ export async function createServer(contentDir: string) {
             }
 
             if (stats.isDirectory()) {
-                fullPath = path.join(fullPath, config.baseFile);
-                stats = await fs.stat(fullPath);
+                const indexPath = path.join(fullPath, config.baseFile);
+                try {
+                    const indexStats = await fs.stat(indexPath);
+                    fullPath = indexPath;
+                    stats = indexStats;
+                } catch (err) {
+                    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+                        // Index file not found, render directory view with empty content
+                        const html = renderHtml(
+                            '<div class="empty-state">Select a file from the sidebar to view its content.</div>',
+                            'Glint',
+                            config,
+                            fileTree,
+                            urlPath,
+                            false,
+                            []
+                        );
+                        return reply.type('text/html').send(html);
+                    }
+                    throw err;
+                }
             }
 
             const mtime = stats.mtimeMs;
