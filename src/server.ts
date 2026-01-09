@@ -149,13 +149,8 @@ const renderScripts = () => `
         }
     };
     evtSource.onerror = () => {
-        if (isUnloading) return;
-        // Try to reconnect if server goes down
-        setTimeout(() => {
-            if (evtSource.readyState === EventSource.CLOSED && !isUnloading) {
-                window.location.reload();
-            }
-        }, 1000);
+        // SSE connection errors are normal during navigation, don't reload
+        console.debug('SSE connection error');
     };
 </script>
 <script src="/assets/router.js"></script>

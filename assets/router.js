@@ -36,13 +36,23 @@ document.addEventListener('DOMContentLoaded', () => {
         navigate(href);
     });
 
+    // Track the last loaded pathname to avoid reloading on hash changes
+    let lastLoadedPathname = window.location.pathname;
+
     // Handle Back/Forward
     window.addEventListener('popstate', (e) => {
-        if (e.state && e.state.path) {
-            loadPage(e.state.path, false);
-        } else {
-            loadPage(window.location.pathname, false);
+        const currentPathname = window.location.pathname;
+
+        // Only reload if the pathname actually changed (not just the hash)
+        if (currentPathname !== lastLoadedPathname) {
+            lastLoadedPathname = currentPathname;
+            if (e.state && e.state.path) {
+                loadPage(e.state.path, false);
+            } else {
+                loadPage(currentPathname, false);
+            }
         }
+        // If only hash changed, let browser handle scrolling natively
     });
 
     async function navigate(path) {
