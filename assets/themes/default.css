@@ -1,9 +1,9 @@
 :root {
-  --bg-color: #ffffff;
+  --bg-color: #eeeeee;
   --text-color: #1a1a1a;
   --link-color: #0066cc;
-  --code-bg: #f4f4f4;
-  --border-color: #ddd;
+  --code-bg: #dfdede;
+  --border-color: #bdbdbd;
 }
 
 [data-theme="dark"] {
@@ -33,7 +33,8 @@ a:hover {
   text-decoration: underline;
 }
 
-pre, code {
+pre,
+code {
   background-color: var(--code-bg);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;

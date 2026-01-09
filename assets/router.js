@@ -14,9 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!href ||
             href.startsWith('http') ||
             href.startsWith('//') ||
-            href.startsWith('#') ||
             href.startsWith('mailto:') ||
             link.getAttribute('target') === '_blank') {
+            return;
+        }
+
+        // Handle pure anchor links (same page navigation)
+        if (href.startsWith('#')) {
+            // Let browser handle anchor navigation natively
+            return;
+        }
+
+        // Check if this is a link to a different page or same page with anchor
+        const url = new URL(href, window.location.origin);
+        if (url.pathname === window.location.pathname) {
+            // Same page, different anchor - let browser handle it
             return;
         }
 
