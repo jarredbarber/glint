@@ -536,3 +536,23 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
     font-size: 1.1rem;
     text-align: center;
 }
+/* Article Header & Metadata */
+.article-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.article-meta {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+}
+
+.meta-date {
+    font-weight: 500;
+}
+
+.meta-author {
+    font-style: italic;
+}

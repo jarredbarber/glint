@@ -156,7 +156,20 @@ const renderScripts = () => `
 <script src="/assets/router.js"></script>
 `;
 
-const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
+const renderMetadata = (frontmatter: Record<string, unknown>) => {
+    const date = frontmatter.date as string | undefined;
+    const author = frontmatter.author as string | undefined;
+
+    if (!date && !author) return '';
+
+    const parts = [];
+    if (date) parts.push(`<span class="meta-date">${date}</span>`);
+    if (author) parts.push(`<span class="meta-author">by ${author}</span>`);
+
+    return `<div class="article-meta">${parts.join(' · ')}</div>`;
+};
+
+const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = [], frontmatter: Record<string, unknown> = {}) => `
 <!DOCTYPE html>
 <html lang="en">
 ${renderHead(title, config.theme)}
@@ -164,6 +177,10 @@ ${renderHead(title, config.theme)}
     ${renderSidebar(fileTree, currentPath, headings, config.theme)}
     <main class="content">
         <div class="content-wrapper">
+            <header class="article-header">
+                <h1>${title}</h1>
+                ${renderMetadata(frontmatter)}
+            </header>
             ${content}
         </div>
     </main>
@@ -333,7 +350,8 @@ export async function createServer(contentDir: string) {
                             fileTree,
                             urlPath,
                             false,
-                            []
+                            [],
+                            {}
                         );
                         return reply.type('text/html').send(html);
                     }
@@ -363,7 +381,7 @@ export async function createServer(contentDir: string) {
             // Equation numbering logic
             const enableNumbering = (frontmatter as any)['eqn-numbers'] === true;
 
-            const html = renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering, headings);
+            const html = renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering, headings, frontmatter);
 
             // Cache the result
             cache.set(fullPath, { html, mtime });
