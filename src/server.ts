@@ -135,6 +135,13 @@ const renderScripts = () => `
 
     // Hot Reloading
     const evtSource = new EventSource("/events");
+    let isUnloading = false;
+
+    window.addEventListener('beforeunload', () => {
+        isUnloading = true;
+        evtSource.close();
+    });
+
     evtSource.onmessage = (event) => {
         if (event.data === "reload") {
             console.log("Config changed, reloading...");
@@ -142,14 +149,16 @@ const renderScripts = () => `
         }
     };
     evtSource.onerror = () => {
+        if (isUnloading) return;
         // Try to reconnect if server goes down
         setTimeout(() => {
-            if (evtSource.readyState === EventSource.CLOSED) {
+            if (evtSource.readyState === EventSource.CLOSED && !isUnloading) {
                 window.location.reload();
             }
         }, 1000);
     };
 </script>
+<script src="/assets/router.js"></script>
 `;
 
 const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = []) => `
