@@ -60,9 +60,10 @@ export function renderFileTree(nodes: FileNode[], currentPath: string = ''): str
         const activeClass = isActive ? ' class="active"' : '';
 
         if (node.isDir) {
+            const isOpen = currentPath === node.path || currentPath.startsWith(node.path + '/');
             return `
         <li class="dir">
-          <details open>
+          <details ${isOpen ? 'open' : ''}>
             <summary>${escapeHtml(node.name)}</summary>
             <ul>${renderFileTree(node.children || [], currentPath)}</ul>
           </details>
