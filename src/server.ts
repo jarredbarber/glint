@@ -71,7 +71,7 @@ const renderHead = (title: string, theme: string) => `
 `;
 
 const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = [], currentTheme: string = 'everforest-dark') => {
-    const themes = ['everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+    const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
     return `
 <aside class="sidebar">
@@ -244,7 +244,7 @@ export async function createServer(contentDir: string) {
     fastify.post('/api/theme', async (request, reply) => {
         try {
             const { theme } = request.body as { theme: string };
-            const themes = ['everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+            const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
             if (themes.includes(theme)) {
                 const configPath = path.join(contentDir, 'glint.json');
