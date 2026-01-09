@@ -1,5 +1,5 @@
 {
-    "theme": "everforest-dark",
+    "theme": "catppuccin-mocha",
     "latex-macros": {
         "R": "\\mathbb{R}",
         "N": "\\mathbb{N}",

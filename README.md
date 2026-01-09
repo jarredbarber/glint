@@ -61,11 +61,23 @@ Create an optional `glint.json` in your content root:
 ```
 
 | Option | Default | Description |
-|--------|---------|-------------|
+| --- | --- | --- |
 | `port` | 3000 | Server port |
 | `host` | 0.0.0.0 | Bind address |
-| `theme` | default | CSS theme name |
-| `baseFile` | README.md | Index file for `/` and `/folder/` |
+| `theme` | `everforest-dark` | CSS theme name (see below) |
+| `baseFile` | `README.md` | Index file for `/` and `/folder/` |
+
+## Themes
+
+Glint comes with several high-quality built-in themes:
+
+- `everforest-dark` (Default) — Balanced, nature-inspired dark theme.
+- `nord` — Cool, arctic blue aesthetic.
+- `gruvbox-dark` — Warm, retro earth tones.
+- `catppuccin-mocha` — Soft, modern pastel dark theme.
+- `solarized-light` — Classic, highly readable light theme.
+
+To use a theme, update your `glint.json`. Changes are picked up instantly via Hot Reloading!
 
 ## Page Titles
 
