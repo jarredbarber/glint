@@ -72,6 +72,11 @@ const renderHead = (title: string, theme: string) => `
 
 const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = []) => `
 <aside class="sidebar">
+    <div class="sidebar-branding">
+        <a href="/">
+            <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
+        </a>
+    </div>
     <details open class="sidebar-section">
         <summary class="sidebar-header">Files</summary>
         <nav class="file-tree">
