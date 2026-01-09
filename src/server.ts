@@ -70,36 +70,47 @@ const renderHead = (title: string, theme: string) => `
 </head>
 `;
 
-const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = []) => `
+const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = [], currentTheme: string = 'everforest-dark') => {
+    const themes = ['everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+
+    return `
 <aside class="sidebar">
-    <div class="sidebar-branding">
-        <a href="/">
-            <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
-        </a>
+    <div class="sidebar-scrollable">
+        <div class="sidebar-branding">
+            <a href="/">
+                <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
+            </a>
+        </div>
+        <details open class="sidebar-section">
+            <summary class="sidebar-header">Files</summary>
+            <nav class="file-tree">
+                <ul>${renderFileTree(fileTree, currentPath)}</ul>
+            </nav>
+        </details>
+        
+        ${headings.length > 0 ? `
+        <details open class="sidebar-section" style="margin-top: 1rem;">
+            <summary class="sidebar-header">Outline</summary>
+            <nav class="outline-tree">
+                <ul>
+                    ${headings.map(h => `
+                        <li class="depth-${h.depth}">
+                            <a href="#${h.id}">${h.text}</a>
+                        </li>
+                    `).join('')}
+                </ul>
+            </nav>
+        </details>
+        ` : ''}
     </div>
-    <details open class="sidebar-section">
-        <summary class="sidebar-header">Files</summary>
-        <nav class="file-tree">
-            <ul>${renderFileTree(fileTree, currentPath)}</ul>
-        </nav>
-    </details>
-    
-    ${headings.length > 0 ? `
-    <details open class="sidebar-section" style="margin-top: 1rem;">
-        <summary class="sidebar-header">Outline</summary>
-        <nav class="outline-tree">
-            <ul>
-                ${headings.map(h => `
-                    <li class="depth-${h.depth}">
-                        <a href="#${h.id}">${h.text}</a>
-                    </li>
-                `).join('')}
-            </ul>
-        </nav>
-    </details>
-    ` : ''}
+    <footer class="sidebar-footer">
+        <select class="theme-select" onchange="fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: this.value }) })">
+            ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
+        </select>
+    </footer>
 </aside>
 `;
+};
 
 const renderScripts = () => `
 <script>
@@ -146,7 +157,7 @@ const renderHtml = (content: string, title: string, config: GlintConfig, fileTre
 <html lang="en">
 ${renderHead(title, config.theme)}
 <body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
-    ${renderSidebar(fileTree, currentPath, headings)}
+    ${renderSidebar(fileTree, currentPath, headings, config.theme)}
     <main class="content">
         <div class="content-wrapper">
             ${content}
@@ -218,6 +229,27 @@ export async function createServer(contentDir: string) {
         request.raw.on('close', () => {
             clients.delete(reply);
         });
+    });
+
+    // Theme Update Endpoint
+    fastify.post('/api/theme', async (request, reply) => {
+        try {
+            const { theme } = request.body as { theme: string };
+            const themes = ['everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+
+            if (themes.includes(theme)) {
+                const configPath = path.join(contentDir, 'glint.json');
+                const currentConfig = await loadConfig(contentDir);
+                const newConfig = { ...currentConfig, theme };
+
+                await fs.writeFile(configPath, JSON.stringify(newConfig, null, 4));
+                return { success: true };
+            }
+            return reply.code(400).send({ error: 'Invalid theme' });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.code(500).send({ error: 'Failed to update theme' });
+        }
     });
 
     // Serve bundled assets
