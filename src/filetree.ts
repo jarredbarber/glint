@@ -9,16 +9,23 @@ export interface FileNode {
 }
 
 export async function buildFileTree(dir: string, basePath: string = ''): Promise<FileNode[]> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    let entries;
+    try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch (err) {
+        // Skip directories we can't access (permission denied, etc.)
+        return [];
+    }
     const nodes: FileNode[] = [];
 
     for (const entry of entries) {
-        // Skip hidden files, node_modules, assets, dist, and glint.json
+        // Skip hidden files, node_modules, assets, dist, glint.json, and macOS protected dirs
         if (entry.name.startsWith('.') ||
             entry.name === 'node_modules' ||
             entry.name === 'assets' ||
             entry.name === 'dist' ||
-            entry.name === 'glint.json') {
+            entry.name === 'glint.json' ||
+            entry.name === 'Library') {
             continue;
         }
 
@@ -26,14 +33,18 @@ export async function buildFileTree(dir: string, basePath: string = ''): Promise
         const fullPath = path.join(dir, entry.name);
 
         if (entry.isDirectory()) {
-            const children = await buildFileTree(fullPath, relativePath);
-            if (children.length > 0) {
-                nodes.push({
-                    name: entry.name,
-                    path: relativePath,
-                    isDir: true,
-                    children,
-                });
+            try {
+                const children = await buildFileTree(fullPath, relativePath);
+                if (children.length > 0) {
+                    nodes.push({
+                        name: entry.name,
+                        path: relativePath,
+                        isDir: true,
+                        children,
+                    });
+                }
+            } catch {
+                // Skip directories we can't access
             }
         } else if (entry.name.endsWith('.md')) {
             nodes.push({
