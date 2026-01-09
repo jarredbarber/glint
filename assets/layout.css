@@ -176,9 +176,7 @@ h1 {
     font-weight: 800;
     letter-spacing: -0.02em;
     margin-top: 0.5rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
-    position: relative;
+    margin-bottom: 0.5rem;
     text-align: center;
     background: linear-gradient(135deg, var(--green) 0%, var(--aqua) 100%);
     -webkit-background-clip: text;
@@ -186,14 +184,10 @@ h1 {
     background-clip: text;
 }
 
-h1::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 0;
+.title-accent {
     width: 60px;
     height: 4px;
+    margin: 1.5rem auto;
     background: linear-gradient(90deg, var(--green), var(--aqua));
     border-radius: 2px;
 }
@@ -536,6 +530,7 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
     font-size: 1.1rem;
     text-align: center;
 }
+
 /* Article Header & Metadata */
 .article-header {
     margin-bottom: 2rem;

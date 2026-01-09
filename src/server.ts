@@ -231,6 +231,7 @@ ${renderHead(title, config.theme)}
             <header class="article-header">
                 <h1>${title}</h1>
                 ${renderMetadata(frontmatter)}
+                <div class="title-accent"></div>
             </header>
             ${content}
         </div>
