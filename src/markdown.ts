@@ -30,10 +30,11 @@ export function parseMarkdown(raw: string): ParsedMarkdown {
         return { content, title: frontmatter.title, frontmatter };
     }
 
-    // Priority 2: first H1 heading
+    // Priority 2: first H1 heading - extract and remove it from content
     const h1Match = content.match(/^#\s+(.+)$/m);
     if (h1Match) {
-        return { content, title: h1Match[1].trim(), frontmatter };
+        const strippedContent = content.replace(/^#\s+.+$/m, '').trimStart();
+        return { content: strippedContent, title: h1Match[1].trim(), frontmatter };
     }
 
     return { content, title: null, frontmatter };
