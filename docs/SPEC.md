@@ -118,12 +118,8 @@ After each feature is done, push to github.
 
 ### V2: Editing
 
-In-browser editing. I am partial to Neovim so the design here will need to be very careful.
+See SPEC_V2.md
 
-### V3: AI integration
-
-Interact with the notes via a chatbot
-
-### V4: Multi-user service
+### V3: Multi-user service
 
 Serve multiple users with permissions / sharing; concurrent editing.

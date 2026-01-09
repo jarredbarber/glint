@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glint Editor Demo (Nord)</title>
+    <link rel="stylesheet" href="/assets/layout.css">
+    <link rel="stylesheet" href="/assets/themes/nord.css">
+    <script src="/assets/editor.bundle.js"></script>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .demo-container {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+
+<body class="theme-nord">
+    <h1>Glint Editor Demo</h1>
+
+    <div class="controls">
+        <input type="checkbox" id="vim-mode-toggle">
+        <label for="vim-mode-toggle">Enable Vim Mode</label>
+    </div>
+
+    <div id="editor-container"></div>
+
+    <script>
+        const initialMarkdown = `# Welcome to the Glint Editor
+
+This is a **live demo** of the new editor widget running with the Nord theme.
+
+## Features
+- Full markdown syntax highlighting
+- **Vim Mode** (toggle above!)
+  - Try \`:w\` to save
+  - Try \`:q\` to cancel
+  - Supports normal commands, visual mode, macros, etc.
+- Collapsible headers
+- Save/Cancel actions
+
+Try editing this text! 
+`;
+
+        let editor = null;
+
+        function initEditor(vimMode) {
+            if (editor) {
+                editor.destroy();
+            }
+            editor = new GlintEditor(document.getElementById('editor-container'), {
+                initialValue: initialMarkdown,
+                height: "500px",
+                vimMode: vimMode,
+                onSave: (content) => {
+                    console.log("Saving content:", content);
+                    alert("Save triggered! Check console for content.");
+                },
+                onCancel: () => {
+                    if (confirm("Discard changes?")) {
+                        editor.setValue(initialMarkdown);
+                    }
+                }
+            });
+        }
+
+        document.getElementById('vim-mode-toggle').addEventListener('change', (e) => {
+            initEditor(e.target.checked);
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('vim-mode-toggle').checked = true;
+            initEditor(true);
+        });
+    </script>
+</body>
+
+</html>

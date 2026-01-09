@@ -1,8 +1,10 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyMultipart from '@fastify/multipart';
 import path from 'path';
 import fs from 'fs/promises';
 import { LRUCache } from 'lru-cache';
+import crypto from 'crypto';
 
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -154,6 +156,7 @@ const renderScripts = () => `
     };
 </script>
 <script src="/assets/router.js"></script>
+<script src="/assets/upload.js"></script>
 `;
 
 const formatDate = (rawDate: unknown): string | null => {
@@ -322,6 +325,151 @@ export async function createServer(contentDir: string) {
         } catch (err) {
             fastify.log.error(err);
             return reply.code(500).send({ error: 'Failed to update theme' });
+        }
+    });
+
+    // Register multipart support
+    await fastify.register(fastifyMultipart);
+
+    // [API] Save Content
+    fastify.post('/api/save', async (request, reply) => {
+        try {
+            const body = request.body as { path: string; content: string; hash?: string };
+            if (typeof body.path !== 'string' || typeof body.content !== 'string') {
+                return reply.code(400).send({ error: 'Missing path or content' });
+            }
+
+            let safePath = path.resolve(contentDir, body.path.replace(/^\/+/, ''));
+            if (!safePath.startsWith(contentDir)) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // Handle directory paths
+            try {
+                const stats = await fs.stat(safePath);
+                if (stats.isDirectory()) {
+                    safePath = path.join(safePath, config.baseFile);
+                }
+            } catch (err) {
+                // File doesn't exist, which is fine for save, but if it ends in slash or looks like dir?
+                // Logic: provided path is what we write to.
+                // But if client sends "foo/" or empty string "", we want to save to index/readme.
+            }
+
+            // Edge case: if path is empty string, safePath is contentDir
+            if (safePath === contentDir) {
+                safePath = path.join(contentDir, config.baseFile);
+            }
+
+            // Optional: Optimistic locking could go here using body.hash
+
+            await fs.writeFile(safePath, body.content, 'utf-8');
+            const newHash = crypto.createHash('md5').update(body.content).digest('hex');
+
+            return { success: true, hash: newHash };
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.code(500).send({ error: 'Failed to save file' });
+        }
+    });
+
+    // [API] Get Source
+    fastify.get('/api/source/*', async (request, reply) => {
+        const urlPath = (request.params as { '*': string })['*'] || '';
+        let safePath = path.resolve(contentDir, urlPath.replace(/^\/+/, ''));
+
+        if (!safePath.startsWith(contentDir)) {
+            return reply.code(403).send({ error: 'Forbidden' });
+        }
+
+        try {
+            const stats = await fs.stat(safePath);
+            if (stats.isDirectory()) {
+                safePath = path.join(safePath, config.baseFile);
+            }
+
+            const content = await fs.readFile(safePath, 'utf-8');
+            const hash = crypto.createHash('md5').update(content).digest('hex');
+            return { content, hash, path: urlPath };
+        } catch (err) {
+            if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+                return reply.code(404).send({ error: 'Not Found' });
+            }
+            fastify.log.error(err);
+            return reply.code(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    // [API] Upload Image
+    fastify.post('/api/upload', async (request, reply) => {
+        try {
+            const parts = request.parts();
+            let fileBuffer: Buffer | undefined;
+            let filename: string | undefined;
+            let articlePath: string | undefined;
+
+            for await (const part of parts) {
+                if (part.type === 'file') {
+                    // Consume stream immediately
+                    fileBuffer = await part.toBuffer();
+                    filename = part.filename;
+                } else if (part.fieldname === 'articlePath') {
+                    articlePath = (part as any).value as string;
+                }
+            }
+
+            // Fallback for articlePath via query
+            if (!articlePath) {
+                articlePath = (request.query as any).articlePath;
+            }
+
+            if (!fileBuffer || !articlePath || !filename) {
+                return reply.code(400).send({ error: 'Missing file or articlePath' });
+            }
+
+            let safeArticlePath = path.resolve(contentDir, articlePath.replace(/^\/+/, ''));
+            if (!safeArticlePath.startsWith(contentDir)) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // Resolve directory to base file
+            try {
+                const stats = await fs.stat(safeArticlePath);
+                if (stats.isDirectory()) {
+                    safeArticlePath = path.join(safeArticlePath, config.baseFile);
+                }
+            } catch {
+                // If path doesn't exist, assume it's a file path
+                if (safeArticlePath === contentDir) {
+                    safeArticlePath = path.join(contentDir, config.baseFile);
+                }
+            }
+
+            const assetsDirName = path.basename(safeArticlePath) + '.assets';
+            const assetsDir = path.join(path.dirname(safeArticlePath), assetsDirName);
+
+            // Create assets directory if not exists
+            await fs.mkdir(assetsDir, { recursive: true });
+
+            const ext = path.extname(filename) || '.png';
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(7);
+            const newFilename = `${timestamp}-${random}${ext}`;
+            const destPath = path.join(assetsDir, newFilename);
+
+            await fs.writeFile(destPath, fileBuffer);
+
+            // Construct relative URL
+            // We want the URL to be relative to the content directory root typically,
+            // or absolute path /content/...
+            const relativeAssetsDir = path.relative(contentDir, assetsDir);
+            const url = path.join('/content', relativeAssetsDir, newFilename);
+
+            return { url };
+
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.code(500).send({ error: 'Upload failed' });
         }
     });
 
