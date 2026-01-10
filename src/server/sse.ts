@@ -1,0 +1,26 @@
+import { FastifyInstance, FastifyReply } from 'fastify';
+
+export function setupSSERoutes(fastify: FastifyInstance) {
+    const clients = new Set<FastifyReply>();
+
+    fastify.get('/events', (request, reply) => {
+        reply.raw.setHeader('Content-Type', 'text/event-stream');
+        reply.raw.setHeader('Cache-Control', 'no-cache');
+        reply.raw.setHeader('Connection', 'keep-alive');
+        reply.raw.write('\n');
+
+        clients.add(reply);
+
+        request.raw.on('close', () => {
+            clients.delete(reply);
+        });
+    });
+
+    const broadcast = (data: string) => {
+        for (const client of clients) {
+            client.raw.write(`data: ${data}\n\n`);
+        }
+    };
+
+    return { broadcast };
+}

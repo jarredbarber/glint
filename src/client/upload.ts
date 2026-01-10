@@ -1,3 +1,5 @@
+import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+
 /**
  * ============================================================================
  * GLINT SCROLL PRESERVATION
@@ -77,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const contentArea = document.querySelector('main.content');
+
 
     interface InsertionResult {
         line: number;
@@ -179,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function uploadImage(blob: Blob, targetLine: number, debug: string) {
         // Save scroll position IMMEDIATELY before anything else
+        saveScrollPosition();
         const contentEl = document.querySelector('.content') || document.querySelector('main');
         const scrollYBeforeUpload = contentEl ? contentEl.scrollTop : 0;
 
@@ -234,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentPath = window.location.pathname;
 
             // Set flag to suppress SSE hot-reload (since we're about to refresh content ourselves)
-            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+            suppressSSEReload();
 
             const refreshRes = await fetch(currentPath);
             if (refreshRes.ok) {

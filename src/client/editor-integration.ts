@@ -1,3 +1,5 @@
+import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+
 interface EditorOptions {
     initialValue: string;
     vimMode: boolean;
@@ -134,9 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
-                            const contentEl = document.querySelector('.content') || document.querySelector('main');
-                            if (contentEl) sessionStorage.setItem('glint-scroll-y', String(contentEl.scrollTop));
-                            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+                            saveScrollPosition();
+                            suppressSSEReload();
                             window.location.reload();
                         } catch (err: any) {
                             alert(`Error saving: ${err.message}`);
@@ -237,11 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
                             // Save scroll position before reload
-                            const contentEl = document.querySelector('.content') || document.querySelector('main');
-                            if (contentEl) {
-                                sessionStorage.setItem('glint-scroll-y', String(contentEl.scrollTop));
-                            }
-                            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+                            // Save scroll position before reload
+                            saveScrollPosition();
+                            suppressSSEReload();
                             window.location.reload();
                         } catch (err: any) {
                             alert(`Error saving: ${err.message}`);

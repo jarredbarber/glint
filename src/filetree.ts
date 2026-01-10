@@ -39,7 +39,7 @@ export async function buildFileTree(
 
         if (entry.isDirectory()) {
             try {
-                const children = await buildFileTree(fullPath, relativePath);
+                const children = await buildFileTree(fullPath, relativePath, titleCache);
                 if (children.length > 0) {
                     nodes.push({
                         name: entry.name,

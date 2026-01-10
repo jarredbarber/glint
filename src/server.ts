@@ -1,11 +1,8 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { LRUCache } from 'lru-cache';
-import crypto from 'node:crypto';
-
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
@@ -32,6 +29,9 @@ import { VFile } from 'vfile';
 import * as renderer from './renderer.js';
 import { resolveContentPath } from './utils/fs-utils.js';
 
+import { setupSSERoutes } from './server/sse.js';
+import { setupAPIRoutes } from './server/routes/api.js';
+
 interface CacheEntry {
     html: string;
     mtime: number;
@@ -45,17 +45,17 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
-        .use(remarkGfm) // Support GFM (tables, autolink literals, strikethrough, tasklists)
-        .use(remarkSlashCheckbox) // Support [/] syntax
-        .use(remarkWikiLinkGlint) // Resolve [[links]] early
-        .use(remarkMermaidGlint) // Transform mermaid before math/rehype
+        .use(remarkGfm)
+        .use(remarkSlashCheckbox)
+        .use(remarkWikiLinkGlint)
+        .use(remarkMermaidGlint)
         .use(remarkMath)
-        .use(remarkRehype, { allowDangerousHtml: true }) // Allow div.mermaid injection
-        .use(rehypeSourceLines) // Add source lines BEFORE KaTeX/Highlight transforms
+        .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeSourceLines)
         .use(rehypeGlintImage)
         .use(rehypeKatex, {
             macros,
-            trust: true // Enable \htmlClass support
+            trust: true
         })
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)
@@ -64,10 +64,6 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
-
-
-
-
 export async function createServer(contentDir: string) {
     let config = await loadConfig(contentDir);
     const assetsDir = path.join(import.meta.dirname, '..', 'assets');
@@ -75,13 +71,11 @@ export async function createServer(contentDir: string) {
 
     const fastify = Fastify({ logger: true });
 
-    // Track active SSE clients for hot reloading
-    const clients = new Set<any>();
-    const broadcast = (data: string) => {
-        for (const client of clients) {
-            client.raw.write(`data: ${data}\n\n`);
-        }
-    };
+    // Setup SSE
+    const { broadcast } = setupSSERoutes(fastify);
+
+    // Setup API Routes
+    await setupAPIRoutes(fastify, contentDir);
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
@@ -140,159 +134,6 @@ export async function createServer(contentDir: string) {
     };
     watchAll();
 
-    // SSE Endpoint for Hot Reloading
-    fastify.get('/events', (request, reply) => {
-        reply.raw.setHeader('Content-Type', 'text/event-stream');
-        reply.raw.setHeader('Cache-Control', 'no-cache');
-        reply.raw.setHeader('Connection', 'keep-alive');
-        reply.raw.write('\n');
-
-        clients.add(reply);
-
-        request.raw.on('close', () => {
-            clients.delete(reply);
-        });
-    });
-
-    // Theme Update Endpoint
-    fastify.post('/api/theme', async (request, reply) => {
-        try {
-            const { theme } = request.body as { theme: string };
-            const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
-
-            if (themes.includes(theme)) {
-                const configPath = path.join(contentDir, 'glint.json');
-                const currentConfig = await loadConfig(contentDir);
-                const newConfig = { ...currentConfig, theme };
-
-                await fs.writeFile(configPath, JSON.stringify(newConfig, null, 4));
-                return { success: true };
-            }
-            return reply.code(400).send({ error: 'Invalid theme' });
-        } catch (err) {
-            fastify.log.error(err);
-            return reply.code(500).send({ error: 'Failed to update theme' });
-        }
-    });
-
-    // Register multipart support with increased file size limit (50 MB)
-    await fastify.register(fastifyMultipart, {
-        limits: {
-            fileSize: 50 * 1024 * 1024 // 50 MB
-        }
-    });
-
-    // [API] Save Content
-    fastify.post('/api/save', async (request, reply) => {
-        try {
-            const body = request.body as { path: string; content: string; hash?: string };
-            if (typeof body.path !== 'string' || typeof body.content !== 'string') {
-                return reply.code(400).send({ error: 'Missing path or content' });
-            }
-
-            const { safePath } = await resolveContentPath(contentDir, body.path, config);
-
-            // Optimistic locking
-            if (body.hash) {
-                try {
-                    const existingContent = await fs.readFile(safePath, 'utf-8');
-                    const existingHash = crypto.createHash('md5').update(existingContent).digest('hex');
-                    if (existingHash !== body.hash) {
-                        return reply.code(409).send({
-                            error: 'Conflict: The file has been modified by someone else.',
-                            conflict: true
-                        });
-                    }
-                } catch (err) {
-                    // If file doesn't exist, hash check is skipped (creating new file)
-                }
-            }
-
-            await fs.writeFile(safePath, body.content, 'utf-8');
-            const newHash = crypto.createHash('md5').update(body.content).digest('hex');
-
-            return { success: true, hash: newHash };
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            fastify.log.error(err);
-            return reply.code(500).send({ error: 'Failed to save file' });
-        }
-    });
-
-    // [API] Get Source
-    fastify.get('/api/source/*', async (request, reply) => {
-        const urlPath = (request.params as { '*': string })['*'] || '';
-        try {
-            const { safePath } = await resolveContentPath(contentDir, urlPath, config, false);
-            const content = await fs.readFile(safePath, 'utf-8');
-            const hash = crypto.createHash('md5').update(content).digest('hex');
-            return { content, hash, path: urlPath };
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            if (err.code === 'ENOENT' || err.message === 'NOT_FOUND') {
-                return reply.code(404).send({ error: 'Not Found' });
-            }
-            fastify.log.error(err);
-            return reply.code(500).send({ error: 'Internal Server Error' });
-        }
-    });
-
-    // [API] Upload Image
-    fastify.post('/api/upload', async (request, reply) => {
-        try {
-            const parts = request.parts();
-            let fileBuffer: Buffer | undefined;
-            let filename: string | undefined;
-            let articlePath: string | undefined;
-
-            for await (const part of parts) {
-                if (part.type === 'file') {
-                    // Consume stream immediately
-                    fileBuffer = await part.toBuffer();
-                    filename = part.filename;
-                } else if (part.fieldname === 'articlePath') {
-                    articlePath = (part as any).value as string;
-                }
-            }
-
-            // Fallback for articlePath via query
-            if (!articlePath) {
-                articlePath = (request.query as any).articlePath;
-            }
-
-            if (!fileBuffer || !articlePath || !filename) {
-                return reply.code(400).send({ error: 'Missing file or articlePath' });
-            }
-
-            // Unify: resolver handles the complexities
-            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, config);
-
-            const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
-            const assetsDir = path.join(path.dirname(resolvedArticlePath), assetsDirName);
-
-            // Create assets directory if not exists
-            await fs.mkdir(assetsDir, { recursive: true });
-
-            const ext = path.extname(filename) || '.png';
-            const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex').substring(0, 8);
-            const newFilename = `${hash}${ext}`;
-            const destPath = path.join(assetsDir, newFilename);
-
-            await fs.writeFile(destPath, fileBuffer);
-
-            // Construct relative URL
-            const relativeAssetsDir = path.relative(contentDir, assetsDir);
-            const url = path.join('/content', relativeAssetsDir, newFilename);
-
-            return { url };
-
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            fastify.log.error(err);
-            return reply.code(500).send({ error: 'Upload failed' });
-        }
-    });
-
     // Serve bundled assets
     fastify.register(fastifyStatic, {
         root: assetsDir,
@@ -308,7 +149,6 @@ export async function createServer(contentDir: string) {
     });
 
     // Build file tree once at startup
-    // Initial title scan (could be optimized, but ok for now)
     const initialTree = await buildFileTree(contentDir);
     const scanTitles = async (nodes: FileNode[]) => {
         for (const node of nodes) {
@@ -326,9 +166,11 @@ export async function createServer(contentDir: string) {
         const urlPath = (request.params as { '*': string })['*'] || '';
 
         try {
+            // Note: We use resolveContentPath just to get the safe path and type,
+            // but we don't rely on its isMarkdown check for rendering logic 
+            // because we handle static files and markdown separately.
             const { safePath, stats, isMarkdown } = await resolveContentPath(contentDir, urlPath, config, false);
 
-            // Handle non-markdown files (images, etc.) if they reached here
             if (!isMarkdown && stats) {
                 const ext = path.extname(safePath).toLowerCase();
                 if (IMAGE_EXTENSIONS.includes(ext)) {
@@ -344,67 +186,69 @@ export async function createServer(contentDir: string) {
                     };
                     return reply.type(mimeTypes[ext] || 'application/octet-stream').send(imageBuffer);
                 }
-                // For other files, maybe redirect or 404
                 return reply.code(404).send('Not Found');
             }
 
-            // If we're here, it's a directory (handled by resolveContentPath mapping to baseFile) 
-            // or a markdown file.
-
-            // Check if resolveContentPath found the base file
-            if (!stats || !isMarkdown) {
-                // Directory found but index file missing -> Empty State
-                const html = renderer.renderHtml(
-                    '<div class="empty-state">Select a file from the sidebar to view its content.</div>',
-                    'Glint',
-                    config,
-                    fileTree,
-                    urlPath,
-                    [],
-                    {}
-                );
-                return reply.type('text/html').send(html);
+            if (!isMarkdown) {
+                return reply.code(404).send('Not Found');
             }
 
-            const mtime = stats.mtimeMs;
-            const cached = cache.get(safePath);
-
-            // Return cached version if mtime hasn't changed
-            if (cached && cached.mtime === mtime) {
-                return reply.type('text/html').send(cached.html);
+            // Check cache
+            const cacheKey = safePath;
+            if (cache.has(cacheKey)) {
+                const entry = cache.get(cacheKey)!;
+                if (entry.mtime >= stats!.mtimeMs) {
+                    return reply.type('text/html').send(entry.html);
+                }
             }
 
+            // Read and Process
             const rawContent = await fs.readFile(safePath, 'utf-8');
+            const { content: cleanContent, title: frontmatterTitle, contentStartLine, frontmatter } = parseMarkdown(rawContent);
 
-            // Use new SourceMap-based processing
-            const { sourceMap: sm1, content: contentAfterFrontmatter, title: extractedTitle, frontmatter } =
-                SourceMap.fromMarkdown(rawContent);
-            const { sourceMap, content: processedContent } =
-                sm1.transform(contentAfterFrontmatter, mathPreprocessor);
+            // Create initial SourceMap
+            const { sourceMap: initialSourceMap } = SourceMap.fromMarkdown(rawContent);
 
-            const vfile = new VFile({
-                value: processedContent,
-                data: { sourceMap }
-            });
+            // Preprocess Math (creates intermediate source map)
+            const { content: processedContent, sourceMap: mathSourceMap } = initialSourceMap.transform(cleanContent, mathPreprocessor);
 
-            const result = await processor.process(vfile);
-            const title = extractedTitle || path.basename(safePath, '.md');
-            const headings = result.data.headings || [];
+            // Run Unified Pipeline
+            const file = new VFile({ value: processedContent });
+            file.data.contentStartLine = contentStartLine;
+            file.data.lineMapping = { processedToSource: new Map() };
+            // Attach source map for rehype-source-lines
+            file.data.sourceMap = mathSourceMap;
 
-            const html = renderer.renderHtml(result.toString(), title, config, fileTree, urlPath, headings, frontmatter);
+            const vfile = await processor.process(file);
+            let htmlContent = String(vfile);
 
-            // Cache the result
-            cache.set(safePath, { html, mtime });
+            // Combine into full HTML
+            const pageTitle = frontmatterTitle || path.basename(urlPath, '.md').replace(/-/g, ' ');
 
-            reply.type('text/html').send(html);
+            // Get headings from plugin
+            const headings = (vfile.data.headings as HeadingNode[]) || [];
+
+            const fullHtml = renderer.renderHtml(
+                htmlContent,
+                pageTitle,
+                config,
+                fileTree,
+                urlPath,
+                headings,
+                frontmatter
+            );
+
+            // Cache it
+            cache.set(cacheKey, { html: fullHtml, mtime: stats!.mtimeMs });
+
+            return reply.type('text/html').send(fullHtml);
+
         } catch (err: any) {
             if (err.message === 'FORBIDDEN') return reply.code(403).send('Forbidden');
-            if (err.message === 'NOT_FOUND' || err.code === 'ENOENT') {
-                reply.code(404).send('Not Found');
-            } else {
-                fastify.log.error(err);
-                reply.code(500).send('Internal Server Error');
-            }
+            if (err.code === 'ENOENT' || err.message === 'NOT_FOUND') return reply.code(404).send('Not Found');
+
+            fastify.log.error(err);
+            return reply.code(500).send('Internal Server Error');
         }
     });
 

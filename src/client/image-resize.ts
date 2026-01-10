@@ -1,4 +1,6 @@
 
+import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeImage: HTMLImageElement | null = null;
     let handle: HTMLDivElement | null = null;
@@ -143,11 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Suppress SSE hot-reload and save scroll position for restoration
             // The file save triggers an SSE event; we want to preserve scroll
-            const contentEl = document.querySelector('.content') || document.querySelector('main');
-            if (contentEl) {
-                sessionStorage.setItem('glint-scroll-y', String((contentEl as HTMLElement).scrollTop));
-            }
-            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+            saveScrollPosition();
+            suppressSSEReload();
 
             console.log(`[Glint] Image on line ${lineNum} resized to ${width}px and saved.`);
 
@@ -165,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Clean up handle when mouse leaves image area (with some buffer)
     document.addEventListener('mousemove', (e) => {
+        // If we identify that we are no longer interacting with the image/handle, clean up
         if (isResizing || !handle || !activeImage) return;
 
         const imgRect = activeImage.getBoundingClientRect();
