@@ -643,7 +643,7 @@ tr:nth-child(even) {
 }
 
 .glint-btn {
-    padding: 0.5rem 1.25rem;
+    padding: 0.3rem 1.25rem;
     border-radius: 6px;
     font-size: 0.9rem;
     font-weight: 600;
@@ -713,8 +713,42 @@ h2:hover .heading-edit-icon,
 h3:hover .heading-edit-icon,
 h4:hover .heading-edit-icon,
 h5:hover .heading-edit-icon,
-h6:hover .heading-edit-icon {
+h6:hover .heading-edit-icon,
+.code-block-wrapper:hover .code-edit-icon {
     opacity: 1;
+}
+
+.code-block-wrapper {
+    position: relative;
+    /* For marginal edit icon */
+}
+
+.code-edit-icon {
+    opacity: 0;
+    cursor: pointer;
+    position: absolute;
+    left: -42px;
+    top: 20px;
+    /* Fixed offset from top of code block */
+    font-size: 1.2rem;
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    user-select: none;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-highlight);
+    border: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.code-edit-icon:hover {
+    transform: scale(1.1);
+    background: var(--bg-dim);
+    border-color: var(--green);
 }
 
 /* Edit Mode Overlay */

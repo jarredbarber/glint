@@ -15,7 +15,7 @@ export type GlintConfig = z.infer<typeof ConfigSchema>;
 const DEFAULTS: GlintConfig = {
     port: 3000,
     host: '0.0.0.0',
-    theme: 'default',
+    theme: 'nord',
     baseFile: 'README.md',
 };
 

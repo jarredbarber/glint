@@ -24,7 +24,7 @@ date: 12/15/2025
 
 ---
 
-## 0. Conceptual Intro: The Philosophy of RG
+## Conceptual Intro: The Philosophy of RG
 
 **The Core Idea**: Physics often looks different at different scales.
 
@@ -46,7 +46,7 @@ date: 12/15/2025
 
 ---
 
-## 1. The Simple Case: 1D Ising Model (Exact Decimation)
+## The Simple Case: 1D Ising Model (Exact Decimation)
 
 We start with a 1D chain of $N$ spins with nearest-neighbor interactions.
 Hamiltonian (in units of $k_B T$, so we work with reduced coupling $K = J/k_B T$):

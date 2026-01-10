@@ -3,7 +3,7 @@
 
 A self-contained Markdown server with math rendering and zero external dependencies.
 
-$$ G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu} $$
+$$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
 
 ## Features
 

@@ -40,6 +40,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add preamble edit icon to article header
         injectPreambleEditIcon();
+
+        // Add code block edit icons
+        injectCodeBlockEditIcons();
+    }
+
+    // 1c. Inject edit icons for code blocks
+    function injectCodeBlockEditIcons() {
+        const codeBlocks = document.querySelectorAll('pre');
+        codeBlocks.forEach(pre => {
+            if (pre.parentElement?.classList.contains('code-block-wrapper')) return;
+
+            // Must have data-source-line
+            const sourceLine = pre.getAttribute('data-source-line');
+            if (sourceLine === null) return;
+
+            // Try to find language class on the inner code element
+            const code = pre.querySelector('code');
+            let language = 'text';
+            if (code && code.className) {
+                const match = code.className.match(/language-(\w+)/);
+                if (match) {
+                    language = match[1];
+                }
+            }
+
+            // Wrap pre in a wrapper for positioning the icon in the margin
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+            pre.parentNode?.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+
+            const icon = document.createElement('span');
+            icon.className = 'code-edit-icon';
+            icon.innerHTML = '✏️';
+            icon.title = 'Edit code block';
+            icon.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openCodeBlockEditor(pre, parseInt(sourceLine), language);
+            };
+
+            wrapper.prepend(icon);
+        });
     }
 
     // 1b. Inject edit icon for the preamble (content before first heading)
@@ -258,6 +301,116 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`Error: ${err.message}`);
         } finally {
             heading.style.cursor = '';
+        }
+    }
+
+    async function openCodeBlockEditor(pre: HTMLElement, startLine: number, language: string) {
+        if (activeEditor) {
+            if (!confirm('You have an active editor open. Discard changes?')) return;
+            closeInlineEditor();
+        }
+
+        const path = window.location.pathname.substring(1) || 'README.md';
+
+        try {
+            pre.style.cursor = 'wait';
+            const res = await fetch(`/api/source/${path}`);
+            if (!res.ok) throw new Error('Failed to load source');
+            const { content, hash } = await res.json();
+
+            const lines = content.split('\n');
+
+            // Code block logic:
+            // startLine points to the ``` line OR the first content line depending on mapping?
+            // Usually, mapped line is the OPENING fence.
+
+            // We need to find the closing fence ``` to determine endLine.
+            // Simplified: scan forward from startLine until we find ```
+            let endLineIndex = -1;
+
+            // Safety check: is startLine actually the fence?
+            if (!lines[startLine - 1].trim().startsWith('```')) {
+                console.warn('Mapped line is not a code fence, adjusting...');
+                // It might be mapped to the content inside. Backtrack?
+                // For now assume rehype-source-lines points to the element itself which corresponds to the fence.
+            }
+
+            for (let i = startLine; i < lines.length; i++) {
+                if (lines[i].trim().startsWith('```')) {
+                    endLineIndex = i + 1; // 1-indexed end line (inclusive of fence)
+                    break;
+                }
+            }
+
+            if (endLineIndex === -1) {
+                throw new Error('Could not find closing code fence.');
+            }
+
+            // Extract content INCLUDING fences
+            const sectionLines = lines.slice(startLine - 1, endLineIndex);
+            const sectionContent = sectionLines.join('\n');
+
+            // For the editor, maybe we want just the *inner* content?
+            // Requested feature: "editing a python block runs the editor in python mode"
+            // If we edit proper, we should edit the INNER content and strip fences for the editor,
+            // then adding them back on save.
+
+            const innerLines = lines.slice(startLine, endLineIndex - 1); // Exclude fences
+            const innerContent = innerLines.join('\n');
+
+            // Swap DOM
+            hiddenElements = [pre];
+            activeEditorContainer = document.createElement('div');
+            activeEditorContainer.className = 'glint-inline-editor-container';
+
+            pre.parentNode?.insertBefore(activeEditorContainer, pre);
+            pre.style.display = 'none';
+
+            if (typeof GlintEditor !== 'undefined') {
+                activeEditor = new GlintEditor(activeEditorContainer, {
+                    initialValue: innerContent,
+                    vimMode: true,
+                    language: language, // Pass the detected language
+                    onSave: async (editedInnerContent: string) => {
+                        // Reconstruct full block
+                        const fenceStart = lines[startLine - 1]; // e.g. ```python
+                        const fenceEnd = lines[endLineIndex - 1]; // e.g. ```
+
+                        // New block content with fences
+                        const newBlock = `${fenceStart}\n${editedInnerContent}\n${fenceEnd}`;
+
+                        const newLines = [...lines];
+                        // Replace original range [startLine, endLineIndex]
+                        const deleteCount = endLineIndex - startLine + 1;
+                        newLines.splice(startLine - 1, deleteCount, newBlock);
+
+                        const newFullContent = newLines.join('\n');
+
+                        try {
+                            const saveRes = await fetch('/api/save', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ path, content: newFullContent, hash })
+                            });
+
+                            if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
+
+                            saveScrollPosition();
+                            suppressSSEReload();
+                            window.location.reload();
+                        } catch (err: any) {
+                            alert(`Error saving: ${err.message}`);
+                        }
+                    },
+                    onCancel: closeInlineEditor
+                });
+            }
+
+        } catch (err: any) {
+            console.error(err);
+            alert(`Error: ${err.message}`);
+        } finally {
+            pre.style.cursor = '';
         }
     }
 

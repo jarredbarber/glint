@@ -22,6 +22,7 @@ Combining them into a double integral over the $xy$-plane:
 $$ I^2 = \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} e^{-(x^2 + y^2)} dx \, dy $$
 
 Changing to polar coordinates where $x^2 + y^2 = r^2$ and the Jacobian $dx \, dy = r \, dr \, d\theta$:
+
 $$$
 I^2 &= \int_{0}^{2\pi} d\theta \int_{0}^{\infty} e^{-r^2} r \, dr \\
 &= 2\pi \int_{0}^{\infty} e^{-r^2} r \, dr
@@ -58,14 +59,6 @@ $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \
 
 ## 3. Noether's Theorem (Field Theory)
 
-**Glint** is a minimal, self-hosted Markdown knowledge base server.
-
-## Wiki Links
-
-Check out the [[diagrams]] page!
-Or go back to [[README|Home]].
-
-## Continuous symmetry
 
 Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
 $$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$

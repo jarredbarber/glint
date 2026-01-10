@@ -8,6 +8,10 @@ import { lintKeymap } from "@codemirror/lint"
 import { markdown } from "@codemirror/lang-markdown"
 import { tags as t } from "@lezer/highlight"
 import { vim, Vim } from "@replit/codemirror-vim"
+import { javascript } from "@codemirror/lang-javascript"
+import { python } from "@codemirror/lang-python"
+import { html } from "@codemirror/lang-html"
+import { css } from "@codemirror/lang-css"
 
 /**
  * Glint Custom Theme
@@ -96,6 +100,7 @@ interface GlintEditorOptions {
     onSave?: (content: string) => void;
     onCancel?: () => void;
     vimMode?: boolean;
+    language?: string;
 }
 
 /**
@@ -165,7 +170,7 @@ class GlintEditor {
                     }
                 }
             ]),
-            markdown(),
+            this.getLanguageExtension(),
             glintTheme,
             EditorView.theme({
                 "&": {
@@ -208,6 +213,25 @@ class GlintEditor {
                     this.options.onCancel();
                 }
             });
+        }
+    }
+
+    private getLanguageExtension() {
+        switch (this.options.language?.toLowerCase()) {
+            case 'js':
+            case 'javascript':
+            case 'typescript':
+            case 'ts':
+                return javascript({ typescript: true });
+            case 'py':
+            case 'python':
+                return python();
+            case 'html':
+                return html();
+            case 'css':
+                return css();
+            default:
+                return markdown();
         }
     }
 
