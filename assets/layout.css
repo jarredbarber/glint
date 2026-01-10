@@ -169,6 +169,8 @@ h6 {
     margin-bottom: 0.75em;
     line-height: 1.2;
     font-weight: 700;
+    position: relative;
+    /* For marginal edit icons */
 }
 
 h1 {
@@ -703,9 +705,12 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
 .heading-edit-icon {
     opacity: 0;
     cursor: pointer;
-    margin-left: 0.75rem;
+    position: absolute;
+    left: -42px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 1.2rem;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     user-select: none;
     line-height: 1;
     display: inline-flex;
@@ -716,10 +721,11 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
     border-radius: 50%;
     background: var(--bg-highlight);
     border: 1px solid var(--border-color);
+    z-index: 10;
 }
 
 .heading-edit-icon:hover {
-    transform: scale(1.1);
+    transform: translateY(-50%) scale(1.1);
     background: var(--bg-dim);
     border-color: var(--green);
 }

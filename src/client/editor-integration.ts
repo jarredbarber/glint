@@ -27,15 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.createElement('span');
             icon.className = 'heading-edit-icon';
             icon.innerHTML = '✏️';
-            icon.title = 'Edit this section';
-
             icon.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 openInlineEditor(heading, parseInt(sourceLine));
             };
 
-            heading.appendChild(icon);
+            heading.prepend(icon);
         });
 
         // Add preamble edit icon to article header
@@ -51,8 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.className = 'heading-edit-icon preamble-edit-icon';
         icon.innerHTML = '✏️';
         icon.title = 'Edit document header';
-        icon.style.marginLeft = '0.5rem';
-
         icon.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -60,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const h1 = articleHeader.querySelector('h1');
-        if (h1) h1.appendChild(icon);
+        if (h1) h1.prepend(icon);
     }
 
     // Open editor for preamble (line 1 to first content heading)
@@ -79,20 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const lines = content.split('\n');
 
-            // Find the H1 title line, then find the first heading after it
-            let h1Line = -1;
-            let firstHeadingAfterTitle = -1;
-            for (let i = 0; i < lines.length; i++) {
-                if (/^#\s+/.test(lines[i]) && h1Line === -1) {
-                    h1Line = i + 1; // Found H1
-                } else if (/^#{1,6}\s+/.test(lines[i]) && h1Line !== -1) {
-                    firstHeadingAfterTitle = i + 1; // First heading after H1
-                    break;
-                }
+            // Find first heading in rendered content (respects frontmatter title stripping)
+            const firstRenderedHeading = document.querySelector('.content-wrapper h1, .content-wrapper h2, .content-wrapper h3, .content-wrapper h4, .content-wrapper h5, .content-wrapper h6');
+            let endLine = lines.length + 1; // Default: whole file
+
+            if (firstRenderedHeading) {
+                const lineAttr = firstRenderedHeading.getAttribute('data-source-line');
+                if (lineAttr) endLine = parseInt(lineAttr);
             }
 
-            // Preamble: everything up to first heading after title (or whole file)
-            const endLine = firstHeadingAfterTitle === -1 ? lines.length + 1 : firstHeadingAfterTitle;
             const preambleContent = lines.slice(0, endLine - 1).join('\n');
 
             // Find elements to hide (everything before first content heading)

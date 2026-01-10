@@ -14,7 +14,6 @@ $$ G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu} $$
   - Full LaTeX support via KaTeX.
   - Align blocks `$$$ ... $$$`.
   - Numbered equations (enabled in frontmatter).
-  - Unnumbered display blocks `$$* ... $$*`.
 - **Diagrams**: Mermaid support (Code blocks with language `mermaid`).
 - **Wiki-links**: Use `[[Note Name]]` or `[[Note Name|Label]]` to link pages.
 - **Beautiful**: Dark mode by default (Everforest), syntax highlighting, and responsive layout.
