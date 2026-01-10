@@ -20,7 +20,8 @@ import rehypeStringify from 'rehype-stringify';
 import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
-import { preprocessGlintMath } from './remark-glint-math.js';
+import { preprocessGlintMath, mathPreprocessor } from './remark-glint-math.js';
+import { SourceMap } from './source-map.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
@@ -374,19 +375,18 @@ export async function createServer(contentDir: string) {
             }
 
             const rawContent = await fs.readFile(safePath, 'utf-8');
-            const configData = parseMarkdown(rawContent);
-            const mdContent = configData.content;
-            const extractedTitle = configData.title;
-            const frontmatter = configData.frontmatter || {};
 
-            const preprocessResult = preprocessGlintMath(mdContent);
+            // Use new SourceMap-based processing
+            const { sourceMap: sm1, content: contentAfterFrontmatter, title: extractedTitle, frontmatter } =
+                SourceMap.fromMarkdown(rawContent);
+            const { sourceMap, content: processedContent } =
+                sm1.transform(contentAfterFrontmatter, mathPreprocessor);
+
             const vfile = new VFile({
-                value: preprocessResult.content,
-                data: {
-                    contentStartLine: configData.contentStartLine,
-                    lineMapping: preprocessResult.lineMapping
-                }
+                value: processedContent,
+                data: { sourceMap }
             });
+
             const result = await processor.process(vfile);
             const title = extractedTitle || path.basename(safePath, '.md');
             const headings = result.data.headings || [];

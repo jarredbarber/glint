@@ -4,17 +4,8 @@
  * ============================================================================
  * 
  * PURPOSE:
- * This preprocessor runs BEFORE the unified markdown pipeline. It handles
- * Glint's extended math syntax and produces standard markdown that remark-math
- * can process.
- * 
- * CRITICAL INVARIANT:
- * This preprocessor MUST maintain accurate line mappings from processed content
- * back to original source. The inline section editor relies on these mappings
- * to correctly identify which source lines correspond to which DOM elements.
- * 
- * If you modify this file and break line mappings, the section editor will
- * show/edit the wrong content!
+ * This preprocessor handles Glint's extended math syntax and produces standard
+ * markdown that remark-math can process.
  * 
  * TRANSFORMATIONS:
  * 1. $$$ ... $$$ → $$\begin{align*}...\end{align*}$$ (multi-line alignment)
@@ -23,18 +14,122 @@
  *    $$ blocks trigger display mode. This is a quirk of remark-math.
  * 
  * LINE MAPPING:
- * - processedToSource: Maps each line number in the processed output back
- *   to its corresponding line number in the original source markdown.
- * - When we expand 1 line to 3 lines (single-line $$ conversion), all 3
- *   processed lines map back to the original 1 source line.
- * - When we transform $$$ blocks, each processed line maps to its
- *   corresponding source line within the block.
+ * Returns Edit[] compatible with SourceMap.transform() for accurate line
+ * tracking back to the original source.
  * 
  * ============================================================================
  */
 
+import { Edit, LineRange, TransformResult } from './source-map.js';
+
+/**
+ * Transform function for math preprocessing.
+ * Compatible with SourceMap.transform().
+ */
+export function mathPreprocessor(content: string): TransformResult {
+    const lines = content.split('\n');
+    const outputLines: string[] = [];
+    const edits: Edit[] = [];
+
+    let inputLine = 1; // 1-indexed
+    let outputLine = 1; // 1-indexed
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const currentInputLine = i + 1;
+
+        // =========================================
+        // CASE 1: $$$ block start (align environment)
+        // =========================================
+        if (line.trim() === '$$$') {
+            // Find the matching closing $$$
+            let endIdx = i + 1;
+            while (endIdx < lines.length && lines[endIdx].trim() !== '$$$') {
+                endIdx++;
+            }
+
+            // --- Edit 1: Opening tag ---
+            // Input: Line i ($$$)
+            // Output: $$ \n \begin{align*}
+            const startInputLine = currentInputLine;
+            const startOutputLine = outputLine;
+
+            outputLines.push('$$');
+            outputLines.push('\\begin{align*}');
+
+            // Record edit for opening tag
+            edits.push({
+                inputRange: { start: startInputLine, end: startInputLine },
+                outputRange: { start: startOutputLine, end: startOutputLine + 1 }
+            });
+            outputLine += 2;
+
+            // --- Content (preserved, no edit needed, just copy) ---
+            for (let j = i + 1; j < endIdx; j++) {
+                outputLines.push(lines[j]);
+                outputLine++;
+            }
+
+            // --- Edit 2: Closing tag ---
+            // Input: Line endIdx ($$$)
+            // Output: \end{align*} \n $$
+            const endInputLine = endIdx + 1;
+            const endOutputLine = outputLine;
+
+            outputLines.push('\\end{align*}');
+            outputLines.push('$$');
+
+            // Record edit for closing tag
+            edits.push({
+                inputRange: { start: endInputLine, end: endInputLine },
+                outputRange: { start: endOutputLine, end: endOutputLine + 1 }
+            });
+            outputLine += 2;
+
+            i = endIdx; // Skip past the closing $$$
+            continue;
+        }
+
+        // =========================================
+        // CASE 2: Single-line $$ ... $$ (display math)
+        // =========================================
+        const singleLineMatch = line.match(/^\$\$\s+(.+?)\s+\$\$$/);
+        if (singleLineMatch) {
+            const outputStart = outputLine;
+
+            // Convert 1 line to 3 lines
+            outputLines.push('$$');
+            outputLines.push(singleLineMatch[1]);
+            outputLines.push('$$');
+
+            edits.push({
+                inputRange: { start: currentInputLine, end: currentInputLine },
+                outputRange: { start: outputStart, end: outputStart + 2 }
+            });
+
+            outputLine += 3;
+            continue;
+        }
+
+        // =========================================
+        // CASE 3: Normal line (1:1 mapping, no edit needed)
+        // =========================================
+        outputLines.push(line);
+        outputLine++;
+    }
+
+    return {
+        content: outputLines.join('\n'),
+        edits
+    };
+}
+
+// ============================================================================
+// LEGACY EXPORTS - For backward compatibility during migration
+// Remove after all code uses new SourceMap system
+// ============================================================================
+
 export interface LineMapping {
-    /** Maps processed line number (1-indexed) → original source line number (1-indexed) */
     processedToSource: Map<number, number>;
 }
 
@@ -43,80 +138,52 @@ export interface PreprocessResult {
     lineMapping: LineMapping;
 }
 
+/**
+ * @deprecated Use mathPreprocessor with SourceMap.transform() instead
+ */
 export function preprocessGlintMath(markdown: string): PreprocessResult {
-    const originalLines = markdown.split('\n');
-    const processedLines: string[] = [];
+    const { content, edits } = mathPreprocessor(markdown);
+
+    // Convert edits to legacy Map format
     const processedToSource = new Map<number, number>();
+    const inputLines = markdown.split('\n').length;
+    const outputLines = content.split('\n').length;
 
-    let procLine = 1; // 1-indexed processed line counter
+    // Build mapping from edits
+    let inputOffset = 0;
+    let outputOffset = 0;
+    let lastInputLine = 0;
+    let lastOutputLine = 0;
 
-    for (let srcLine = 0; srcLine < originalLines.length; srcLine++) {
-        const line = originalLines[srcLine];
-        const srcLineNum = srcLine + 1; // Convert to 1-indexed
+    // Sort edits by input position
+    const sortedEdits = [...edits].sort((a, b) => a.inputRange.start - b.inputRange.start);
 
-        // =========================================
-        // CASE 1: $$$ block start (align environment)
-        // =========================================
-        if (line.trim() === '$$$') {
-            // Find the matching closing $$$
-            let endIdx = srcLine + 1;
-            while (endIdx < originalLines.length && originalLines[endIdx].trim() !== '$$$') {
-                endIdx++;
-            }
-
-            // Output: $$, \begin{align*}, content lines, \end{align*}, $$
-            processedLines.push('$$');
-            processedToSource.set(procLine++, srcLineNum);
-
-            processedLines.push('\\begin{align*}');
-            processedToSource.set(procLine++, srcLineNum);
-
-            // Copy content lines with correct mapping
-            for (let i = srcLine + 1; i < endIdx; i++) {
-                processedLines.push(originalLines[i]);
-                processedToSource.set(procLine++, i + 1); // Map to actual source line
-            }
-
-            processedLines.push('\\end{align*}');
-            processedToSource.set(procLine++, endIdx + 1);
-
-            processedLines.push('$$');
-            processedToSource.set(procLine++, endIdx + 1);
-
-            // Skip past the closing $$$
-            srcLine = endIdx;
-            continue;
+    for (const edit of sortedEdits) {
+        // Map unchanged lines before this edit
+        for (let o = lastOutputLine + 1; o < edit.outputRange.start; o++) {
+            const offset = o - lastOutputLine;
+            processedToSource.set(o, lastInputLine + offset);
         }
 
-        // =========================================
-        // CASE 2: Single-line $$ ... $$ (display math)
-        // =========================================
-        // remark-math ONLY treats $$ as display mode when it's multi-line.
-        // Single-line $$ x = y $$ is treated as inline!
-        // We convert it to multi-line to force display mode.
-        const singleLineMatch = line.match(/^\$\$\s+(.+?)\s+\$\$$/);
-        if (singleLineMatch) {
-            // Convert 1 line to 3 lines, but ALL map back to same source line
-            processedLines.push('$$');
-            processedToSource.set(procLine++, srcLineNum);
-
-            processedLines.push(singleLineMatch[1]);
-            processedToSource.set(procLine++, srcLineNum);
-
-            processedLines.push('$$');
-            processedToSource.set(procLine++, srcLineNum);
-            continue;
+        // Map edited lines (all map to start of input range)
+        for (let o = edit.outputRange.start; o <= edit.outputRange.end; o++) {
+            // Interpolate within the edit
+            const outputSpan = edit.outputRange.end - edit.outputRange.start + 1;
+            const inputSpan = edit.inputRange.end - edit.inputRange.start + 1;
+            const progress = (o - edit.outputRange.start) / outputSpan;
+            const inputLine = edit.inputRange.start + Math.floor(progress * inputSpan);
+            processedToSource.set(o, inputLine);
         }
 
-        // =========================================
-        // CASE 3: Normal line (1:1 mapping)
-        // =========================================
-        processedLines.push(line);
-        processedToSource.set(procLine++, srcLineNum);
+        lastInputLine = edit.inputRange.end;
+        lastOutputLine = edit.outputRange.end;
     }
 
-    return {
-        content: processedLines.join('\n'),
-        lineMapping: { processedToSource }
-    };
+    // Map remaining unchanged lines
+    for (let o = lastOutputLine + 1; o <= outputLines; o++) {
+        const offset = o - lastOutputLine;
+        processedToSource.set(o, lastInputLine + offset);
+    }
+
+    return { content, lineMapping: { processedToSource } };
 }

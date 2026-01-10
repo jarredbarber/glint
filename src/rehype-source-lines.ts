@@ -22,55 +22,49 @@
  * lose the original position information. By running first, we capture the
  * position info while it's still available.
  * 
- * Current order in server.ts (as of 2025-01-10):
- *   remark-rehype → rehypeSourceLines → rehypeGlintImage → rehypeKatex → ...
- * 
- * LINE NUMBER CALCULATION:
- * The final source line = mapping(processedLine) + frontmatterOffset - 1
- * 
- * Where:
- * - processedLine: node.position.start.line from the HAST node
- * - mapping: processedToSource map from remark-glint-math.ts (if available)
- * - frontmatterOffset: contentStartLine from markdown.ts (accounts for YAML)
- * 
  * ============================================================================
  */
 
 import { visit } from 'unist-util-visit';
 import { Root, Element } from 'hast';
 import { VFile } from 'vfile';
+import { SourceMap } from './source-map.js';
 import { LineMapping } from './remark-glint-math.js';
 
 export function rehypeSourceLines() {
     return (tree: Root, file: VFile) => {
-        // Frontmatter offset: if the markdown has YAML frontmatter or an H1 title
-        // that was stripped, contentStartLine tells us where actual content begins
-        const offset = (file.data.contentStartLine as number) || 1;
-
-        // Line mapping from preprocessing (handles $$$ and single-line $$ conversions)
-        const lineMapping = file.data.lineMapping as LineMapping | undefined;
+        // Support both new SourceMap and legacy lineMapping
+        const sourceMap = file.data.sourceMap as SourceMap | undefined;
+        const legacyOffset = (file.data.contentStartLine as number) || 1;
+        const legacyMapping = file.data.lineMapping as LineMapping | undefined;
 
         visit(tree, 'element', (node: Element) => {
             // Skip header anchor links (they don't correspond to source content)
             if (node.tagName === 'span' && node.properties?.className === 'header-anchor') return;
 
-            if (node.position && node.position.start) {
+            if (node.position?.start) {
                 if (!node.properties) node.properties = {};
 
-                // Step 1: Get the line in the PROCESSED content
                 const processedLine = node.position.start.line;
-
-                // Step 2: Map back to SOURCE line (before preprocessing)
                 let sourceLine: number;
-                if (lineMapping && lineMapping.processedToSource.has(processedLine)) {
-                    sourceLine = lineMapping.processedToSource.get(processedLine)!;
+
+                if (sourceMap) {
+                    // New SourceMap-based lookup (preferred)
+                    sourceLine = sourceMap.getSourceLine(processedLine);
                 } else {
-                    sourceLine = processedLine;
+                    // Legacy: Apply lineMapping then offset
+                    let mappedLine: number;
+                    if (legacyMapping?.processedToSource.has(processedLine)) {
+                        mappedLine = legacyMapping.processedToSource.get(processedLine)!;
+                    } else {
+                        mappedLine = processedLine;
+                    }
+                    sourceLine = mappedLine + legacyOffset - 1;
                 }
 
-                // Step 3: Apply frontmatter offset to get final source line
-                node.properties['data-source-line'] = sourceLine + offset - 1;
+                node.properties['data-source-line'] = sourceLine;
             }
         });
     };
 }
+
