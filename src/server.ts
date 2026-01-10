@@ -6,9 +6,7 @@ import { LRUCache } from 'lru-cache';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
 import remarkRehype from 'remark-rehype';
-import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
@@ -18,8 +16,7 @@ import rehypeRaw from 'rehype-raw';
 import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
-import { mathPreprocessor } from './remark-glint-math.js';
-import { SourceMap } from './source-map.js';
+import { rehypeGlintKatex } from './rehype-glint-katex.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
@@ -50,15 +47,11 @@ function createProcessor(config: GlintConfig) {
         .use(remarkSlashCheckbox)
         .use(remarkWikiLinkGlint)
         .use(remarkMermaidGlint)
-        .use(remarkMath)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeRaw)
         .use(rehypeSourceLines)
         .use(rehypeGlintImage)
-        .use(rehypeKatex, {
-            macros,
-            trust: true
-        })
+        .use(rehypeGlintKatex, { macros })
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
@@ -207,21 +200,12 @@ export async function createServer(contentDir: string) {
             // Read and Process
             const rawContent = await fs.readFile(safePath, 'utf-8');
 
-            // Create initial SourceMap (handles frontmatter and H1 stripping)
-            const { sourceMap: initialSourceMap, content: cleanContent, title: frontmatterTitle, frontmatter } = SourceMap.fromMarkdown(rawContent);
-
-            // Calculate start line for legacy support (or removed reference later)
-            const contentStartLine = cleanContent.length > 0 ? initialSourceMap.getSourceLine(1) : 1;
-
-            // Preprocess Math (creates intermediate source map)
-            const { content: processedContent, sourceMap: mathSourceMap } = initialSourceMap.transform(cleanContent, mathPreprocessor);
+            // Parse markdown (handles frontmatter and H1 stripping)
+            const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
 
             // Run Unified Pipeline
-            const file = new VFile({ value: processedContent });
+            const file = new VFile({ value: cleanContent });
             file.data.contentStartLine = contentStartLine;
-            file.data.lineMapping = { processedToSource: new Map() };
-            // Attach source map for rehype-source-lines
-            file.data.sourceMap = mathSourceMap;
 
             const vfile = await processor.process(file);
             let htmlContent = String(vfile);
