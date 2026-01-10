@@ -1,3 +1,25 @@
+/**
+ * ============================================================================
+ * GLINT SCROLL PRESERVATION
+ * ============================================================================
+ * 
+ * CRITICAL: Any code that triggers a file save (and thus SSE hot-reload)
+ * MUST handle scroll preservation to avoid jumping to the top of the page.
+ * 
+ * PATTERN TO FOLLOW:
+ * 1. Save scroll position before/after save:
+ *    const contentEl = document.querySelector('.content');
+ *    sessionStorage.setItem('glint-scroll-y', String(contentEl.scrollTop));
+ * 
+ * 2. Suppress SSE reload (if not doing a full refresh):
+ *    sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+ * 
+ * Files using this pattern:
+ *   - image-resize.ts (after resize save)
+ *   - editor-integration.ts (after inline edit save)
+ *   - This file (after image paste upload)
+ * ============================================================================
+ */
 
 // Disable browser's automatic scroll restoration
 if ('scrollRestoration' in history) {

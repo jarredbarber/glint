@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Simple regex to find the image on this line. 
             // It could be ![alt](url) or <img src="url" ...>
 
-            // 1. Try to find/update existing img tag
+            // 1. Try to find/update existing img tag (legacy support)
             if (line.includes('<img') && line.includes(srcAttr)) {
                 if (line.includes('width=')) {
                     line = line.replace(/width=["'][^"']*["']/, `width="${width}"`);
@@ -119,11 +119,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     line = line.replace('<img', `<img width="${width}"`);
                 }
             }
-            // 2. Convert markdown image to HTML img tag for width support
+            // 2. Update existing ![alt|width](url) syntax
+            else if (line.match(/!\[.*\|.*\]\(.*\)/) && line.includes(srcAttr)) {
+                // Replace the existing width: ![alt|oldwidth](url) → ![alt|newwidth](url)
+                line = line.replace(/!\[([^\]|]*)\|[^\]]*\]\(/, `![$1|${width}](`);
+            }
+            // 3. Add width to plain markdown image: ![alt](url) → ![alt|width](url)
             else if (line.match(/!\[.*\]\(.*\)/) && line.includes(srcAttr)) {
-                const altMatch = line.match(/!\[(.*?)\]/);
-                const alt = altMatch ? altMatch[1] : '';
-                line = line.replace(/!\[.*?\]\(.*?\)/, `<img src="${srcAttr}" alt="${alt}" width="${width}">`);
+                // Insert |width before the closing bracket
+                line = line.replace(/!\[([^\]]*)\]\(/, `![$1|${width}](`);
             }
 
             lines[lineNum - 1] = line;
@@ -136,6 +140,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!saveRes.ok) throw new Error('Failed to save resize');
+
+            // Suppress SSE hot-reload and save scroll position for restoration
+            // The file save triggers an SSE event; we want to preserve scroll
+            const contentEl = document.querySelector('.content') || document.querySelector('main');
+            if (contentEl) {
+                sessionStorage.setItem('glint-scroll-y', String((contentEl as HTMLElement).scrollTop));
+            }
+            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
+
             console.log(`[Glint] Image on line ${lineNum} resized to ${width}px and saved.`);
 
         } catch (err) {

@@ -174,8 +174,12 @@ export async function createServer(contentDir: string) {
         }
     });
 
-    // Register multipart support
-    await fastify.register(fastifyMultipart);
+    // Register multipart support with increased file size limit (50 MB)
+    await fastify.register(fastifyMultipart, {
+        limits: {
+            fileSize: 50 * 1024 * 1024 // 50 MB
+        }
+    });
 
     // [API] Save Content
     fastify.post('/api/save', async (request, reply) => {
