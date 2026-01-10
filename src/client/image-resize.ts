@@ -67,6 +67,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHandlePosition(activeImage);
     }
 
+    function getSourceLine(img: HTMLElement): number {
+        let current: HTMLElement | null = img;
+        while (current && current.tagName !== 'BODY') {
+            const line = current.getAttribute('data-source-line');
+            if (line) return parseInt(line);
+            current = current.parentElement;
+        }
+        return -1;
+    }
+
     async function onMouseUp() {
         if (!isResizing || !activeImage) return;
         isResizing = false;
@@ -75,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const img = activeImage;
         const finalWidth = img.clientWidth;
-        const sourceLine = parseInt(img.getAttribute('data-source-line') || '-1');
+        const sourceLine = getSourceLine(img);
 
         if (sourceLine !== -1) {
             await syncResizeToSource(img, sourceLine, finalWidth);

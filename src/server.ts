@@ -26,6 +26,7 @@ import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkSlashCheckbox } from './remark-slash-checkbox.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
+import { rehypeGlintImage } from './rehype-glint-image.js';
 import { VFile } from 'vfile';
 import * as renderer from './renderer.js';
 import { resolveContentPath } from './utils/fs-utils.js';
@@ -49,6 +50,7 @@ function createProcessor(config: GlintConfig) {
         .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)
         .use(remarkRehype, { allowDangerousHtml: true }) // Allow div.mermaid injection
+        .use(rehypeGlintImage)
         .use(rehypeKatex, {
             macros,
             trust: true // Enable \htmlClass support
@@ -83,6 +85,24 @@ export async function createServer(contentDir: string) {
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
 
+    // Title cache for sidebar
+    const titleCache = new Map<string, string>();
+
+    const updateTitleCache = async (relativePath: string) => {
+        try {
+            const { safePath } = await resolveContentPath(contentDir, relativePath, config, false);
+            const raw = await fs.readFile(safePath, 'utf-8');
+            const { title } = parseMarkdown(raw);
+            if (title) {
+                titleCache.set(relativePath, title);
+            } else {
+                titleCache.delete(relativePath);
+            }
+        } catch (err) {
+            titleCache.delete(relativePath);
+        }
+    };
+
     // Unified Watcher
     const watchAll = async () => {
         try {
@@ -90,8 +110,14 @@ export async function createServer(contentDir: string) {
             fsSync.watch(contentDir, { recursive: true }, async (event, filename) => {
                 if (!filename) return;
 
+                if (filename.endsWith('.md')) {
+                    await updateTitleCache(filename);
+                    cache.clear();
+                    broadcast('reload');
+                }
+
                 // Re-build file tree on any FS change
-                fileTree = await buildFileTree(contentDir);
+                fileTree = await buildFileTree(contentDir, '', titleCache);
 
                 if (filename === 'glint.json') {
                     try {
@@ -105,10 +131,6 @@ export async function createServer(contentDir: string) {
                     } catch (err) {
                         fastify.log.error(err as any, 'Failed to reload config');
                     }
-                } else if (filename.endsWith('.md')) {
-                    cache.clear();
-                    broadcast('reload');
-                    fastify.log.info(`Content changed (${filename}), broadcasting reload`);
                 }
             });
         } catch (err) {
@@ -281,7 +303,19 @@ export async function createServer(contentDir: string) {
     });
 
     // Build file tree once at startup
-    let fileTree = await buildFileTree(contentDir);
+    // Initial title scan (could be optimized, but ok for now)
+    const initialTree = await buildFileTree(contentDir);
+    const scanTitles = async (nodes: FileNode[]) => {
+        for (const node of nodes) {
+            if (node.isDir) {
+                await scanTitles(node.children || []);
+            } else {
+                await updateTitleCache(node.path + '.md');
+            }
+        }
+    };
+    await scanTitles(initialTree);
+    let fileTree = await buildFileTree(contentDir, '', titleCache);
 
     fastify.get('/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';

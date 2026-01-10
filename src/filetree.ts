@@ -4,11 +4,16 @@ import path from 'path';
 export interface FileNode {
     name: string;
     path: string;
+    displayName: string;
     isDir: boolean;
     children?: FileNode[];
 }
 
-export async function buildFileTree(dir: string, basePath: string = ''): Promise<FileNode[]> {
+export async function buildFileTree(
+    dir: string,
+    basePath: string = '',
+    titleCache?: Map<string, string>
+): Promise<FileNode[]> {
     let entries;
     try {
         entries = await fs.readdir(dir, { withFileTypes: true });
@@ -39,6 +44,7 @@ export async function buildFileTree(dir: string, basePath: string = ''): Promise
                     nodes.push({
                         name: entry.name,
                         path: relativePath,
+                        displayName: entry.name,
                         isDir: true,
                         children,
                     });
@@ -47,9 +53,12 @@ export async function buildFileTree(dir: string, basePath: string = ''): Promise
                 // Skip directories we can't access
             }
         } else if (entry.name.endsWith('.md')) {
+            const nameWithoutExt = entry.name.replace('.md', '');
+            const displayName = titleCache?.get(relativePath) || nameWithoutExt;
             nodes.push({
                 name: entry.name.replace('.md', ''),
                 path: relativePath.replace('.md', ''),
+                displayName,
                 isDir: false,
             });
         }
@@ -80,7 +89,7 @@ export function renderFileTree(nodes: FileNode[], currentPath: string = ''): str
           </details>
         </li>`;
         } else {
-            return `<li${activeClass}><a href="/${node.path}">${escapeHtml(node.name)}</a></li>`;
+            return `<li${activeClass}><a href="/${node.path}">${escapeHtml(node.displayName)}</a></li>`;
         }
     }).join('\n');
 

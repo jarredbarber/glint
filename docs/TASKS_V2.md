@@ -94,11 +94,15 @@ Enhance image rendering with resize handles.
 
 - [ ] **5.3** [P2] Support alignment via right-click menu
   - Options: Left, Center, Right
-  - Updates `style` attribute in source
+  - Persistence in source
 
-- [ ] **5.4** [P2] Add caption support
-  - `<figure>` + `<figcaption>` wrapper
-  - Editable caption text
+- [x] **5.4** Add caption support
+  - [x] Use alt-text as caption automatically
+  - [x] Style captions in CSS
+
+- [ ] **5.5** [P2] Drag-and-drop support (Deferred)
+  - Drag image to move between lines
+  - Visual drop indicator
 
 ---
 

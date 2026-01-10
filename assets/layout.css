@@ -322,6 +322,22 @@ img {
     margin-bottom: 1.5rem;
 }
 
+.image-figure {
+    margin: 2rem auto;
+    max-width: fit-content;
+}
+
+.image-figure img {
+    margin-bottom: 0.5rem;
+}
+
+.image-caption {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: center;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
