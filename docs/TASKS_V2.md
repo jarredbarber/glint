@@ -160,6 +160,6 @@ Sidebar file operations.
 
 ### Images
 
-- Drop the right-click context menu for image pasting.
-- Images should be centered by default
-- Image filename datestamps are weird e.g. `1768013482693-yjuvyb.png`. Maybe just a nanoid?
+- [x] Drop the right-click context menu for image pasting.
+- [x] Images should be centered by default
+- [x] Image filename datestamps are weird e.g. `1768013482693-yjuvyb.png`. Maybe just a nanoid?
