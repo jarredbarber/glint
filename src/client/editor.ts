@@ -189,6 +189,26 @@ class GlintEditor {
             state: initialState,
             parent: editorContainer
         });
+
+        // 1. Auto-focus
+        this.view.focus();
+
+        // 2. Vim Custom Commands
+        if (this.options.vimMode) {
+            // Define :w for Save
+            Vim.defineEx("write", "w", () => {
+                if (this.options.onSave) {
+                    this.options.onSave(this.getValue());
+                }
+            });
+
+            // Define :q for Cancel/Quit
+            Vim.defineEx("quit", "q", () => {
+                if (this.options.onCancel) {
+                    this.options.onCancel();
+                }
+            });
+        }
     }
 
     private createToolbar() {
