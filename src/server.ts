@@ -50,6 +50,7 @@ function createProcessor(config: GlintConfig) {
         .use(remarkMermaidGlint) // Transform mermaid before math/rehype
         .use(remarkMath)
         .use(remarkRehype, { allowDangerousHtml: true }) // Allow div.mermaid injection
+        .use(rehypeSourceLines) // Add source lines BEFORE KaTeX/Highlight transforms
         .use(rehypeGlintImage)
         .use(rehypeKatex, {
             macros,
@@ -59,7 +60,6 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
         .use(rehypeExtractHeadings)
-        .use(rehypeSourceLines)
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
@@ -355,7 +355,6 @@ export async function createServer(contentDir: string) {
                     config,
                     fileTree,
                     urlPath,
-                    false,
                     [],
                     {}
                 );
@@ -388,10 +387,7 @@ export async function createServer(contentDir: string) {
             const title = extractedTitle || path.basename(safePath, '.md');
             const headings = result.data.headings || [];
 
-            // Equation numbering logic
-            const enableNumbering = (frontmatter as any)['eqn-numbers'] === true;
-
-            const html = renderer.renderHtml(result.toString(), title, config, fileTree, urlPath, enableNumbering, headings, frontmatter);
+            const html = renderer.renderHtml(result.toString(), title, config, fileTree, urlPath, headings, frontmatter);
 
             // Cache the result
             cache.set(safePath, { html, mtime });

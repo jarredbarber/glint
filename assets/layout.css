@@ -517,28 +517,6 @@ tr:nth-child(even) {
     }
 }
 
-/* Equation Numbering */
-body.eqn-numbers {
-    counter-reset: equation;
-}
-
-body.eqn-numbers .katex-display:not(:has(.no-number)) {
-    counter-increment: equation;
-    position: relative;
-    padding-right: 2rem;
-    /* Make room for number */
-}
-
-body.eqn-numbers .katex-display:not(:has(.no-number))::after {
-    content: "(" counter(equation) ")";
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.9em;
-    color: var(--text-dim);
-}
-
 /* Empty State */
 .empty-state {
     display: flex;

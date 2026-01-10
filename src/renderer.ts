@@ -180,11 +180,11 @@ export const renderMetadata = (frontmatter: Record<string, unknown>) => {
     return html;
 };
 
-export const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, enableNumbering: boolean, headings: HeadingNode[] = [], frontmatter: Record<string, unknown> = {}) => `
+export const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = [], frontmatter: Record<string, unknown> = {}) => `
 <!DOCTYPE html>
 <html lang="en">
 ${renderHead(title, config.theme)}
-<body class="${config.theme} ${enableNumbering ? 'eqn-numbers' : ''}">
+<body class="${config.theme}">
     ${renderSidebar(fileTree, currentPath, headings, config.theme)}
     <main class="content">
         <div class="content-wrapper">

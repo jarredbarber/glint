@@ -1,17 +1,40 @@
 /**
- * Preprocessor for EXTENDED math syntax:
- * - $$$ ... $$$ → align environment
- * - $$$* ... $$$ → align* environment (no equation numbers)
- * - $$* ... $$ → display math (NO NUMBER)
+ * ============================================================================
+ * GLINT MATH PREPROCESSOR
+ * ============================================================================
  * 
- * Standard $$ ... $$ blocks are left untouched for remark-math to handle.
+ * PURPOSE:
+ * This preprocessor runs BEFORE the unified markdown pipeline. It handles
+ * Glint's extended math syntax and produces standard markdown that remark-math
+ * can process.
  * 
- * This version creates a precise LINE MAPPING by tracking all replacements
- * against the ORIGINAL markdown to avoid cumulative errors.
+ * CRITICAL INVARIANT:
+ * This preprocessor MUST maintain accurate line mappings from processed content
+ * back to original source. The inline section editor relies on these mappings
+ * to correctly identify which source lines correspond to which DOM elements.
+ * 
+ * If you modify this file and break line mappings, the section editor will
+ * show/edit the wrong content!
+ * 
+ * TRANSFORMATIONS:
+ * 1. $$$ ... $$$ → $$\begin{align*}...\end{align*}$$ (multi-line alignment)
+ * 2. $$ content $$ (single line) → $$\n content \n$$ (forces display mode)
+ *    NOTE: remark-math treats single-line $$ as INLINE math. Only multi-line
+ *    $$ blocks trigger display mode. This is a quirk of remark-math.
+ * 
+ * LINE MAPPING:
+ * - processedToSource: Maps each line number in the processed output back
+ *   to its corresponding line number in the original source markdown.
+ * - When we expand 1 line to 3 lines (single-line $$ conversion), all 3
+ *   processed lines map back to the original 1 source line.
+ * - When we transform $$$ blocks, each processed line maps to its
+ *   corresponding source line within the block.
+ * 
+ * ============================================================================
  */
 
 export interface LineMapping {
-    // Maps processed line number → original source line number
+    /** Maps processed line number (1-indexed) → original source line number (1-indexed) */
     processedToSource: Map<number, number>;
 }
 
@@ -20,135 +43,80 @@ export interface PreprocessResult {
     lineMapping: LineMapping;
 }
 
-interface ReplacementInfo {
-    origStartLine: number;  // 1-indexed line in ORIGINAL markdown
-    origLineCount: number;   // Line count in original
-    newLineCount: number;    // Line count in replacement
-}
-
 export function preprocessGlintMath(markdown: string): PreprocessResult {
-    const replacements: ReplacementInfo[] = [];
     const originalLines = markdown.split('\n');
-    const origLineCount = originalLines.length;
-
-    // Helper to find line number from character offset in ORIGINAL markdown
-    const getLineNumber = (charOffset: number): number => {
-        const before = markdown.substring(0, charOffset);
-        return before.split('\n').length;
-    };
-
-    // First pass: find ALL matches and their positions in ORIGINAL markdown
-    // before any transformations
-
-    // Find $$$ ... $$$ matches
-    const alignRegex = /\$\$\$(\*?)\n([\s\S]*?)\n\$\$\$/g;
-    let match;
-    const allMatches: Array<{
-        index: number,
-        origMatch: string,
-        replacement: string,
-        type: 'align' | 'star'
-    }> = [];
-
-    while ((match = alignRegex.exec(markdown)) !== null) {
-        const star = match[1];
-        const content = match[2];
-        const env = star === '*' ? 'align*' : 'align';
-        const noNum = star === '*' ? '\\htmlClass{no-number}{}' : '';
-        const latex = `$$\n${noNum}\\begin{${env}}\n${content}\n\\end{${env}}\n$$`;
-
-        allMatches.push({
-            index: match.index,
-            origMatch: match[0],
-            replacement: latex,
-            type: 'align'
-        });
-    }
-
-    // Find $$* ... $$ matches (in original, not overlapping with $$$ matches)
-    const starRegex = /\$\$\*\s*([\s\S]*?)\s*\$\$/g;
-    while ((match = starRegex.exec(markdown)) !== null) {
-        // Skip if this overlaps with any $$$ match
-        const overlaps = allMatches.some(m =>
-            (match!.index >= m.index && match!.index < m.index + m.origMatch.length) ||
-            (m.index >= match!.index && m.index < match!.index + match![0].length)
-        );
-        if (overlaps) continue;
-
-        const content = match[1];
-        const latex = `$$\n\\htmlClass{no-number}{}\n${content.trim()}\n$$`;
-
-        allMatches.push({
-            index: match.index,
-            origMatch: match[0],
-            replacement: latex,
-            type: 'star'
-        });
-    }
-
-    // Sort by position
-    allMatches.sort((a, b) => a.index - b.index);
-
-    // Record replacements with line info from ORIGINAL
-    for (const m of allMatches) {
-        replacements.push({
-            origStartLine: getLineNumber(m.index),
-            origLineCount: m.origMatch.split('\n').length,
-            newLineCount: m.replacement.split('\n').length
-        });
-    }
-
-    // Apply replacements (from end to preserve indices)
-    let result = markdown;
-    for (let i = allMatches.length - 1; i >= 0; i--) {
-        const m = allMatches[i];
-        result = result.substring(0, m.index) +
-            m.replacement +
-            result.substring(m.index + m.origMatch.length);
-    }
-
-    // Build precise line mapping
-    const procLines = result.split('\n').length;
+    const processedLines: string[] = [];
     const processedToSource = new Map<number, number>();
 
-    // For each processed line, compute the corresponding source line
-    // by tracking how replacements shift line numbers
+    let procLine = 1; // 1-indexed processed line counter
 
-    let procLine = 1;
-    let srcLine = 1;
-    let replIdx = 0;
+    for (let srcLine = 0; srcLine < originalLines.length; srcLine++) {
+        const line = originalLines[srcLine];
+        const srcLineNum = srcLine + 1; // Convert to 1-indexed
 
-    while (procLine <= procLines && srcLine <= origLineCount) {
-        // Check if we're at a replacement
-        if (replIdx < replacements.length && srcLine === replacements[replIdx].origStartLine) {
-            const r = replacements[replIdx];
-
-            // Map all lines in this replacement block to the original start line
-            for (let i = 0; i < r.newLineCount && procLine <= procLines; i++) {
-                // Map to the corresponding line within the original block if possible
-                const offsetInBlock = Math.floor(i * r.origLineCount / r.newLineCount);
-                processedToSource.set(procLine, r.origStartLine + offsetInBlock);
-                procLine++;
+        // =========================================
+        // CASE 1: $$$ block start (align environment)
+        // =========================================
+        if (line.trim() === '$$$') {
+            // Find the matching closing $$$
+            let endIdx = srcLine + 1;
+            while (endIdx < originalLines.length && originalLines[endIdx].trim() !== '$$$') {
+                endIdx++;
             }
 
-            srcLine += r.origLineCount;
-            replIdx++;
-        } else {
-            // Normal line - 1:1 mapping
-            processedToSource.set(procLine, srcLine);
-            procLine++;
-            srcLine++;
-        }
-    }
+            // Output: $$, \begin{align*}, content lines, \end{align*}, $$
+            processedLines.push('$$');
+            processedToSource.set(procLine++, srcLineNum);
 
-    // Fill any remaining processed lines
-    while (procLine <= procLines) {
-        processedToSource.set(procLine, origLineCount);
-        procLine++;
+            processedLines.push('\\begin{align*}');
+            processedToSource.set(procLine++, srcLineNum);
+
+            // Copy content lines with correct mapping
+            for (let i = srcLine + 1; i < endIdx; i++) {
+                processedLines.push(originalLines[i]);
+                processedToSource.set(procLine++, i + 1); // Map to actual source line
+            }
+
+            processedLines.push('\\end{align*}');
+            processedToSource.set(procLine++, endIdx + 1);
+
+            processedLines.push('$$');
+            processedToSource.set(procLine++, endIdx + 1);
+
+            // Skip past the closing $$$
+            srcLine = endIdx;
+            continue;
+        }
+
+        // =========================================
+        // CASE 2: Single-line $$ ... $$ (display math)
+        // =========================================
+        // remark-math ONLY treats $$ as display mode when it's multi-line.
+        // Single-line $$ x = y $$ is treated as inline!
+        // We convert it to multi-line to force display mode.
+        const singleLineMatch = line.match(/^\$\$\s+(.+?)\s+\$\$$/);
+        if (singleLineMatch) {
+            // Convert 1 line to 3 lines, but ALL map back to same source line
+            processedLines.push('$$');
+            processedToSource.set(procLine++, srcLineNum);
+
+            processedLines.push(singleLineMatch[1]);
+            processedToSource.set(procLine++, srcLineNum);
+
+            processedLines.push('$$');
+            processedToSource.set(procLine++, srcLineNum);
+            continue;
+        }
+
+        // =========================================
+        // CASE 3: Normal line (1:1 mapping)
+        // =========================================
+        processedLines.push(line);
+        processedToSource.set(procLine++, srcLineNum);
     }
 
     return {
-        content: result,
+        content: processedLines.join('\n'),
         lineMapping: { processedToSource }
     };
 }
