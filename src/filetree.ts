@@ -84,7 +84,7 @@ export function renderFileTree(nodes: FileNode[], currentPath: string = ''): str
             return `
         <li class="dir">
           <details ${isOpen ? 'open' : ''}>
-            <summary>${escapeHtml(node.name)}</summary>
+            <summary>${escapeHtml(node.name)}/</summary>
             <ul>${renderFileTree(node.children || [], currentPath)}</ul>
           </details>
         </li>`;
