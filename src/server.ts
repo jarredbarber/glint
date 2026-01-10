@@ -25,6 +25,8 @@ import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headin
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkSlashCheckbox } from './remark-slash-checkbox.js';
+import { rehypeSourceLines } from './rehype-source-lines.js';
+import { VFile } from 'vfile';
 
 interface CacheEntry {
     html: string;
@@ -53,6 +55,7 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
         .use(rehypeExtractHeadings)
+        .use(rehypeSourceLines)
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
@@ -146,6 +149,13 @@ const renderScripts = () => `
 
     evtSource.onmessage = (event) => {
         if (event.data === "reload") {
+            // Check if a client-side refresh just happened (suppress SSE reload)
+            const suppressTime = sessionStorage.getItem('glint-suppress-reload');
+            if (suppressTime && Date.now() - parseInt(suppressTime) < 3000) {
+                console.log("SSE reload suppressed (client-side refresh in progress)");
+                sessionStorage.removeItem('glint-suppress-reload');
+                return;
+            }
             console.log("Config changed, reloading...");
             window.location.reload();
         }
@@ -155,8 +165,10 @@ const renderScripts = () => `
         console.debug('SSE connection error');
     };
 </script>
-<script src="/assets/router.js"></script>
-<script src="/assets/upload.js"></script>
+<script src="/assets/router.bundle.js"></script>
+<script src="/assets/upload.bundle.js"></script>
+<script src="/assets/editor.bundle.js"></script>
+<script src="/assets/editor-integration.bundle.js"></script>
 `;
 
 const formatDate = (rawDate: unknown): string | null => {
@@ -243,6 +255,47 @@ ${renderHead(title, config.theme)}
 </body>
 </html>
 `;
+
+async function resolveSafePath(contentDir: string, urlPath: string, config: GlintConfig) {
+    let safePath = path.resolve(contentDir, urlPath.replace(/^\/+/, ''));
+    if (!safePath.startsWith(contentDir)) {
+        throw { code: 'FORBIDDEN', message: 'Forbidden' };
+    }
+
+    let stats;
+    try {
+        stats = await fs.stat(safePath);
+    } catch (err) {
+        // Path doesn't exist, try with .md extension
+        if (!safePath.endsWith('.md')) {
+            const mdPath = safePath + '.md';
+            try {
+                stats = await fs.stat(mdPath);
+                safePath = mdPath;
+            } catch {
+                // Also doesn't exist - if we're resolving for save, we might want to return the .md path anyway?
+                // For now, let's just return the original safePath + .md if it doesn't exist and we're not a dir
+                safePath = mdPath;
+            }
+        }
+    }
+
+    if (stats?.isDirectory()) {
+        safePath = path.join(safePath, config.baseFile);
+        try {
+            stats = await fs.stat(safePath);
+        } catch {
+            // Base file doesn't exist either
+        }
+    }
+
+    // Final check for root
+    if (safePath === contentDir) {
+        safePath = path.join(contentDir, config.baseFile);
+    }
+
+    return { safePath, stats };
+}
 
 export async function createServer(contentDir: string) {
     let config = await loadConfig(contentDir);
@@ -339,27 +392,7 @@ export async function createServer(contentDir: string) {
                 return reply.code(400).send({ error: 'Missing path or content' });
             }
 
-            let safePath = path.resolve(contentDir, body.path.replace(/^\/+/, ''));
-            if (!safePath.startsWith(contentDir)) {
-                return reply.code(403).send({ error: 'Forbidden' });
-            }
-
-            // Handle directory paths
-            try {
-                const stats = await fs.stat(safePath);
-                if (stats.isDirectory()) {
-                    safePath = path.join(safePath, config.baseFile);
-                }
-            } catch (err) {
-                // File doesn't exist, which is fine for save, but if it ends in slash or looks like dir?
-                // Logic: provided path is what we write to.
-                // But if client sends "foo/" or empty string "", we want to save to index/readme.
-            }
-
-            // Edge case: if path is empty string, safePath is contentDir
-            if (safePath === contentDir) {
-                safePath = path.join(contentDir, config.baseFile);
-            }
+            const { safePath } = await resolveSafePath(contentDir, body.path, config);
 
             // Optional: Optimistic locking could go here using body.hash
 
@@ -367,7 +400,8 @@ export async function createServer(contentDir: string) {
             const newHash = crypto.createHash('md5').update(body.content).digest('hex');
 
             return { success: true, hash: newHash };
-        } catch (err) {
+        } catch (err: any) {
+            if (err.code === 'FORBIDDEN') return reply.code(403).send({ error: err.message });
             fastify.log.error(err);
             return reply.code(500).send({ error: 'Failed to save file' });
         }
@@ -376,23 +410,14 @@ export async function createServer(contentDir: string) {
     // [API] Get Source
     fastify.get('/api/source/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
-        let safePath = path.resolve(contentDir, urlPath.replace(/^\/+/, ''));
-
-        if (!safePath.startsWith(contentDir)) {
-            return reply.code(403).send({ error: 'Forbidden' });
-        }
-
         try {
-            const stats = await fs.stat(safePath);
-            if (stats.isDirectory()) {
-                safePath = path.join(safePath, config.baseFile);
-            }
-
+            const { safePath } = await resolveSafePath(contentDir, urlPath, config);
             const content = await fs.readFile(safePath, 'utf-8');
             const hash = crypto.createHash('md5').update(content).digest('hex');
             return { content, hash, path: urlPath };
-        } catch (err) {
-            if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        } catch (err: any) {
+            if (err.code === 'FORBIDDEN') return reply.code(403).send({ error: err.message });
+            if (err.code === 'ENOENT') {
                 return reply.code(404).send({ error: 'Not Found' });
             }
             fastify.log.error(err);
@@ -427,26 +452,10 @@ export async function createServer(contentDir: string) {
                 return reply.code(400).send({ error: 'Missing file or articlePath' });
             }
 
-            let safeArticlePath = path.resolve(contentDir, articlePath.replace(/^\/+/, ''));
-            if (!safeArticlePath.startsWith(contentDir)) {
-                return reply.code(403).send({ error: 'Forbidden' });
-            }
+            const { safePath: resolvedArticlePath } = await resolveSafePath(contentDir, articlePath, config);
 
-            // Resolve directory to base file
-            try {
-                const stats = await fs.stat(safeArticlePath);
-                if (stats.isDirectory()) {
-                    safeArticlePath = path.join(safeArticlePath, config.baseFile);
-                }
-            } catch {
-                // If path doesn't exist, assume it's a file path
-                if (safeArticlePath === contentDir) {
-                    safeArticlePath = path.join(contentDir, config.baseFile);
-                }
-            }
-
-            const assetsDirName = path.basename(safeArticlePath) + '.assets';
-            const assetsDir = path.join(path.dirname(safeArticlePath), assetsDirName);
+            const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
+            const assetsDir = path.join(path.dirname(resolvedArticlePath), assetsDirName);
 
             // Create assets directory if not exists
             await fs.mkdir(assetsDir, { recursive: true });
@@ -460,14 +469,13 @@ export async function createServer(contentDir: string) {
             await fs.writeFile(destPath, fileBuffer);
 
             // Construct relative URL
-            // We want the URL to be relative to the content directory root typically,
-            // or absolute path /content/...
             const relativeAssetsDir = path.relative(contentDir, assetsDir);
             const url = path.join('/content', relativeAssetsDir, newFilename);
 
             return { url };
 
-        } catch (err) {
+        } catch (err: any) {
+            if (err.code === 'FORBIDDEN') return reply.code(403).send({ error: err.message });
             fastify.log.error(err);
             return reply.code(500).send({ error: 'Upload failed' });
         }
@@ -573,8 +581,16 @@ export async function createServer(contentDir: string) {
             const extractedTitle = configData.title;
             const frontmatter = configData.frontmatter || {};
 
-            const preprocessedContent = preprocessGlintMath(mdContent);
-            const result = await processor.process(preprocessedContent);
+
+            const preprocessResult = preprocessGlintMath(mdContent);
+            const vfile = new VFile({
+                value: preprocessResult.content,
+                data: {
+                    contentStartLine: configData.contentStartLine,
+                    lineMapping: preprocessResult.lineMapping
+                }
+            });
+            const result = await processor.process(vfile);
             const title = extractedTitle || path.basename(fullPath, '.md');
             const headings = result.data.headings || [];
 

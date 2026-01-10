@@ -163,16 +163,6 @@ class GlintEditor {
                         }
                         return false;
                     }
-                },
-                {
-                    key: "Escape",
-                    run: () => {
-                        if (this.options.onCancel) {
-                            this.options.onCancel();
-                            return true;
-                        }
-                        return false;
-                    }
                 }
             ]),
             markdown(),

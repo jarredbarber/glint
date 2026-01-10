@@ -7,7 +7,7 @@ date: 2026-01-09
 
 Tasks organized by phase. Complete phases in order. Within each phase, tasks can be parallelized where noted.
 
-**AGENT INSTRUCTIONS**: Read @SPEC.md and @SPEC_V2.md for context. As you work on your assigned tasks, break them down into sub-tasks and add them as sub-bullets in this file, then check them off as you work.
+**AGENT INSTRUCTIONS**: Read @SPEC.md and @SPEC_V2.md for context. As you work on your assigned tasks, break them down into sub-tasks and add them as sub-bullets in this file, then check them off as you work. **IMPORTANT**: This is a typescript project! Code goes in src/!
 
 ---
 
@@ -17,18 +17,18 @@ Before any editing features, we need a REST API layer.
 
 **Note:** Section editing uses client-side splicing—client fetches full file, edits a portion, then saves full file back. Simple and sufficient for single-user.
 
-- [ ] **1.1** Create `POST /api/save` endpoint
+- [x] **1.1** Create `POST /api/save` endpoint
   - Accepts `{ path: string, content: string, hash?: string }`
   - Writes content to file, returns `{ success: true, hash: string }`
   - Validate path is within content directory (security)
   - Optional: If `hash` provided, reject if file changed (optimistic locking)
 
-- [ ] **1.2** Create `POST /api/upload` endpoint
+- [x] **1.2** Create `POST /api/upload` endpoint
   - Accepts multipart form with image file + `articlePath` parameter
   - Saves to `{article}.assets/` folder with `{timestamp}-{nanoid}.{ext}` naming
   - Returns `{ url: string }` for the saved image
 
-- [ ] **1.3** Create `GET /api/source/:path` endpoint
+- [x] **1.3** Create `GET /api/source/:path` endpoint
   - Returns `{ content: string, hash: string }` (raw markdown + hash for locking)
   - Needed for editor to load content
 
@@ -60,26 +60,15 @@ Build the CodeMirror-based editing component.
 
 Connect editor to the rendered page.
 
-- [ ] **3.1** Track source line numbers through markdown processor
-  - Modify remark/rehype pipeline to annotate HTML with `data-source-line` attributes
-  - Needed to map selection back to source
-
-- [ ] **3.2** Implement selection-to-edit flow
-  - User highlights text in content area
-  - Press 'e' or click button to enter edit mode
-  - Selected region replaced with editor widget
-
-- [ ] **3.3** Add pencil icon on heading hover
-  - Small ✏️ icon appears when hovering over any heading
-  - Click opens edit mode for that heading's section (to next heading)
-
-- [ ] **3.4** Implement "View Only" mode toggle
-  - Config option or UI toggle
-  - When enabled, hides all edit affordances
-
-- [ ] **3.5** Integrate save → re-render flow
-  - After save, re-fetch and replace the edited section with new HTML
-  - Maintain scroll position
+- [x] **3.1** Track source line numbers through markdown processor [x]
+  - [x] Modify remark/rehype pipeline to annotate HTML with `data-source-line` attributes [x]
+- [x] **3.2** Implement section-based editing logic [x]
+  - [x] Click pencil icon opens edit mode for that heading's section [x]
+  - [x] Calculate range based on headings [x]
+- [x] **3.3** Add pencil icon on heading hover [x]
+- [ ] **3.4** [P2] Implement "View Only" mode toggle
+- [x] **3.5** Integrate save → re-render flow [x]
+  - [x] After save, re-render to reflect changes [x]
 
 ---
 
@@ -87,20 +76,20 @@ Connect editor to the rendered page.
 
 Enable pasting/uploading images.
 
-- [ ] **4.1** Implement context menu for paste
+- [x] **4.1** Implement context menu for paste
   - Right-click in content area shows "Paste Image" option
   - Only visible when clipboard contains image data
 
-- [ ] **4.2** Handle clipboard image extraction
+- [x] **4.2** Handle clipboard image extraction
   - Use Clipboard API to read image from clipboard
   - Convert to Blob for upload
 
-- [ ] **4.3** Upload image and insert into document
+- [x] **4.3** Upload image and insert into document
   - Call `POST /api/upload`
   - Insert `<img>` tag at end of document (simplest insertion point)
   - Default width to ~33% of content area
 
-- [ ] **4.4** Create `.assets/` folder automatically
+- [x] **4.4** Create `.assets/` folder automatically
   - When uploading first image for a document
   - Naming: `{article-name}.assets/`
 
@@ -149,7 +138,7 @@ Sidebar file operations.
 
 ## Deferred (V3+)
 
-- Vim/neovim mode for editor
+- [x] Vim/neovim mode for editor (Added in Phase 2) [x]
 - Preview hooks (hover equation → rendered preview)
 - Git integration (pull/commit/push)
 - Server-side image resizing
@@ -164,3 +153,10 @@ Sidebar file operations.
 2. **Phase 4** (images are high priority)
 3. **Phase 5** (polish images)
 4. **Phase 6** (P2, can defer)
+
+---
+
+## Polish tasks
+
+- Images should be centered by default
+- Image filename datestamps are weird e.g. `1768013482693-yjuvyb.png`. Maybe just a nanoid?

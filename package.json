@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "tsx watch src/cli.ts serve",
     "bundle:editor": "esbuild src/client/editor.ts --bundle --minify --outfile=assets/editor.bundle.js",
-    "build": "tsc && npm run bundle:editor",
+    "bundle:client": "esbuild src/client/router.ts src/client/upload.ts src/client/editor-integration.ts --bundle --minify --outdir=assets --entry-names=[name].bundle",
+    "bundle": "npm run bundle:editor && npm run bundle:client",
+    "build": "tsc && npm run bundle",
     "start": "node dist/cli.js serve",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

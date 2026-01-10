@@ -1,4 +1,7 @@
 node_modules/
 dist/
 .DS_Store
+*.md.assets/
+assets/*.bundle.js
+assets/*.bundle.js.map
 
