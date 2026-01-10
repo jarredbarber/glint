@@ -1,10 +1,10 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { LRUCache } from 'lru-cache';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -461,9 +461,8 @@ export async function createServer(contentDir: string) {
             await fs.mkdir(assetsDir, { recursive: true });
 
             const ext = path.extname(filename) || '.png';
-            const timestamp = Date.now();
-            const random = Math.random().toString(36).substring(7);
-            const newFilename = `${timestamp}-${random}${ext}`;
+            const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex').substring(0, 8);
+            const newFilename = `${hash}${ext}`;
             const destPath = path.join(assetsDir, newFilename);
 
             await fs.writeFile(destPath, fileBuffer);

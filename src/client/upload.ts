@@ -56,15 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const contentArea = document.querySelector('main.content');
-    if (contentArea) {
-        contentArea.addEventListener('contextmenu', (async (e: MouseEvent) => {
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                const result = findInsertionLine(e.target as HTMLElement, e.clientY);
-                showContextMenu(e.clientX, e.clientY, result.line, result.debug);
-            }
-        }) as unknown as EventListener);
-    }
 
     interface InsertionResult {
         line: number;
@@ -162,62 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return { line: targetLine, debug: `Hovered line ${currentLine}, target line ${targetLine} (next element was <${nextTag}> at ${nextLine})` };
-    }
-
-    function showContextMenu(x: number, y: number, targetLine: number, debug: string) {
-        const existing = document.querySelector('.glint-context-menu');
-        if (existing) existing.remove();
-
-        const menu = document.createElement('div');
-        menu.className = 'glint-context-menu';
-        menu.style.position = 'fixed';
-        menu.style.left = `${x}px`;
-        menu.style.top = `${y}px`;
-        menu.style.background = 'var(--bg-color, #fff)';
-        menu.style.border = '1px solid var(--border-color, #ccc)';
-        menu.style.padding = '5px 0';
-        menu.style.zIndex = '1000';
-        menu.style.borderRadius = '4px';
-        menu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-
-        const item = document.createElement('div');
-        item.innerText = 'Paste Image Here';
-        item.style.padding = '8px 16px';
-        item.style.cursor = 'pointer';
-        item.style.fontSize = '14px';
-        item.style.color = 'var(--text-color, #333)';
-
-        item.onmouseenter = () => item.style.background = 'var(--hover-bg, #eee)';
-        item.onmouseleave = () => item.style.background = 'transparent';
-
-        item.onclick = async () => {
-            menu.remove();
-            try {
-                const clipboardItems = await navigator.clipboard.read();
-                for (const item of clipboardItems) {
-                    const imageType = item.types.find(type => type.startsWith('image/'));
-                    if (imageType) {
-                        const blob = await item.getType(imageType);
-                        await uploadImage(blob, targetLine, debug);
-                        return;
-                    }
-                }
-                alert('No image found in clipboard');
-            } catch (err: any) {
-                console.error(err);
-                alert('Unable to access clipboard. Please use Ctrl+V/Cmd+V to paste.');
-            }
-        };
-
-        menu.appendChild(item);
-        document.body.appendChild(menu);
-
-        setTimeout(() => {
-            document.addEventListener('click', function cleanup() {
-                menu.remove();
-                document.removeEventListener('click', cleanup);
-            }, { once: true });
-        }, 0);
     }
 
     async function uploadImage(blob: Blob, targetLine: number, debug: string) {

@@ -315,6 +315,8 @@ hr {
 }
 
 img {
+    display: block;
+    margin: 0 auto;
     max-width: 100%;
     border-radius: 8px;
     margin-bottom: 1.5rem;
@@ -618,6 +620,7 @@ body.eqn-numbers .katex-display:not(:has(.no-number))::after {
 .meta-updated {
     font-style: italic;
 }
+
 /* Editor Widget Styles */
 .glint-editor-wrapper {
     background: var(--bg-color);
@@ -758,8 +761,15 @@ h6:hover .heading-edit-icon {
 }
 
 @keyframes modalSlideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .glint-editor-modal-header {
