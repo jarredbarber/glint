@@ -1,4 +1,5 @@
 import matter from 'gray-matter';
+import { SourceMap } from './source-map.js';
 
 export interface ParsedMarkdown {
     content: string;
@@ -8,55 +9,19 @@ export interface ParsedMarkdown {
 }
 
 /**
- * Extract title from markdown content in order of priority:
- * 1. YAML frontmatter `title:` field
- * 2. First # heading
- * 3. null (caller should fall back to filename)
+ * Extract title and content using SourceMap logic.
+ * 
+ * @param raw - Raw markdown content
+ * @returns Parsed content with H1 stripped (if applicable), title, and line info.
  */
 export function parseMarkdown(raw: string): ParsedMarkdown {
-    let frontmatter: Record<string, unknown> = {};
-    let content = raw;
-    let contentStartLine = 1;
+    // metadata is now handled by SourceMap
+    const { sourceMap, content, title, frontmatter } = SourceMap.fromMarkdown(raw);
 
-    if (raw.startsWith('---')) {
-        const endOfFrontmatter = raw.indexOf('\n---', 3);
-        if (endOfFrontmatter !== -1) {
-            const frontmatterText = raw.substring(0, endOfFrontmatter + 4);
-            contentStartLine = frontmatterText.split('\n').length + 1;
-        }
-    }
+    // Calculate the start line of the content relative to the source.
+    // If the content is empty, default to 1 or whatever reasonable value.
+    // If content exists, map the first line (1) back to source.
+    const contentStartLine = content.length > 0 ? sourceMap.getSourceLine(1) : 1;
 
-    try {
-        const result = matter(raw);
-        frontmatter = result.data;
-        content = result.content;
-    } catch (e) {
-        // Fallback: treat everything as content if frontmatter parsing fails
-        console.warn('Failed to parse frontmatter, treating as plain markdown.');
-    }
-
-    // Priority 1: frontmatter title
-    if (frontmatter.title && typeof frontmatter.title === 'string') {
-        return { content, title: frontmatter.title, frontmatter, contentStartLine };
-    }
-
-    // Priority 2: first H1 heading - extract and remove it from content
-    const h1Match = content.match(/^#\s+(.+)$/m);
-    if (h1Match) {
-        // Remove the H1 line 
-        const afterRemoval = content.replace(/^#\s+.+$/m, '');
-        const strippedContent = afterRemoval.trimStart();
-
-        // Count how many lines were stripped total:
-        // = (original content lines) - (remaining content lines)
-        const originalLineCount = content.split('\n').length;
-        const remainingLineCount = strippedContent.split('\n').length;
-        const linesStripped = originalLineCount - remainingLineCount;
-
-        const adjustedStartLine = contentStartLine + linesStripped;
-
-        return { content: strippedContent, title: h1Match[1].trim(), frontmatter, contentStartLine: adjustedStartLine };
-    }
-
-    return { content, title: null, frontmatter, contentStartLine };
+    return { content, title, frontmatter, contentStartLine };
 }

@@ -29,14 +29,12 @@ import { visit } from 'unist-util-visit';
 import { Root, Element } from 'hast';
 import { VFile } from 'vfile';
 import { SourceMap } from './source-map.js';
-import { LineMapping } from './remark-glint-math.js';
 
 export function rehypeSourceLines() {
     return (tree: Root, file: VFile) => {
         // Support both new SourceMap and legacy lineMapping
         const sourceMap = file.data.sourceMap as SourceMap | undefined;
         const legacyOffset = (file.data.contentStartLine as number) || 1;
-        const legacyMapping = file.data.lineMapping as LineMapping | undefined;
 
         visit(tree, 'element', (node: Element) => {
             // Skip header anchor links (they don't correspond to source content)
@@ -52,14 +50,8 @@ export function rehypeSourceLines() {
                     // New SourceMap-based lookup (preferred)
                     sourceLine = sourceMap.getSourceLine(processedLine);
                 } else {
-                    // Legacy: Apply lineMapping then offset
-                    let mappedLine: number;
-                    if (legacyMapping?.processedToSource.has(processedLine)) {
-                        mappedLine = legacyMapping.processedToSource.get(processedLine)!;
-                    } else {
-                        mappedLine = processedLine;
-                    }
-                    sourceLine = mappedLine + legacyOffset - 1;
+                    // Fallback to simple offset if no map provided
+                    sourceLine = processedLine + legacyOffset - 1;
                 }
 
                 node.properties['data-source-line'] = sourceLine;

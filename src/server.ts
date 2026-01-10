@@ -13,11 +13,12 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeStringify from 'rehype-stringify';
+import rehypeRaw from 'rehype-raw';
 
 import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
-import { preprocessGlintMath, mathPreprocessor } from './remark-glint-math.js';
+import { mathPreprocessor } from './remark-glint-math.js';
 import { SourceMap } from './source-map.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
@@ -51,6 +52,7 @@ function createProcessor(config: GlintConfig) {
         .use(remarkMermaidGlint)
         .use(remarkMath)
         .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeRaw)
         .use(rehypeSourceLines)
         .use(rehypeGlintImage)
         .use(rehypeKatex, {
@@ -204,10 +206,12 @@ export async function createServer(contentDir: string) {
 
             // Read and Process
             const rawContent = await fs.readFile(safePath, 'utf-8');
-            const { content: cleanContent, title: frontmatterTitle, contentStartLine, frontmatter } = parseMarkdown(rawContent);
 
-            // Create initial SourceMap
-            const { sourceMap: initialSourceMap } = SourceMap.fromMarkdown(rawContent);
+            // Create initial SourceMap (handles frontmatter and H1 stripping)
+            const { sourceMap: initialSourceMap, content: cleanContent, title: frontmatterTitle, frontmatter } = SourceMap.fromMarkdown(rawContent);
+
+            // Calculate start line for legacy support (or removed reference later)
+            const contentStartLine = cleanContent.length > 0 ? initialSourceMap.getSourceLine(1) : 1;
 
             // Preprocess Math (creates intermediate source map)
             const { content: processedContent, sourceMap: mathSourceMap } = initialSourceMap.transform(cleanContent, mathPreprocessor);
