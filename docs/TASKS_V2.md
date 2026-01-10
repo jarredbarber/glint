@@ -72,26 +72,11 @@ Connect editor to the rendered page.
 
 ---
 
-## Phase 4: Image Upload
-
-Enable pasting/uploading images.
-
-- [x] **4.1** Implement context menu for paste
-  - Right-click in content area shows "Paste Image" option
-  - Only visible when clipboard contains image data
-
-- [x] **4.2** Handle clipboard image extraction
-  - Use Clipboard API to read image from clipboard
-  - Convert to Blob for upload
-
-- [x] **4.3** Upload image and insert into document
-  - Call `POST /api/upload`
-  - Insert `<img>` tag at end of document (simplest insertion point)
-  - Default width to ~33% of content area
-
-- [x] **4.4** Create `.assets/` folder automatically
-  - When uploading first image for a document
-  - Naming: `{article-name}.assets/`
+- [x] **Phase 4: Image Upload**
+  - [x] **4.1** Implement context menu for paste [x]
+  - [x] **4.2** Handle clipboard image extraction [x]
+  - [x] **4.3** Upload image and insert into document [x]
+  - [x] **4.4** Create `.assets/` folder automatically [x]
 
 ---
 
@@ -99,13 +84,13 @@ Enable pasting/uploading images.
 
 Enhance image rendering with resize handles.
 
-- [ ] **5.1** Add resize handles overlay on image hover
-  - Corner handles for proportional resize
-  - Visual feedback during drag
+- [x] **5.1** Add resize handles overlay on image hover
+  - [x] Corner handles for proportional resize
+  - [x] Visual feedback during drag
 
-- [ ] **5.2** Update markdown source on resize
-  - Modify `width` attribute in source `<img>` tag
-  - Save changes via API
+- [x] **5.2** Update markdown source on resize
+  - [x] Modify `width` attribute in source `<img>` tag
+  - [x] Save changes via API
 
 - [ ] **5.3** [P2] Support alignment via right-click menu
   - Options: Left, Center, Right

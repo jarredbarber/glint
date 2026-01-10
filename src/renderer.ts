@@ -113,6 +113,7 @@ export const renderScripts = () => `
 <script src="/assets/upload.bundle.js"></script>
 <script src="/assets/editor.bundle.js"></script>
 <script src="/assets/editor-integration.bundle.js"></script>
+<script src="/assets/image-resize.bundle.js"></script>
 `;
 
 export const formatDate = (rawDate: unknown): string | null => {
