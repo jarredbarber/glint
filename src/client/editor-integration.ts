@@ -113,7 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
-                            // For now, full reload. Later we can do partial refresh.
+                            // Save scroll position before reload
+                            const contentEl = document.querySelector('.content') || document.querySelector('main');
+                            if (contentEl) {
+                                sessionStorage.setItem('glint-scroll-y', String(contentEl.scrollTop));
+                            }
+                            sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
                             window.location.reload();
                         } catch (err: any) {
                             alert(`Error saving: ${err.message}`);
