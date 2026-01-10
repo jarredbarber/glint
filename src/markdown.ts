@@ -43,11 +43,19 @@ export function parseMarkdown(raw: string): ParsedMarkdown {
     // Priority 2: first H1 heading - extract and remove it from content
     const h1Match = content.match(/^#\s+(.+)$/m);
     if (h1Match) {
-        const strippedContent = content.replace(/^#\s+.+$/m, '').trimStart();
-        // Adjust contentStartLine if we stripped a title from the content area
-        // Note: this is tricky because .trimStart() also removes leading newlines
-        // For now let's keep it simple and assume the title is at the top.
-        return { content: strippedContent, title: h1Match[1].trim(), frontmatter, contentStartLine };
+        // Remove the H1 line 
+        const afterRemoval = content.replace(/^#\s+.+$/m, '');
+        const strippedContent = afterRemoval.trimStart();
+
+        // Count how many lines were stripped total:
+        // = (original content lines) - (remaining content lines)
+        const originalLineCount = content.split('\n').length;
+        const remainingLineCount = strippedContent.split('\n').length;
+        const linesStripped = originalLineCount - remainingLineCount;
+
+        const adjustedStartLine = contentStartLine + linesStripped;
+
+        return { content: strippedContent, title: h1Match[1].trim(), frontmatter, contentStartLine: adjustedStartLine };
     }
 
     return { content, title: null, frontmatter, contentStartLine };
