@@ -747,92 +747,40 @@ h6:hover .heading-edit-icon {
 }
 
 /* Editor Overlay and Section Editing */
-.glint-editor-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-}
-
-.glint-editor-modal {
+/* Inline Editor */
+.glint-inline-editor-container {
+    margin: 1.5rem 0;
+    padding: 0.5rem;
     background: var(--bg-color);
-    width: 100%;
-    max-width: 900px;
-    height: 80vh;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: modalSlideUp 0.3s ease-out;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes modalSlideUp {
+@keyframes fadeIn {
     from {
-        transform: translateY(20px);
         opacity: 0;
     }
 
     to {
-        transform: translateY(0);
         opacity: 1;
     }
 }
 
-.glint-editor-modal-header {
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--bg-highlight);
-}
-
-.glint-editor-modal-title {
-    font-weight: 700;
-    color: var(--green);
-    font-family: 'Outfit', sans-serif;
-}
-
-.glint-editor-modal-close {
-    cursor: pointer;
-    font-size: 1.5rem;
-    color: var(--text-dim);
-    line-height: 1;
-}
-
-.glint-editor-modal-close:hover {
-    color: var(--red);
-}
-
-.glint-editor-modal-body {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Adjust the editor inside the modal to fill the space */
-.glint-editor-modal .glint-editor-wrapper {
+.glint-inline-editor-container .glint-editor-wrapper {
     margin: 0;
     border: none;
     border-radius: 0;
-    height: 100%;
 }
 
-.glint-editor-modal .glint-editor-content {
-    height: 100%;
+.glint-inline-editor-container .cm-editor {
+    min-height: 200px;
+    max-height: 60vh;
 }
 
-.glint-editor-modal .cm-editor {
-    height: 100%;
+/* Modal styles (Legacy - kept for potential full-page edit later) */
+.glint-editor-overlay {
+    display: none;
+    /* Hidden by default now */
 }

@@ -34,7 +34,7 @@ The implementation is functional and meets the requirements for a single-user Ma
 
 ## 3. `src/remark-glint-math.ts` & `src/rehype-source-lines.ts`
 
-### ✅ Good Practices
+### Good Practices
 
 - **Robust Mapping**: The new `LineMapping` implementation correctly handles the line count discrepancies introduced by LaTeX expansion, ensuring accurate `data-source-line` attributes.
 
