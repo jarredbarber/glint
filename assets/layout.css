@@ -1298,12 +1298,29 @@ h6:hover .heading-edit-icon,
     right: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    padding: 0.2rem 0.5rem;
+    padding: 0.25rem 0;
     font-size: 0.7rem;
     color: var(--text-dim);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 4px;
-    white-space: nowrap;
+    border-radius: 6px;
     font-family: var(--font-mono);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.line-tracker-hint .hint-item {
+    padding: 0.15rem 0.5rem;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+
+.line-tracker-hint .hint-item:last-child {
+    border-bottom: none;
+}
+
+.line-tracker-hint .hint-key {
+    color: var(--aqua);
+    font-weight: 600;
 }

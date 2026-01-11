@@ -1,7 +1,7 @@
 import { EditorView, keymap, highlightSpecialChars, drawSelection, highlightActiveLine, dropCursor, lineNumbers, highlightActiveLineGutter } from "@codemirror/view"
 import { EditorState } from "@codemirror/state"
 import { HighlightStyle, syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, foldKeymap } from "@codemirror/language"
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search"
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete"
 import { lintKeymap } from "@codemirror/lint"
@@ -96,6 +96,7 @@ const glintHighlightStyle = HighlightStyle.define([
 
 interface GlintEditorOptions {
     initialValue?: string;
+    initialLine?: number; // 1-indexed line to scroll to on load
     height?: string;
     onSave?: (content: string) => void;
     onCancel?: () => void;
@@ -159,6 +160,7 @@ class GlintEditor {
                 ...foldKeymap,
                 ...completionKeymap,
                 ...lintKeymap,
+                indentWithTab,
                 {
                     key: "Mod-s",
                     run: () => {
@@ -195,8 +197,16 @@ class GlintEditor {
             parent: editorContainer
         });
 
-        // 1. Auto-focus
+        // 1. Auto-focus and Scroll
         this.view.focus();
+        if (this.options.initialLine && this.options.initialLine > 0) {
+            const lineNum = Math.min(this.options.initialLine, this.view.state.doc.lines);
+            const line = this.view.state.doc.line(lineNum);
+            this.view.dispatch({
+                selection: { head: line.from, anchor: line.from },
+                scrollIntoView: true
+            });
+        }
 
         // 2. Vim Custom Commands
         if (this.options.vimMode) {

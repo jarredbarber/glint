@@ -21,6 +21,62 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeEditor: any = null;
     let activeEditorContainer: HTMLElement | null = null;
     let hiddenElements: HTMLElement[] = [];
+    let hasClipboardImage = false;
+
+    // Check if clipboard has an image (non-obstructive)
+    async function checkClipboardForImage() {
+        if (typeof navigator.clipboard === 'undefined') return;
+
+        try {
+            // Permissions API check
+            const status = await navigator.permissions.query({ name: "clipboard-read" as any });
+            if (status.state === 'granted') {
+                const items = await navigator.clipboard.read();
+                let foundImage = false;
+                for (const item of items) {
+                    if (item.types.some(type => type.startsWith('image/'))) {
+                        foundImage = true;
+                        break;
+                    }
+                }
+                const changed = hasClipboardImage !== foundImage;
+                hasClipboardImage = foundImage;
+
+                // If state changed and we are hovering, update hint immediately
+                if (changed) {
+                    const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
+                    if (hint) {
+                        // Extract existing line number from first hint-item
+                        const existingLine = hint.querySelector('.hint-key')?.textContent?.match(/L(\d+)/)?.[1];
+                        if (existingLine) {
+                            let hintHtml = `<span class="hint-item"><span class="hint-key">L${existingLine}</span></span>`;
+                            hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
+                            hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+                            if (hasClipboardImage) {
+                                hintHtml += `<span class="hint-item"><span class="hint-key">⌘V</span> paste image</span>`;
+                            }
+                            hint.innerHTML = hintHtml;
+                        }
+                    }
+                }
+            } else {
+                hasClipboardImage = false;
+            }
+        } catch (e) {
+            hasClipboardImage = false;
+        }
+    }
+
+    // Refresh clipboard status on focus or return to page
+    window.addEventListener('focus', checkClipboardForImage);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkClipboardForImage();
+    });
+
+    // Check when user begins interacting with content
+    document.querySelector('.content-wrapper')?.addEventListener('mouseenter', checkClipboardForImage);
+
+    checkClipboardForImage();
 
     // 1. Inject Edit Icons into Headings
     function injectEditIcons() {
@@ -207,48 +263,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Open Inline Editor for a specific section
-    async function openInlineEditor(heading: HTMLElement, startLine: number) {
+    async function openInlineEditor(el: HTMLElement, startLine: number, endLineIndexArg?: number, initialRelativeLine?: number) {
         if (activeEditor) {
             if (!confirm('You have an active editor open. Discard changes?')) return;
             closeInlineEditor();
         }
 
-        console.log(`Opening inline editor for section starting at line ${startLine}`);
+        console.log(`Opening inline editor: startLine=${startLine}, endLineArg=${endLineIndexArg}, initialLine=${initialRelativeLine}`);
 
-        const headingLevel = parseInt(heading.tagName.substring(1));
+        let endLineIndex = endLineIndexArg || -1;
 
-        // Find end line by looking for the next heading of same or higher level
-        let endLineIndex = -1;
-        const allHeadings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[];
-        const headingIndex = allHeadings.indexOf(heading);
-        for (let i = headingIndex + 1; i < allHeadings.length; i++) {
-            const nextLevel = parseInt(allHeadings[i].tagName.substring(1));
-            if (nextLevel <= headingLevel) {
-                const endAttr = allHeadings[i].getAttribute('data-source-line');
-                if (endAttr) endLineIndex = parseInt(endAttr);
-                break;
+        // If no endLine provided AND it's a heading, find end of section
+        if (endLineIndex === -1 && el.tagName.match(/^H[1-6]$/)) {
+            const headingLevel = parseInt(el.tagName.substring(1));
+
+            // Find end line by looking for the next heading of same or higher level
+            const allHeadings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[];
+            const headingIndex = allHeadings.indexOf(el);
+            for (let i = headingIndex + 1; i < allHeadings.length; i++) {
+                const nextLevel = parseInt(allHeadings[i].tagName.substring(1));
+                if (nextLevel <= headingLevel) {
+                    const endAttr = allHeadings[i].getAttribute('data-source-line');
+                    if (endAttr) {
+                        endLineIndex = parseInt(endAttr);
+                        break;
+                    }
+                }
             }
         }
 
         // Identify section elements by source line (not just DOM order)
-        const contentWrapper = heading.closest('.content-wrapper') || document.body;
+        const contentWrapper = el.closest('.content-wrapper') || document.body;
         const allElements = Array.from(contentWrapper.querySelectorAll('[data-source-line]')) as HTMLElement[];
         const sectionElements: HTMLElement[] = [];
 
-        for (const el of allElements) {
-            const lineAttr = el.getAttribute('data-source-line');
+        for (const item of allElements) {
+            const lineAttr = item.getAttribute('data-source-line');
             if (!lineAttr) continue;
             const line = parseInt(lineAttr);
             // Include if line >= startLine AND (no endLine OR line < endLine)
             if (line >= startLine && (endLineIndex === -1 || line < endLineIndex)) {
-                sectionElements.push(el);
+                sectionElements.push(item);
             }
         }
 
         const path = window.location.pathname.substring(1) || 'README.md';
 
         try {
-            heading.style.cursor = 'wait';
+            el.style.cursor = 'wait';
             const res = await fetch(`/api/source/${path}`);
             if (!res.ok) throw new Error('Failed to load source');
             const { content, hash } = await res.json();
@@ -263,10 +325,10 @@ document.addEventListener('DOMContentLoaded', () => {
             activeEditorContainer.className = 'glint-inline-editor-container';
 
             // Insert container before the first element of the section
-            heading.parentNode?.insertBefore(activeEditorContainer, heading);
+            el.parentNode?.insertBefore(activeEditorContainer, el);
 
             // Hide section elements
-            hiddenElements.forEach(el => el.style.display = 'none');
+            hiddenElements.forEach(item => item.style.display = 'none');
 
             // Mark that editing is active (suppress SSE reloads)
             window.__glintEditingActive = true;
@@ -275,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof GlintEditor !== 'undefined') {
                 activeEditor = new GlintEditor(activeEditorContainer, {
                     initialValue: sectionContent,
+                    initialLine: initialRelativeLine,
                     vimMode: true,
                     onSave: async (newSectionContent: string) => {
                         const newLines = [...lines];
@@ -311,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(err);
             alert(`Error: ${err.message}`);
         } finally {
-            heading.style.cursor = '';
+            el.style.cursor = '';
         }
     }
 
@@ -986,30 +1049,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function editCurrentSection() {
-        // Find hovered heading
-        const hovered = document.querySelector('h1:hover, h2:hover, h3:hover, h4:hover, h5:hover, h6:hover') as HTMLElement;
-        if (hovered) {
-            const sourceLine = hovered.getAttribute('data-source-line');
-            if (sourceLine) {
-                openInlineEditor(hovered, parseInt(sourceLine));
-                return;
-            }
-        }
+        const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
+        if (hint && hint.textContent) {
+            const match = hint.textContent.match(/L(\d+)/);
+            if (match) {
+                const targetLine = parseInt(match[1]);
 
-        // Fallback: find any hovered element with data-source-line
-        const anyHovered = document.querySelector(':hover[data-source-line]') as HTMLElement;
-        if (anyHovered) {
-            const heading = anyHovered.closest('h1, h2, h3, h4, h5, h6') as HTMLElement;
-            if (heading) {
-                const sourceLine = heading.getAttribute('data-source-line');
-                if (sourceLine) {
-                    openInlineEditor(heading, parseInt(sourceLine));
+                // Find the targeted block
+                const target = document.querySelector(`.content-wrapper > [data-source-line="${targetLine}"]`) as HTMLElement;
+                if (target) {
+                    // Logic: Find the heading that starts this section to provide "context"
+                    // We search backwards from 'target' for the nearest heading.
+                    const contentWrapper = target.parentElement;
+                    const allBlocks = Array.from(contentWrapper?.children || []) as HTMLElement[];
+                    const targetIndex = allBlocks.indexOf(target);
+
+                    let sectionHeading = target; // Fallback to current block if no heading
+                    let sectionStartLine = targetLine;
+
+                    for (let i = targetIndex; i >= 0; i--) {
+                        if (allBlocks[i].tagName.match(/^H[1-6]$/)) {
+                            sectionHeading = allBlocks[i];
+                            const hLine = sectionHeading.getAttribute('data-source-line');
+                            if (hLine) sectionStartLine = parseInt(hLine);
+                            break;
+                        }
+                    }
+
+                    // Calculate relative line for the editor to scroll to
+                    const relativeLine = targetLine - sectionStartLine + 1;
+
+                    // Open the editor for that entire section
+                    openInlineEditor(sectionHeading, sectionStartLine, undefined, relativeLine);
                     return;
                 }
             }
         }
-
-        alert('Hover over a section, then press \'e\' to edit.');
     }
 
     // Line Tracker: horizontal guide line + shortcut hint
@@ -1046,7 +1121,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sourceLine = focusedSection.getAttribute('data-source-line');
 
                 // Update debug info
-                hint.textContent = `L${sourceLine || '?'} (c)omment / (e)dit`;
+                let hintHtml = `<span class="hint-item"><span class="hint-key">L${sourceLine || '?'}</span></span>`;
+                hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
+                hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+                if (hasClipboardImage) {
+                    hintHtml += `<span class="hint-item"><span class="hint-key">⌘V</span> paste image</span>`;
+                }
+                hint.innerHTML = hintHtml;
 
                 // Calculate target Y position (midpoint between this and next block)
                 let targetY = rect.bottom;

@@ -129,12 +129,9 @@ $$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \d
 
 Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
 
+
 $$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right)_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
 
-
-```comment
-Jarred@2026-01-11:18:07 this doesn't work
-```
 
 The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substituting this back:
 
