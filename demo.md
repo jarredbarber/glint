@@ -15,23 +15,38 @@ description: A tour of the field
 
 ### Comment blocks
 
-```comment
+````comment
 jarred@2026-01-11:14:00 This is a test comment.
+
 clanker@2026-01-11:14:05 Reply to the test.
-jarred@2026-01-11:15:07 sup
+
+jarred@2026-01-11:15:07 sup. this is
+a multi line comment
+With *markdown* **formatting** and $m^a(t){\hbar}$ and 
+> quotes
+![Image|64](https://www.propertyfinder.ae/blog/wp-content/uploads/2024/09/All-About-IMG-Worlds-of-Adventure3.jpg)
+```python
+here is how you should have implemented it dummy
 ```
+- [ ] Resolve this comment (due:2026-03-04)
+````
 
 ```comment
 #resolved
-#important
 jarred@2026-01-11:14:00 This is a test comment.
+
 clanker@2026-01-11:14:05 Reply to the test.
+
 jarred@2026-01-11:15:08 $e=mc^2$
+
 jarred@2026-01-11:15:08 $$e^2 = m^2c^4 + p^2$$
 ```
 
 ```comment
-<Donut[AFK]> HEY EURAKARTE
+#resolved
+summary: bash.org
+#important
+<Donut[AFK]>@ HEY EURAKARTE
 <Donut[AFK]> INSULT
 <Eurakarte> RETORT
 <Donut[AFK]> COUNTER-RETORT
@@ -55,7 +70,7 @@ jarred@2026-01-11:15:07 sup
 - Not a task
 - Also not a task
   - Definitely not a task.
-- [x] Buy milk (completed:2026-01-11)
+- [ ] Buy milk
 - [ ] Submit expenses (created:2025-12-25 due:2026-02-05 @clanker #urgent)
 - [w] Pay invoice (due:2026-02-05 completed:2026-01-11)
   - Not a subtask.

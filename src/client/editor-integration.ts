@@ -572,6 +572,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const replyBtn = el.querySelector('.btn-reply') as HTMLElement;
             const resolveBtn = el.querySelector('.btn-resolve') as HTMLElement;
+            const header = el.querySelector('.glint-comment-header') as HTMLElement;
+
+            if (header) {
+                header.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const isCollapsed = el.getAttribute('data-collapsed') === 'true';
+                    el.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
+                };
+            }
 
             if (replyBtn) {
                 replyBtn.onclick = (e) => {
