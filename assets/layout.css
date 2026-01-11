@@ -281,6 +281,8 @@ body {
     padding: 0;
     /* Remove padding from container, move to children */
     font-family: 'Inter', sans-serif;
+    z-index: 2000;
+    position: relative;
 }
 
 .sidebar-scrollable {
@@ -1267,4 +1269,41 @@ h6:hover .heading-edit-icon,
 .glint-comment[data-collapsed="true"] .comment-header-snippet {
     opacity: 1;
     font-weight: 500;
+}
+
+/* Line Tracker */
+.glint-line-tracker {
+    position: fixed;
+    left: 0;
+    width: 100vw;
+    height: 0;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.15s, top 0.08s ease-out;
+}
+
+.glint-line-visual {
+    position: absolute;
+    height: 2px;
+    background: rgba(127, 127, 127, 0.3);
+}
+
+.glint-line-tracker.visible {
+    opacity: 1;
+}
+
+.line-tracker-hint {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    white-space: nowrap;
+    font-family: var(--font-mono);
 }

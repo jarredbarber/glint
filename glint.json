@@ -4,9 +4,9 @@
     "theme": "nord",
     "baseFile": "README.md",
     "latex-macros": {
-        "R": "\\mathbb{R}",
-        "N": "\\mathbb{N}",
-        "pd": "\\frac{\\partial #1}{\\partial #2}",
-        "vf": "\\mathbf{#1}"
+        "\\\\R": "\\mathbb{R}",
+        "\\\\N": "\\mathbb{N}",
+        "\\\\pd": "\\frac{\\partial #1}{\\partial #2}",
+        "\\\\vf": "\\mathbf{#1}"
     }
 }

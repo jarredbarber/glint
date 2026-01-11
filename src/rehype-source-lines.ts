@@ -26,6 +26,12 @@ import { visit } from 'unist-util-visit';
 import { Root, Element } from 'hast';
 import { VFile } from 'vfile';
 
+const BLOCK_TAGS = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'pre', 'ul', 'ol', 'li', 'blockquote',
+    'table', 'hr', 'div', 'figure', 'details', 'section'
+];
+
 export function rehypeSourceLines() {
     return (tree: Root, file: VFile) => {
         // Simple offset: how many lines were stripped (frontmatter + H1)
@@ -33,6 +39,9 @@ export function rehypeSourceLines() {
         const offset = contentStartLine - 1;
 
         visit(tree, 'element', (node: Element) => {
+            // Only tag block-level elements
+            if (!BLOCK_TAGS.includes(node.tagName)) return;
+
             // Skip header anchor links (they don't correspond to source content)
             if (node.tagName === 'span' && node.properties?.className === 'header-anchor') return;
 

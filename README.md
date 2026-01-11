@@ -16,9 +16,14 @@ $$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
   - Numbered equations (enabled in frontmatter).
 - **Diagrams**: Mermaid support (Code blocks with language `mermaid`).
 - **Wiki-links**: Use `[[Note Name]]` or `[[Note Name|Label]]` to link pages.
+- **Interactive Widgets**:
+  - **Tasks**: `- [ ]` checkboxes with states (`x`, `/`, `w`, `b`) and metadata (`due:`, `@assignee`, `#priority`).
+  - **Comments**: ` ```comment ` blocks for multi-user discussions with thread collapsing and markdown support.
+  - **Keyboard Shortcuts**: Press `e` to edit any section or `c` to insert a comment block.
 - **Beautiful**: Dark mode by default (Everforest), syntax highlighting, and responsive layout.
-- **File Outliner**: Automatic table of contents for long documents.cluded
+- **File Outliner**: Automatic table of contents for long documents.
 - **Zero config** — Just point at a directory and go
+- **Hot Reload** — Real-time updates via SSE.
 
 ## Installation
 

@@ -12,9 +12,19 @@ export const renderHead = (title: string, theme: string) => `
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/katex/katex.min.css">
-    <link rel="stylesheet" href="/assets/themes/${theme}.css">
+    <link rel="stylesheet" href="/assets/themes/${theme}.css" id="theme-stylesheet">
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
+    <script>
+        // Apply user's preferred theme from localStorage (before first paint)
+        (function() {
+            var saved = localStorage.getItem('glint-theme');
+            if (saved) {
+                var link = document.getElementById('theme-stylesheet');
+                if (link) link.href = '/assets/themes/' + saved + '.css';
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 `;
@@ -53,7 +63,13 @@ export const renderSidebar = (fileTree: FileNode[], currentPath: string, heading
         ` : ''}
     </div>
     <footer class="sidebar-footer">
-        <select class="theme-select" onchange="fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: this.value }) })">
+        <select class="theme-select" onchange="
+            const theme = this.value;
+            localStorage.setItem('glint-theme', theme);
+            const themeLink = document.querySelector('link[href*=\\'themes/\\']');
+            if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
+            fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+        ">
             ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
     </footer>
@@ -93,6 +109,12 @@ export const renderScripts = () => `
 
     evtSource.onmessage = (event) => {
         if (event.data === "reload") {
+            // Check if inline editor is active
+            if (window.__glintEditingActive) {
+                console.log("SSE reload suppressed (inline editor active)");
+                window.__glintPendingReload = true;
+                return;
+            }
             // Check if a client-side refresh just happened (suppress SSE reload)
             const suppressTime = sessionStorage.getItem('glint-suppress-reload');
             if (suppressTime && Date.now() - parseInt(suppressTime) < 3000) {

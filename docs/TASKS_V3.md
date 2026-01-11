@@ -111,8 +111,8 @@ Add to `assets/layout.css`:
 
 - [x] Run `npm run build`
 - [x] Confirm no errors
-- [ ] Add a test task line to a markdown file
-- [ ] Confirm it renders (as plain text for now — handler not implemented yet)
+- [x] Add a test task line to a markdown file
+- [x] Confirm it renders (as plain text for now — handler not implemented yet)
 
 ---
 
@@ -169,7 +169,7 @@ Add to `assets/layout.css`:
 - [x] Click checkbox → toggle `state=open` ↔ `state=done`
 - [x] Write state change back to markdown via `/api/save`
 - [x] Automatically add `completed:YYYY-MM-DD` when marking done
-- [ ] Optional: date picker for due date
+- [ ] Optional: date picker for due date (backlog)
 
 ---
 
@@ -186,8 +186,8 @@ Add to `assets/layout.css`:
 ### 3.2 Rendering
 
 - [x] Thread layout with vertical item spacing
-- [ ] Format timestamps (relative: "2h ago") — *Deferred to Phase 4*
-- [ ] Collapsed/dimmed style for `#resolved` threads
+- [ ] Format timestamps (relative: "2h ago") — (backlog)
+- [x] Collapsed/dimmed style for `#resolved` threads
 - [x] Style comment entries (header, author, date, content)
 - [x] **CRITICAL**: Apply `sourceLineOffset` for accurate frontmatter-aware mapping
 
@@ -204,9 +204,12 @@ Add to `assets/layout.css`:
 
 ### 4.1 UX Refinements
 
-- [ ] Keyboard shortcut to insert comment block
-- [ ] Hover actions for tasks (quick-resolve, set due)
-- [ ] SSE reload suppression during widget edit
+- [x] Keyboard shortcut to insert comment block (`c` key)
+- [x] Keyboard shortcut to edit current section (`e` key)
+- [ ] Hover actions for tasks (deferred)
+- [ ] Task click should map to long press on mobile (deferred)
+- [x] SSE reload suppression during widget edit
+- [x] move general preferences updated in UI to localStorage. e.g. theme
 
 ### 4.2 Config
 
@@ -215,8 +218,8 @@ Add to `assets/layout.css`:
 
 ### 4.3 Documentation
 
-- [ ] Update GEMINI.md with widget architecture
-- [ ] Add examples to README
+- [x] Update GEMINI.md with widget architecture
+- [x] Add examples to README
 
 ---
 

@@ -59,10 +59,13 @@ export const commentHandler: WidgetHandler = {
             }
 
             // author@YYYY-MM-DD[:HH:MM] message
-            const match = trimmed.match(/^(@?[\w\.-]+)@(\d{4}-\d{2}-\d{2})(?::(\d{2}:\d{2}))?\s+(.*)$/);
+            // author@YYYY-MM-DD[:HH:MM] [message]
+            // Super-permissive regex: author@YYYY-MM-DD[:HH:MM] [message]
+            // Matches anything for author as long as it's followed by @date
+            const match = trimmed.match(/^([^@\s]+)@(\d{4}-\d{2}-\d{2})(?::(\d{2}:\d{2}))?(?:\s+(.*))?$/);
             if (match) {
                 const [, author, date, time, content] = match;
-                messages.push({ author, date, time: time || '', content });
+                messages.push({ author, date, time: time || '', content: content || '' });
             } else if (messages.length > 0) {
                 // Continuation line or initial empty line after header
                 // If it's the very first line after a header, we might want to trim it if it's just whitespace

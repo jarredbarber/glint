@@ -1,5 +1,13 @@
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 
+// Extend Window interface for global editing state
+declare global {
+    interface Window {
+        __glintEditingActive?: boolean;
+        __glintPendingReload?: boolean;
+    }
+}
+
 interface EditorOptions {
     initialValue: string;
     vimMode: boolean;
@@ -260,6 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Hide section elements
             hiddenElements.forEach(el => el.style.display = 'none');
 
+            // Mark that editing is active (suppress SSE reloads)
+            window.__glintEditingActive = true;
+
             // Initialize Editor
             if (typeof GlintEditor !== 'undefined') {
                 activeEditor = new GlintEditor(activeEditorContainer, {
@@ -425,6 +436,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         hiddenElements.forEach(el => el.style.display = '');
         hiddenElements = [];
+
+        // Clear editing flag
+        window.__glintEditingActive = false;
+
+        // If there's a pending reload from SSE, trigger it now
+        if (window.__glintPendingReload) {
+            window.__glintPendingReload = false;
+            window.location.reload();
+        }
     }
 
     function injectTaskInteractions() {
@@ -598,10 +618,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     resolveThread(el);
                 };
             }
+
+            // Auto-open reply box for NEW/EMPTY threads OR threads that only have 
+            // the system message (which happens on failed parsing of initial message)
+            const thread = el.querySelector('.glint-comment-thread');
+            const items = el.querySelectorAll('.glint-comment-item');
+            const isResolved = el.getAttribute('data-resolved') === 'true';
+
+            // If it's empty OR only has one message that is empty/system, auto-open
+            const isEmpty = items.length === 0;
+            const onlySystem = items.length === 1 && items[0].querySelector('.comment-author')?.textContent === 'system';
+
+            if ((isEmpty || onlySystem) && !isResolved) {
+                const sLine = el.getAttribute('data-source-line');
+                console.log('[Glint] Auto-opening reply for empty/system thread', sLine);
+                // canDeleteOnCancel = true because it's an empty thread
+                setTimeout(() => showReplyInput(el, true), 50);
+            }
         });
     }
 
-    function showReplyInput(commentNode: HTMLElement) {
+    function showReplyInput(commentNode: HTMLElement, canDeleteOnCancel: boolean = false) {
         const actions = commentNode.querySelector('.glint-comment-actions');
         if (!actions) return;
 
@@ -651,8 +688,12 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.focus();
 
         cancelBtn.onclick = () => {
-            inputContainer.remove();
-            (actions as HTMLElement).style.display = '';
+            if (canDeleteOnCancel) {
+                deleteCommentBlock(commentNode);
+            } else {
+                inputContainer.remove();
+                (actions as HTMLElement).style.display = '';
+            }
         };
 
         sendBtn.onclick = async () => {
@@ -738,6 +779,64 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.reload();
     }
 
+    async function deleteCommentBlock(commentNode: HTMLElement) {
+        const sourceLine = commentNode.getAttribute('data-source-line');
+        if (!sourceLine) return;
+
+        const path = window.location.pathname.substring(1) || 'README.md';
+        const startLine = parseInt(sourceLine);
+
+        try {
+            const res = await fetch(`/api/source/${path}`);
+            if (!res.ok) throw new Error('Failed to load source');
+            const { content, hash } = await res.json();
+            const lines = content.split('\n');
+
+            // Find closing fence
+            let endLineIndex = -1;
+            for (let i = startLine; i < lines.length; i++) {
+                if (lines[i] && lines[i].trim().startsWith('```')) {
+                    endLineIndex = i;
+                    break;
+                }
+            }
+
+            if (endLineIndex === -1) throw new Error('Could not find closing fence');
+
+            // Calculate range (including opening fence at startLine - 1)
+            let deleteFrom = startLine - 1;
+            // Also cleanup potential leading empty line added during insertion
+            if (deleteFrom > 0 && lines[deleteFrom - 1].trim() === '') {
+                deleteFrom--;
+            }
+
+            // Also cleanup potential trailing empty line added during insertion
+            let deleteTo = endLineIndex;
+            if (deleteTo < lines.length - 1 && lines[deleteTo + 1].trim() === '') {
+                deleteTo++;
+            }
+
+            const count = deleteTo - deleteFrom + 1;
+            lines.splice(deleteFrom, count);
+
+            const newFullContent = lines.join('\n');
+
+            const saveRes = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content: newFullContent, hash })
+            });
+
+            if (!saveRes.ok) throw new Error((await saveRes.json()).error);
+
+            saveScrollPosition();
+            suppressSSEReload();
+            window.location.reload();
+        } catch (err: any) {
+            alert('Error deleting: ' + err.message);
+        }
+    }
+
     async function resolveThread(commentNode: HTMLElement) {
         const sourceLine = commentNode.getAttribute('data-source-line');
         if (!sourceLine) return;
@@ -784,10 +883,232 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Keyboard Shortcuts
+    function setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ignore if in an input/textarea/contenteditable
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+            // Ignore if any modifier is pressed (let browser handle those)
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            // 'c' — Insert comment block after current section
+            if (e.key === 'c') {
+                e.preventDefault();
+                const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
+                if (hint) {
+                    const match = hint.textContent?.match(/L(\d+)/);
+                    if (match) {
+                        insertCommentBlock(match[1], hint.dataset.nextLine);
+                    }
+                }
+                return;
+            }
+
+            // 'e' — Edit current section
+            if (e.key === 'e') {
+                e.preventDefault();
+                editCurrentSection();
+                return;
+            }
+        });
+    }
+
+    async function insertCommentBlock(sourceLine?: string, nextLine?: string) {
+        const path = window.location.pathname.substring(1) || 'README.md';
+
+        let startLine = 0;
+        if (sourceLine) {
+            startLine = parseInt(sourceLine);
+        } else {
+            // Find the element under the user's focus/hover
+            const hovered = document.querySelector(':hover[data-source-line]') as HTMLElement;
+            const focusedSection = hovered?.closest('[data-source-line]') as HTMLElement;
+
+            if (!focusedSection) {
+                alert('Hover over a section first, then press \'c\' to comment.');
+                return;
+            }
+
+            const sLine = focusedSection.getAttribute('data-source-line');
+            if (sLine) startLine = parseInt(sLine);
+        }
+
+        if (!startLine) return;
+
+        try {
+            const res = await fetch(`/api/source/${path}`);
+            if (!res.ok) throw new Error('Failed to load source');
+            const { content, hash } = await res.json();
+
+            const lines = content.split('\n');
+
+            // Find the end of this section
+            let insertAt = startLine;
+
+            if (nextLine) {
+                // If we know the next line, insert right before it
+                insertAt = parseInt(nextLine) - 1;
+            } else {
+                // Otherwise, check if it's a code block
+                const currentLineText = lines[startLine - 1]?.trim() || '';
+                if (currentLineText && currentLineText.startsWith('```')) {
+                    // Find closing fence
+                    for (let i = startLine; i < lines.length; i++) {
+                        if (lines[i] && lines[i].trim().startsWith('```')) {
+                            insertAt = i + 1;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Insert comment block
+            lines.splice(insertAt, 0, '', '```comment', '```', '');
+
+            const newContent = lines.join('\n');
+
+            const saveRes = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content: newContent, hash })
+            });
+
+            if (!saveRes.ok) throw new Error((await saveRes.json()).error);
+
+            saveScrollPosition();
+            suppressSSEReload();
+            window.location.reload();
+        } catch (err: any) {
+            alert('Failed to insert comment: ' + err.message);
+        }
+    }
+
+    function editCurrentSection() {
+        // Find hovered heading
+        const hovered = document.querySelector('h1:hover, h2:hover, h3:hover, h4:hover, h5:hover, h6:hover') as HTMLElement;
+        if (hovered) {
+            const sourceLine = hovered.getAttribute('data-source-line');
+            if (sourceLine) {
+                openInlineEditor(hovered, parseInt(sourceLine));
+                return;
+            }
+        }
+
+        // Fallback: find any hovered element with data-source-line
+        const anyHovered = document.querySelector(':hover[data-source-line]') as HTMLElement;
+        if (anyHovered) {
+            const heading = anyHovered.closest('h1, h2, h3, h4, h5, h6') as HTMLElement;
+            if (heading) {
+                const sourceLine = heading.getAttribute('data-source-line');
+                if (sourceLine) {
+                    openInlineEditor(heading, parseInt(sourceLine));
+                    return;
+                }
+            }
+        }
+
+        alert('Hover over a section, then press \'e\' to edit.');
+    }
+
+    // Line Tracker: horizontal guide line + shortcut hint
+    function setupLineTracker() {
+        // Prevent duplicates on SPA navigation
+        if (document.querySelector('.glint-line-tracker')) return;
+
+        const content = document.querySelector('.content-wrapper') as HTMLElement;
+        if (!content) return;
+
+        // Create tracker elements
+        const tracker = document.createElement('div');
+        tracker.className = 'glint-line-tracker';
+        tracker.innerHTML = `
+            <div class="glint-line-visual"></div>
+            <div class="line-tracker-hint"></div>
+        `;
+        const visual = tracker.querySelector('.glint-line-visual') as HTMLElement;
+        const hint = tracker.querySelector('.line-tracker-hint') as HTMLElement;
+        document.body.appendChild(tracker);
+
+        let isVisible = false;
+
+        content.addEventListener('mousemove', (e) => {
+            const target = e.target as HTMLElement;
+
+            // Find the top-level block under the cursor
+            // This ensures we stay between major units and "skip" internal lines of code blocks/widgets.
+            const focusedSection = target.closest('.content-wrapper > [data-source-line]') as HTMLElement;
+
+            if (focusedSection) {
+                const rect = focusedSection.getBoundingClientRect();
+                const contentRect = content.getBoundingClientRect();
+                const sourceLine = focusedSection.getAttribute('data-source-line');
+
+                // Update debug info
+                hint.textContent = `L${sourceLine || '?'} (c)omment / (e)dit`;
+
+                // Calculate target Y position (midpoint between this and next block)
+                let targetY = rect.bottom;
+
+                // Find next sibling that has a source line
+                let nextSection = focusedSection.nextElementSibling as HTMLElement;
+                while (nextSection && !nextSection.hasAttribute('data-source-line')) {
+                    nextSection = nextSection.nextElementSibling as HTMLElement;
+                }
+
+                if (nextSection) {
+                    const nextRect = nextSection.getBoundingClientRect();
+                    targetY = (rect.bottom + nextRect.top) / 2;
+                    const nextLine = nextSection.getAttribute('data-source-line');
+                    hint.dataset.nextLine = nextLine || '';
+                } else {
+                    // Fallback for last element: add a small padding
+                    targetY = rect.bottom + 8;
+                    hint.dataset.nextLine = '';
+                }
+
+                // Snap to calculated midpoint
+                tracker.style.top = `${targetY}px`;
+
+                // Visual line matches content width
+                visual.style.left = `${contentRect.left}px`;
+                visual.style.width = `${contentRect.width}px`;
+
+                if (!isVisible) {
+                    tracker.classList.add('visible');
+                    isVisible = true;
+                }
+            } else {
+                if (isVisible) {
+                    tracker.classList.remove('visible');
+                    isVisible = false;
+                }
+            }
+        });
+
+        content.addEventListener('mouseleave', () => {
+            tracker.classList.remove('visible');
+            isVisible = false;
+        });
+
+        // Hide while editor is active
+        const observer = new MutationObserver(() => {
+            if (window.__glintEditingActive) {
+                tracker.style.display = 'none';
+            } else {
+                tracker.style.display = '';
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     function init() {
         injectEditIcons();
         injectTaskInteractions();
         injectCommentInteractions();
+        setupKeyboardShortcuts();
+        setupLineTracker();
     }
 
     init();

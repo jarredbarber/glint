@@ -76,8 +76,17 @@ jarred@2026-01-11:15:07 sup
   - Not a subtask.
   - [x] Submit invoice (due:2026-02-05 completed:2026-01-22)
   - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
+- [x] Review PR #42 (@jarred)
 
-* [x] Review PR #42 (@jarred)
+### Code blocks
+
+```python
+def fib(n):
+  if n <= 1:
+    return 1
+  else:
+    return fib(n-1) + fib(n-2)
+```
 
 
 ## 1. The Gaussian Integral
@@ -89,7 +98,9 @@ We consider the square of the integral:
 $$ I^2 = \left( \int_{-\infty}^{\infty} e^{-x^2} dx \right) \left( \int_{-\infty}^{\infty} e^{-y^2} dy \right) $$
 
 Combining them into a double integral over the $xy$-plane:
+
 $$ I^2 = \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} e^{-(x^2 + y^2)} dx \, dy $$
+
 
 Changing to polar coordinates where $x^2 + y^2 = r^2$ and the Jacobian $dx \, dy = r \, dr \, d\theta$:
 
@@ -117,10 +128,18 @@ We consider a variation $\delta q(t)$ such that $\delta q(t_1) = \delta q(t_2) =
 $$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \delta q + \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta \dot{q} \right) dt = 0 $$
 
 Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
+
 $$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right)_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
 
+
+```comment
+Jarred@2026-01-11:18:07 this doesn't work
+```
+
 The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substituting this back:
+
 $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt = 0 $$
+
 
 By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
 $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
@@ -128,6 +147,7 @@ $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \
 ---
 
 ## 3. Noether's Theorem (Field Theory)
+
 
 Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
 $$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$

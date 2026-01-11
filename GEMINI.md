@@ -8,7 +8,7 @@
 
 **Glint** is a self-contained Markdown server with server-side math rendering (KaTeX) and zero external API dependencies. It serves markdown files from a directory with live reload, inline editing, and image management.
 
-**Current Version:** V2 (Editing complete) — V3 (Commenting, multi-user) not yet started.
+**Current Version:** V3 (Widgets complete) — Tasks and Comments widgets with full client-side interactivity.
 
 ---
 
@@ -35,6 +35,8 @@
 
 5. **LRU caching** — Rendered HTML is cached keyed by file path, invalidated on mtime change.
 
+6. **Widget System** — Embedded widgets (Tasks, Comments) are parsed during the remark phase and transformed into rich HTML via `remark-glint-widgets.ts`.
+
 ---
 
 ## Directory Structure
@@ -48,13 +50,19 @@ glint/
 │   ├── markdown.ts            # Frontmatter parsing, H1 extraction
 │   ├── config.ts              # Zod schema for glint.json
 │   ├── filetree.ts            # Sidebar file tree builder
+│   ├── remark-glint-widgets.ts  # Widget plugin dispatcher
+│   ├── widgets/
+│   │   ├── index.ts          # Exports all registered handlers
+│   │   ├── types.ts          # WidgetHandler interface
+│   │   ├── task.ts           # Task list item widget
+│   │   └── comment.ts        # Comment thread widget
 │   ├── server/
 │   │   ├── sse.ts             # Server-Sent Events for hot reload
 │   │   └── routes/
 │   │       └── api.ts         # REST endpoints: /api/save, /api/upload, /api/source/*
 │   ├── client/
 │   │   ├── editor.ts          # GlintEditor class (CodeMirror wrapper)
-│   │   ├── editor-integration.ts  # Inline section editing UI
+│   │   ├── editor-integration.ts  # Inline section editing UI, widget interactions
 │   │   ├── router.ts          # Client-side SPA navigation
 │   │   ├── upload.ts          # Image paste/upload handling
 │   │   ├── image-resize.ts    # Drag-to-resize images
@@ -67,8 +75,7 @@ glint/
 │       ├── rehype-glint-image.ts      # Image width syntax, figure/caption
 │       ├── rehype-extract-headings.ts # Extract outline for sidebar
 │       ├── remark-mermaid-glint.ts    # Mermaid diagram support
-│       ├── remark-wiki-link-glint.ts  # [[wiki-link]] syntax
-│       └── remark-slash-checkbox.ts   # /todo checkbox syntax
+│       └── remark-wiki-link-glint.ts  # [[wiki-link]] syntax
 ├── assets/
 │   ├── katex/                 # Bundled KaTeX fonts + CSS
 │   ├── themes/                # CSS theme files
@@ -78,7 +85,8 @@ glint/
 ├── docs/
 │   ├── SPEC.md                # V1 design spec
 │   ├── SPEC_V2.md             # V2 editing spec
-│   └── SPEC_V3.md             # V3 roadmap (placeholder)
+│   ├── SPEC_V3_inline.md      # V3 widget spec
+│   └── TASKS_V3.md            # V3 implementation tasks
 └── glint.json                 # Per-project configuration
 ```
 
@@ -91,7 +99,7 @@ glint/
 The markdown processing pipeline in `server.ts`:
 
 ```
-remark-parse → remark-gfm → remark-slash-checkbox → remark-wiki-link-glint
+remark-parse → remark-gfm → remark-glint-widgets → remark-wiki-link-glint
   → remark-mermaid-glint → remark-rehype(raw) → rehype-raw
   → rehype-source-lines → rehype-glint-image → rehype-glint-katex
   → rehype-highlight → rehype-slug → rehype-autolink-headings
@@ -100,9 +108,57 @@ remark-parse → remark-gfm → remark-slash-checkbox → remark-wiki-link-glint
 
 **Plugin Ordering Matters:**
 
-- `rehype-source-lines` must run early (before transformations that add/remove nodes)
-- `rehype-glint-image` processes width syntax before general rendering
-- `rehype-glint-katex` runs after raw HTML is unescaped
+- `remark-glint-widgets` runs early in remark phase (before remark-rehype)
+- `rehype-source-lines` must run before transformations that add/remove nodes
+- Widgets emit MDAST `html` nodes which `rehype-raw` parses into HAST
+
+### Widget System
+
+Widgets are embedded markdown constructs that render as rich, interactive UI.
+
+#### Adding a New Widget
+
+1. Create `src/widgets/{name}.ts` implementing `WidgetHandler`
+2. Register in `src/widgets/index.ts`
+3. Handle client-side interactions in `src/client/editor-integration.ts`
+
+#### Task Widget
+
+Syntax: `- [state] description (metadata)`
+
+States: `[ ]` open, `[x]` done, `[/]` progress, `[w]` waiting, `[b]` blocked
+
+Example:
+
+```markdown
+- [ ] Review PR #42 (due:2026-02-05 @jarred #urgent)
+- [x] Submit expenses (completed:2026-01-11)
+```
+
+#### Comment Widget
+
+Syntax: ` ```comment ` fenced code block
+
+Features:
+
+- `#resolved` / `#important` flags
+- `summary: Title` custom header
+- `author@YYYY-MM-DD:HH:MM message` format
+- Multi-line markdown in message bodies
+
+Example:
+
+````markdown
+```comment
+summary: Design discussion
+#important
+jarred@2026-01-11:14:00 Initial proposal looks good.
+
+clanker@2026-01-11:14:30 I have some concerns:
+- Performance impact
+- Memory usage
+```
+````
 
 ### Source Line Mapping
 
@@ -172,6 +228,15 @@ Client bundles are built with esbuild and output to `assets/*.bundle.js`.
 
 ---
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `c` | Insert comment block after hovered element |
+| `e` | Open inline editor for hovered section |
+
+---
+
 ## Important Patterns
 
 ### Adding a New Rehype Plugin
@@ -194,15 +259,6 @@ Client bundles are built with esbuild and output to `assets/*.bundle.js`.
 
 ---
 
-## V3 Roadmap (Not Yet Implemented)
-
-- User accounts and authentication
-- Projects / workspaces
-- **Commenting system** (Google Docs style)
-- Real-time collaboration
-
----
-
 ## Testing
 
 Currently no automated tests. Manual verification:
@@ -210,3 +266,4 @@ Currently no automated tests. Manual verification:
 1. Run `npm run dev`
 2. Open <http://localhost:3000>
 3. Test editing, image upload, theme switching
+4. Test task state toggling and comment Reply/Resolve
