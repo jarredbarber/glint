@@ -11,6 +11,19 @@ description: A tour of the field
 
 ![Einstein Field Equations|363](/content/demo.md.assets/5f88de18.png)
 
+## Glint widget demos
+
+Task lists:
+
+- [ ] Buy milk
+- [x] Submit expenses (due:2026-02-05 completed:2026-01-11 @clanker #urgent)
+- [w] Pay invoice (due:2026-02-05 completed:2026-01-11)
+- [/] Review PR #42 (@jarred)
+
+Comment blocks:
+
+- TBD
+
 ## 1. The Gaussian Integral
 
 **Goal:** To evaluate the integral $I = \int_{-\infty}^{\infty} e^{-x^2} dx$ using a polar coordinate transformation.
@@ -60,10 +73,8 @@ $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \
 
 ## 3. Noether's Theorem (Field Theory)
 
-
 Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
 $$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$
-
 
 Substituting the Euler-Lagrange equation $\frac{\partial \mathcal{L}}{\partial \phi} = \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)}$:
 $$$

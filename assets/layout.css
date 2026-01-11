@@ -1,4 +1,32 @@
 /* Layout - Sidebar + Content */
+:root {
+    /* Widget base */
+    --widget-bg: var(--bg-secondary);
+    --widget-radius: 6px;
+
+    /* Task states */
+    --task-open: #3b82f6;
+    /* blue */
+    --task-done: #22c55e;
+    /* green */
+    --task-blocked: #ef4444;
+    /* red */
+    --task-waiting: #f59e0b;
+    /* amber */
+    --task-progress: #8b5cf6;
+    /* purple */
+}
+
+/* Base widget styles */
+.glint-widget {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--widget-radius);
+    border-left: 3px solid var(--accent);
+    background: var(--widget-bg);
+}
+
+
 /* Base Resets & Typography */
 * {
     box-sizing: border-box;
