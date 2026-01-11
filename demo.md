@@ -9,16 +9,22 @@ reading-time: 4 years
 description: A tour of the field
 ---
 
-![Einstein Field Equations|363](/content/demo.md.assets/5f88de18.png)
+![Einstein Field Equations|382](/content/demo.md.assets/5f88de18.png)
 
 ## Glint widget demos
 
 Task lists:
 
+- Not a task
+- Also not a task
+  - Definitely not a task.
 - [ ] Buy milk
-- [x] Submit expenses (due:2026-02-05 completed:2026-01-11 @clanker #urgent)
+- [ ] Submit expenses (created:2025-12-25 due:2026-02-05 completed:2026-01-11 @clanker #urgent)
 - [w] Pay invoice (due:2026-02-05 completed:2026-01-11)
-- [/] Review PR #42 (@jarred)
+  - Not a subtask.
+  - [x] Submit invoice (due:2026-02-05 completed:2026-01-22)
+  - [w] Wait for transaction to clear (due:2026-02-05)
+* [x] Review PR #42 (@jarred)
 
 Comment blocks:
 

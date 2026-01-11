@@ -32,12 +32,12 @@ export function remarkGlintWidgets() {
 }
 ```
 
-- [ ] Create the file with basic structure above
-- [ ] Export the plugin function
+- [x] Create the file with basic structure above
+- [x] Export the plugin function
 
 ### 1.2 Create Widget Directory
 
-```
+```bash
 src/widgets/
   index.ts        # Re-exports all widget handlers
   types.ts        # Shared types (WidgetNode, etc.)
@@ -45,8 +45,8 @@ src/widgets/
   comment.ts      # Comment widget (Phase 3)
 ```
 
-- [ ] Create `src/widgets/` directory
-- [ ] Create `src/widgets/types.ts` with shared interfaces:
+- [x] Create `src/widgets/` directory
+- [x] Create `src/widgets/types.ts` with shared interfaces:
 
 ```typescript
 export interface WidgetHandler {
@@ -55,7 +55,7 @@ export interface WidgetHandler {
 }
 ```
 
-- [ ] Create `src/widgets/index.ts` that exports handlers array
+- [x] Create `src/widgets/index.ts` that exports handlers array
 
 ### 1.3 Register in Pipeline
 
@@ -70,9 +70,9 @@ import { remarkGlintWidgets } from './remark-glint-widgets.js';
 .use(remarkSlashCheckbox)
 ```
 
-- [ ] Import the plugin
-- [ ] Add `.use(remarkGlintWidgets)` to pipeline
-- [ ] Verify server starts without errors
+- [x] Import the plugin
+- [x] Add `.use(remarkGlintWidgets)` to pipeline
+- [x] Verify server starts without errors
 
 ### 1.4 Base CSS Variables
 
@@ -94,8 +94,8 @@ Add to `assets/layout.css`:
 }
 ```
 
-- [ ] Add CSS variables to `:root`
-- [ ] Add `.glint-widget` base class:
+- [x] Add CSS variables to `:root`
+- [x] Add `.glint-widget` base class:
 
 ```css
 .glint-widget {
@@ -109,8 +109,8 @@ Add to `assets/layout.css`:
 
 ### 1.5 Verify Setup
 
-- [ ] Run `npm run build`
-- [ ] Confirm no errors
+- [x] Run `npm run build`
+- [x] Confirm no errors
 - [ ] Add a test task line to a markdown file
 - [ ] Confirm it renders (as plain text for now — handler not implemented yet)
 
@@ -153,21 +153,21 @@ Add to `assets/layout.css`:
 
 ### 2.1 Parser
 
-- [ ] Create `src/widgets/task.ts`
-- [ ] Implement parser for `task: <desc> <attrs>`
-- [ ] Emit HAST `<div class="glint-task">` with data attributes
+- [x] Create `src/widgets/task.ts`
+- [x] Implement parser for task: description attributes
+- [x] Emit HAST `<div class="glint-task">` with data attributes
 
 ### 2.2 Rendering
 
-- [ ] Style task states: open (🟦), done (✅), blocked (⛔), waiting (⌛), in progress (🏃)
-- [ ] Format due dates (relative vs absolute)
-- [ ] Highlight overdue tasks
-- [ ] Add `data-source-line` for editor integration
+- [x] Style task states: open (🟦), done (✅), blocked (⛔), waiting (⌛), in progress (🏃)
+- [x] Format due dates (relative vs absolute)
+- [x] Highlight overdue tasks
+- [x] Add `data-source-line` for editor integration
 
 ### 2.3 Interactions
 
-- [ ] Click checkbox → toggle `state=open` ↔ `state=done`
-- [ ] Write state change back to markdown via `/api/save`
+- [x] Click checkbox → toggle `state=open` ↔ `state=done`
+- [x] Write state change back to markdown via `/api/save`
 - [ ] Optional: date picker for due date
 
 ---

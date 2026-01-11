@@ -427,6 +427,112 @@ document.addEventListener('DOMContentLoaded', () => {
         hiddenElements = [];
     }
 
-    injectEditIcons();
-    document.addEventListener('glint:navigated', injectEditIcons);
+    function injectTaskInteractions() {
+        const checks = document.querySelectorAll('.glint-task-check');
+        checks.forEach(check => {
+            const el = check as HTMLElement;
+            if (el.dataset.initialized) return;
+            el.dataset.initialized = 'true';
+
+            el.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Close any existing picker
+                const existing = document.querySelector('.glint-state-picker');
+                if (existing) {
+                    existing.parentElement?.closest('.glint-task')?.classList.remove('picker-open');
+                    existing.remove();
+                }
+
+                const taskNode = el.closest('.glint-task') as HTMLElement;
+                if (!taskNode) return;
+
+                const picker = document.createElement('div');
+                picker.className = 'glint-state-picker';
+                taskNode.classList.add('picker-open');
+
+                const states = [
+                    { icon: '🟦', marker: '[ ]', label: 'Open' },
+                    { icon: '✅', marker: '[x]', label: 'Done' },
+                    { icon: '🏃', marker: '[/]', label: 'Progress' },
+                    { icon: '⌛', marker: '[w]', label: 'Waiting' },
+                    { icon: '⛔', marker: '[b]', label: 'Blocked' }
+                ];
+
+                states.forEach(s => {
+                    const opt = document.createElement('span');
+                    opt.className = 'glint-state-option';
+                    opt.innerHTML = s.icon;
+                    opt.title = s.label;
+                    opt.onclick = async (ev) => {
+                        ev.stopPropagation();
+                        picker.remove();
+                        await updateTaskState(taskNode, s.marker);
+                    };
+                    picker.appendChild(opt);
+                });
+
+                el.appendChild(picker);
+
+                // Close on click outside
+                const closeHandler = () => {
+                    taskNode.classList.remove('picker-open');
+                    picker.remove();
+                    document.removeEventListener('click', closeHandler);
+                };
+                setTimeout(() => document.addEventListener('click', closeHandler), 0);
+            };
+        });
+    }
+
+    async function updateTaskState(taskNode: HTMLElement, newMarker: string) {
+        const sourceLine = taskNode.getAttribute('data-source-line');
+        if (!sourceLine) return;
+
+        const path = window.location.pathname.substring(1) || 'README.md';
+        const lineNum = parseInt(sourceLine);
+
+        try {
+            taskNode.style.cursor = 'wait';
+            const res = await fetch(`/api/source/${path}`);
+            if (!res.ok) throw new Error('Failed to load source');
+            const { content, hash } = await res.json();
+
+            const lines = content.split('\n');
+            const lineContent = lines[lineNum - 1];
+
+            // Replace any state marker [ ] , [x] , [/] , [w] , [b]
+            const newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wb]\]/i, `$1${newMarker}`);
+
+            if (newLineContent === lineContent) return;
+
+            lines[lineNum - 1] = newLineContent;
+            const newFullContent = lines.join('\n');
+
+            const saveRes = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content: newFullContent, hash })
+            });
+
+            if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
+
+            saveScrollPosition();
+            suppressSSEReload();
+            window.location.reload();
+        } catch (err: any) {
+            alert(`Error updating task: ${err.message}`);
+        } finally {
+            taskNode.style.cursor = '';
+        }
+    }
+
+    function init() {
+        injectEditIcons();
+        injectTaskInteractions();
+    }
+
+    init();
+    document.addEventListener('glint:navigated', init);
 });

@@ -20,7 +20,6 @@ import { rehypeGlintKatex } from './rehype-glint-katex.js';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
-import { remarkSlashCheckbox } from './remark-slash-checkbox.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
 import { rehypeGlintImage } from './rehype-glint-image.js';
@@ -46,7 +45,6 @@ function createProcessor(config: GlintConfig) {
         .use(remarkParse)
         .use(remarkGfm)
         .use(remarkGlintWidgets)
-        .use(remarkSlashCheckbox)
         .use(remarkWikiLinkGlint)
         .use(remarkMermaidGlint)
         .use(remarkRehype, { allowDangerousHtml: true })

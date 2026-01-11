@@ -24,7 +24,214 @@
     border-radius: var(--widget-radius);
     border-left: 3px solid var(--accent);
     background: var(--widget-bg);
+    position: relative;
 }
+
+/* Remove override on glint-task since styles moved to header */
+
+/* Tasks */
+/* Tasks */
+/* Tasks */
+.glint-task {
+    list-style-type: var(--list-bullet, disc);
+    margin: 0.1rem 0 !important;
+    padding-left: 0.5rem !important;
+    /* Space between bullet and the "box" */
+    position: relative;
+    display: list-item;
+}
+
+/* Match nesting bullets */
+ul ul .glint-task {
+    --list-bullet: circle;
+}
+
+ul ul ul .glint-task {
+    --list-bullet: square;
+}
+
+/* The styled "Box" is now strictly the header */
+.glint-task-header {
+    display: inline-flex;
+    align-items: center;
+    /* Center emoji with text */
+    gap: 0.4rem;
+    padding: 0.1rem 0.5rem;
+    border-left: 3px solid var(--task-open);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    margin: 0;
+    line-height: 1.4;
+    /* Match standard paragraph line-height */
+}
+
+/* Remove absolute bullet since we switched back to display: list-item */
+.glint-task::before {
+    display: none;
+}
+
+.theme-light .glint-task-header {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+/* Spacing fixes for task lists */
+ul.contains-task-list,
+ul:has(> .glint-task) {
+    list-style: inherit;
+    /* We handle markers via standard li or custom */
+    margin-bottom: 0.1rem !important;
+    /* Extremely tight */
+    margin-top: 0 !important;
+}
+
+/* Tighten gap when a task list follows any list or vice versa */
+ul+ul:has(> .glint-task),
+ul:has(> .glint-task)+ul {
+    margin-top: -1.45rem !important;
+    /* Aggressively close the gap between split lists */
+}
+
+/* Force standard marker back for glint-task if GFM disabled it */
+ul.contains-task-list .glint-task {
+    display: list-item !important;
+    list-style-type: var(--list-bullet, disc) !important;
+}
+
+.glint-task.picker-open {
+    z-index: 1000;
+}
+
+/* Task States applied to Header */
+.glint-task[data-state="done"] .glint-task-header {
+    border-left-color: var(--task-done);
+    opacity: 0.7;
+}
+
+.glint-task[data-state="done"] .glint-task-content {
+    text-decoration: line-through;
+    color: var(--text-dim);
+}
+
+.glint-task[data-state="progress"] .glint-task-header {
+    border-left-color: var(--task-progress);
+}
+
+.glint-task[data-state="waiting"] .glint-task-header {
+    border-left-color: var(--task-waiting);
+}
+
+.glint-task[data-state="blocked"] .glint-task-header {
+    border-left-color: var(--task-blocked);
+}
+
+.glint-task-check {
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(1px);
+    /* Micro-offset for visual centering */
+    transition: transform 0.1s ease;
+    position: relative;
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+.glint-task-check:hover {
+    transform: scale(1.2);
+}
+
+.glint-task-right {
+    flex: 1;
+}
+
+.glint-task-content-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    /* Center text with badges */
+    gap: 0.5rem;
+}
+
+.glint-task-content {
+    font-weight: 500;
+}
+
+.glint-task-meta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.glint-task-meta span {
+    display: inline-block;
+    background: var(--bg-highlight);
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.glint-task-meta .meta-priority {
+    font-weight: 600;
+    color: var(--orange);
+}
+
+.glint-task-meta .meta-priority[data-priority="urgent"] {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+}
+
+/* State Picker Popover */
+.glint-state-picker {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.4rem;
+    display: flex;
+    gap: 0.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    z-index: 1100;
+    animation: popIn 0.15s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    backdrop-filter: blur(12px);
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.8) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1) translateY(0);
+    }
+}
+
+.glint-state-option {
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.glint-state-option:hover {
+    background: var(--bg-highlight);
+}
+
+
+
 
 
 /* Base Resets & Typography */
@@ -298,8 +505,7 @@ li {
 
 /* Task Lists */
 ul.contains-task-list {
-    list-style: none;
-    padding-left: 0;
+    margin-bottom: 0.5rem;
 }
 
 .task-list-item {
