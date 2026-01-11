@@ -563,9 +563,221 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function injectCommentInteractions() {
+        const comments = document.querySelectorAll('.glint-comment');
+        comments.forEach(comment => {
+            const el = comment as HTMLElement;
+            if (el.dataset.initialized) return;
+            el.dataset.initialized = 'true';
+
+            const replyBtn = el.querySelector('.btn-reply') as HTMLElement;
+            const resolveBtn = el.querySelector('.btn-resolve') as HTMLElement;
+
+            if (replyBtn) {
+                replyBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showReplyInput(el);
+                };
+            }
+
+            if (resolveBtn) {
+                resolveBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resolveThread(el);
+                };
+            }
+        });
+    }
+
+    function showReplyInput(commentNode: HTMLElement) {
+        const actions = commentNode.querySelector('.glint-comment-actions');
+        if (!actions) return;
+
+        // Hide actions, show input
+        (actions as HTMLElement).style.display = 'none';
+
+        const inputContainer = document.createElement('div');
+        inputContainer.className = 'glint-comment-reply-form';
+        inputContainer.style.marginTop = '0.5rem';
+        inputContainer.style.display = 'flex';
+        inputContainer.style.flexDirection = 'column';
+        inputContainer.style.gap = '0.5rem';
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'glint-input';
+        textarea.placeholder = 'Write a reply...';
+        textarea.rows = 3;
+        textarea.style.width = '100%';
+        textarea.style.padding = '0.5rem';
+        textarea.style.borderRadius = '4px';
+        textarea.style.border = '1px solid var(--border)';
+        textarea.style.background = 'var(--bg-primary)';
+        textarea.style.color = 'var(--text-main)';
+        textarea.style.resize = 'vertical';
+
+        const buttons = document.createElement('div');
+        buttons.style.display = 'flex';
+        buttons.style.gap = '0.5rem';
+
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'glint-btn';
+        sendBtn.style.background = 'var(--comment-accent)';
+        sendBtn.style.color = 'white';
+        sendBtn.innerText = 'Send Reply';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'glint-btn';
+        cancelBtn.innerText = 'Cancel';
+
+        buttons.appendChild(sendBtn);
+        buttons.appendChild(cancelBtn);
+
+        inputContainer.appendChild(textarea);
+        inputContainer.appendChild(buttons);
+
+        commentNode.appendChild(inputContainer);
+        textarea.focus();
+
+        cancelBtn.onclick = () => {
+            inputContainer.remove();
+            (actions as HTMLElement).style.display = '';
+        };
+
+        sendBtn.onclick = async () => {
+            const message = textarea.value.trim();
+            if (!message) return;
+
+            try {
+                sendBtn.disabled = true;
+                sendBtn.innerText = 'Sending...';
+                await submitReply(commentNode, message);
+                inputContainer.remove();
+                (actions as HTMLElement).style.display = '';
+            } catch (err: any) {
+                alert('Failed to send reply: ' + err.message);
+                sendBtn.disabled = false;
+                sendBtn.innerText = 'Send Reply';
+            }
+        };
+    }
+
+    async function submitReply(commentNode: HTMLElement, message: string) {
+        let author = localStorage.getItem('glint-author');
+        if (!author) {
+            author = prompt('Enter your name for comments:');
+            if (author) {
+                localStorage.setItem('glint-author', author);
+            } else {
+                author = 'anonymous';
+            }
+        }
+
+        const sourceLine = commentNode.getAttribute('data-source-line');
+        if (!sourceLine) throw new Error('No source mapping');
+
+        const path = window.location.pathname.substring(1) || 'README.md';
+
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().substring(0, 5);
+
+        // Format: author@YYYY-MM-DD:HH:MM message
+        const newLine = `${author}@${dateStr}:${timeStr} ${message}`;
+
+        const res = await fetch(`/api/source/${path}`);
+        if (!res.ok) throw new Error('Failed to load source');
+        const { content, hash } = await res.json();
+
+        // We need to append to the CODE BLOCK. 
+        // The sourceLine points to the OPENING fence (```comment).
+        // We need to find the closing fence and insert BEFORE it.
+        const lines = content.split('\n');
+        const startLine = parseInt(sourceLine);
+
+        // sourceLine is 1-indexed, lines array is 0-indexed
+        // Opening fence is at lines[startLine - 1]
+        // Content starts at lines[startLine - 1 + 1] = lines[startLine]
+        // So we search from startLine (which in 0-indexed points to first content line)
+        let endLineIndex = -1;
+        for (let i = startLine; i < lines.length; i++) {
+            if (lines[i].trim().startsWith('```')) {
+                endLineIndex = i;
+                break;
+            }
+        }
+
+        if (endLineIndex === -1) throw new Error('Could not find closing fence');
+
+        // Insert before closing fence
+        lines.splice(endLineIndex, 0, newLine);
+
+        const newFullContent = lines.join('\n');
+
+        const saveRes = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, content: newFullContent, hash })
+        });
+
+        if (!saveRes.ok) throw new Error((await saveRes.json()).error);
+
+        saveScrollPosition();
+        suppressSSEReload();
+        window.location.reload();
+    }
+
+    async function resolveThread(commentNode: HTMLElement) {
+        const sourceLine = commentNode.getAttribute('data-source-line');
+        if (!sourceLine) return;
+
+        if (!confirm('Resolve this thread?')) return;
+
+        const path = window.location.pathname.substring(1) || 'README.md';
+        const startLine = parseInt(sourceLine);
+
+        try {
+            const res = await fetch(`/api/source/${path}`);
+            if (!res.ok) throw new Error('Failed to load source');
+            const { content, hash } = await res.json();
+            const lines = content.split('\n');
+
+            // The content starts at startLine (1-based from HAST usually means the line OF the element)
+            // For code block, startLine is ```comment.
+            // Content starts at startLine index (because array is 0-indexed, line 1 is index 0)
+            // Wait, startLine is usually 1-indexed. lines[startLine-1] is the ```comment.
+            // Content starts at lines[startLine].
+
+            // Check if #resolved exists
+            const firstContentLine = lines[startLine]; // Line AFTER opening fence
+            if (firstContentLine.trim() === '#resolved') return; // Already resolved
+
+            // Insert #resolved
+            lines.splice(startLine, 0, '#resolved');
+
+            const newFullContent = lines.join('\n');
+
+            const saveRes = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content: newFullContent, hash })
+            });
+
+            if (!saveRes.ok) throw new Error((await saveRes.json()).error);
+
+            saveScrollPosition();
+            suppressSSEReload();
+            window.location.reload();
+        } catch (err: any) {
+            alert('Error resolving: ' + err.message);
+        }
+    }
+
     function init() {
         injectEditIcons();
         injectTaskInteractions();
+        injectCommentInteractions();
     }
 
     init();

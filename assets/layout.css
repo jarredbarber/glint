@@ -1045,3 +1045,111 @@ h6:hover .heading-edit-icon,
     display: none;
     /* Hidden by default now */
 }
+/* Comments */
+:root {
+    --comment-accent: #f59e0b; /* Amber for active discussions */
+    --comment-resolved: #22c55e; /* Green for resolved */
+    --comment-important: #ef4444; /* Red for emphasis */
+}
+
+.glint-comment {
+    border-left-color: var(--comment-accent);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.glint-comment[data-resolved="true"] {
+    border-left-color: var(--comment-resolved);
+    opacity: 0.75;
+}
+
+.glint-comment[data-important="true"] {
+    border-left-color: var(--comment-important);
+    background: rgba(239, 68, 68, 0.05); /* Slight red tint */
+}
+
+.glint-comment-header {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+}
+
+.glint-comment-header.important {
+    color: var(--comment-important);
+}
+
+.glint-comment-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.glint-comment-item {
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.comment-meta {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.comment-content {
+    color: var(--text-main);
+}
+
+.glint-comment-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--border);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.glint-comment:hover .glint-comment-actions {
+    opacity: 1;
+}
+
+.glint-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: inherit;
+    transition: background 0.1s, color 0.1s;
+}
+
+.glint-btn:hover {
+    background: rgba(0,0,0,0.05);
+    color: var(--text-main);
+}
+
+.theme-dark .glint-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.btn-reply:hover {
+    color: var(--task-open); /* Blue */
+}
+
+.btn-resolve:hover {
+    color: var(--comment-resolved); /* Green */
+}

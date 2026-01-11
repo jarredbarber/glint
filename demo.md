@@ -9,9 +9,46 @@ reading-time: 4 years
 description: A tour of the field
 ---
 
-![Einstein Field Equations|382](/content/demo.md.assets/5f88de18.png)
+![Einstein Field Equations|128](/content/demo.md.assets/5f88de18.png)
 
 ## Glint widget demos
+
+### Comment blocks
+
+```comment
+jarred@2026-01-11:14:00 This is a test comment.
+clanker@2026-01-11:14:05 Reply to the test.
+jarred@2026-01-11:15:07 sup
+```
+
+```comment
+#resolved
+#important
+jarred@2026-01-11:14:00 This is a test comment.
+clanker@2026-01-11:14:05 Reply to the test.
+jarred@2026-01-11:15:08 $e=mc^2$
+jarred@2026-01-11:15:08 $$e^2 = m^2c^4 + p^2$$
+```
+
+```comment
+<Donut[AFK]> HEY EURAKARTE
+<Donut[AFK]> INSULT
+<Eurakarte> RETORT
+<Donut[AFK]> COUNTER-RETORT
+<Eurakarte> QUESTIONING OF SEXUAL PREFERENCE
+<Donut[AFK]> SUGGESTION TO SHUT THE FUCK UP
+<Eurakarte> NOTATION THAT YOU CREATE A VACUUM
+<Donut[AFK]> RIPOSTE
+<Donut[AFK]> ADDON RIPOSTE
+<Eurakarte> COUNTER-RIPOSTE
+<Donut[AFK]> COUNTER-COUNTER RIPOSTE
+<Eurakarte> NONSENSICAL STATEMENT INVOLVING PLANKTON
+<Miles_Prower> RESPONSE TO RANDOM STATEMENT AND THREAT TO BAN
+OPPOSING SIDES
+<Eurakarte> WORDS OF PRAISE FOR FISHFOOD
+<Miles_Prower> ACKNOWLEDGEMENT AND ACCEPTENCE OF TERMS
+jarred@2026-01-11:15:07 sup
+```
 
 ### Task lists
 
@@ -24,11 +61,9 @@ description: A tour of the field
   - Not a subtask.
   - [x] Submit invoice (due:2026-02-05 completed:2026-01-22)
   - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
+
 * [x] Review PR #42 (@jarred)
 
-### Comment blocks
-
-- TBD
 
 ## 1. The Gaussian Integral
 

@@ -36,6 +36,9 @@ export function rehypeSourceLines() {
             // Skip header anchor links (they don't correspond to source content)
             if (node.tagName === 'span' && node.properties?.className === 'header-anchor') return;
 
+            // Skip elements that already have data-source-line (set by widget transforms)
+            if (node.properties?.['dataSourceLine'] || node.properties?.['data-source-line']) return;
+
             if (node.position?.start) {
                 if (!node.properties) node.properties = {};
 

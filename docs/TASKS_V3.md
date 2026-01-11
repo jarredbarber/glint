@@ -168,6 +168,7 @@ Add to `assets/layout.css`:
 
 - [x] Click checkbox → toggle `state=open` ↔ `state=done`
 - [x] Write state change back to markdown via `/api/save`
+- [x] Automatically add `completed:YYYY-MM-DD` when marking done
 - [ ] Optional: date picker for due date
 
 ---
@@ -176,24 +177,26 @@ Add to `assets/layout.css`:
 
 ### 3.1 Parser
 
-- [ ] Create `src/widgets/comment.ts`
-- [ ] Handle ` ```comment ` code blocks
-- [ ] Parse `author@timestamp message` format per line
-- [ ] Handle `#resolved`, `#important` flags
+- [x] Create `src/widgets/comment.ts`
+- [x] Handle ` ```comment ` code blocks
+- [x] Parse `author@timestamp message` format per line
+- [x] Handle `#resolved`, `#important` flags
+- [x] **CRITICAL**: Use MDAST `html` node (not raw HAST) for `rehype-raw` compatibility
 
 ### 3.2 Rendering
 
-- [ ] Thread layout with indented replies
-- [ ] Format timestamps (relative: "2h ago")
-- [ ] Collapsed view for resolved threads
-- [ ] Style comment entries
+- [x] Thread layout with vertical item spacing
+- [ ] Format timestamps (relative: "2h ago") — *Deferred to Phase 4*
+- [ ] Collapsed/dimmed style for `#resolved` threads
+- [x] Style comment entries (header, author, date, content)
+- [x] **CRITICAL**: Apply `sourceLineOffset` for accurate frontmatter-aware mapping
 
 ### 3.3 Interactions
 
-- [ ] [Reply] button → prompt for author (first time), append line
-- [ ] [Resolve] button → prepend `#resolved` flag
-- [ ] Store author name in localStorage after first prompt
-- [ ] Write changes back via `/api/save`
+- [x] [Reply] button → prompt for author (stored in localStorage), append to source
+- [x] [Resolve] button → prepend `#resolved` flag to block
+- [x] Store author name in localStorage
+- [x] Write changes back via `/api/save`
 
 ---
 
