@@ -105,7 +105,7 @@ ul.contains-task-list .glint-task {
 }
 
 /* Task States applied to Header */
-.glint-task[data-state="done"] .glint-task-header {
+.glint-task[data-state="done"]>.glint-task-header {
     border-left-color: var(--task-done);
     opacity: 0.7;
 }
@@ -115,15 +115,15 @@ ul.contains-task-list .glint-task {
     color: var(--text-dim);
 }
 
-.glint-task[data-state="progress"] .glint-task-header {
+.glint-task[data-state="progress"]>.glint-task-header {
     border-left-color: var(--task-progress);
 }
 
-.glint-task[data-state="waiting"] .glint-task-header {
+.glint-task[data-state="waiting"]>.glint-task-header {
     border-left-color: var(--task-waiting);
 }
 
-.glint-task[data-state="blocked"] .glint-task-header {
+.glint-task[data-state="blocked"]>.glint-task-header {
     border-left-color: var(--task-blocked);
 }
 

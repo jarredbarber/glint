@@ -6,4 +6,5 @@ export interface WidgetHandler {
     match: (node: Node) => boolean;
     /** Transform the node; return VisitorResult to control traversal */
     transform: (node: Node, index: number | undefined, parent: Parent | undefined) => VisitorResult | void;
+    getLLMInstructions?: () => string;
 }

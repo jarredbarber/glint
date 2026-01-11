@@ -184,5 +184,13 @@ export const taskHandler: WidgetHandler = {
         listItem.children = [headerNode, ...subtasks];
 
         return CONTINUE;
-    }
+    },
+    getLLMInstructions: () => `
+### Tasks
+- Syntax: \`- [state] Task description (key:value ...)\`
+- States: \`[ ]\` Open, \`[x]\` Done, \`[/]\` Progress, \`[w]\` Waiting, \`[b]\` Blocked
+- Metadata: \`#priority\`, \`@assignee\`, \`due:YYYY-MM-DD\`, \`remind:YYYY-MM-DD\`, \`created:YYYY-MM-DD\`, \`completed:YYYY-MM-DD\`
+- Metadata optional: don't include if not specified or "default" (e.g. normal priority, no due date, etc.)
+- Example: \`- [/] Refactor API (due:2024-03-01 @alice #urgent)\`
+`
 };

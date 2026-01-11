@@ -19,7 +19,7 @@ description: A tour of the field
 - Also not a task
   - Definitely not a task.
 - [x] Buy milk (completed:2026-01-11)
-- [ ] Submit expenses (created:2025-12-25 due:2026-02-05 completed:2026-01-11 @clanker #urgent)
+- [ ] Submit expenses (created:2025-12-25 due:2026-02-05 @clanker #urgent)
 - [w] Pay invoice (due:2026-02-05 completed:2026-01-11)
   - Not a subtask.
   - [x] Submit invoice (due:2026-02-05 completed:2026-01-22)
