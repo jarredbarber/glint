@@ -35,9 +35,8 @@
 .glint-task {
     list-style-type: var(--list-bullet, disc);
     margin: 0.2rem 0 !important;
-    /* Exactly match normal li */
-    padding-left: 0.5rem !important;
-    /* Space between bullet and the "box" */
+    padding-left: 0 !important;
+    /* No extra padding - align with normal bullets */
     position: relative;
     display: list-item;
 }
@@ -505,6 +504,12 @@ ol {
 
 li {
     margin: 0.2rem 0;
+}
+
+/* Nested lists shouldn't add extra bottom margin */
+li>ul,
+li>ol {
+    margin-bottom: 0;
 }
 
 /* Task Lists */
