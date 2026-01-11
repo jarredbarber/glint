@@ -6,9 +6,10 @@ date: 2026-01-08
 category: Math
 updated: 2026-01-08
 reading-time: 4 years
-description: A brief introduction to Einstein's field equations.
+description: A tour of the field
 ---
 
+![Einstein Field Equations|363](/content/demo.md.assets/5f88de18.png)
 
 ## 1. The Gaussian Integral
 
