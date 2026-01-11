@@ -34,7 +34,8 @@
 /* Tasks */
 .glint-task {
     list-style-type: var(--list-bullet, disc);
-    margin: 0.1rem 0 !important;
+    margin: 0.2rem 0 !important;
+    /* Exactly match normal li */
     padding-left: 0.5rem !important;
     /* Space between bullet and the "box" */
     position: relative;
@@ -77,18 +78,21 @@ ul ul ul .glint-task {
 /* Spacing fixes for task lists */
 ul.contains-task-list,
 ul:has(> .glint-task) {
-    list-style: inherit;
-    /* We handle markers via standard li or custom */
-    margin-bottom: 0.1rem !important;
-    /* Extremely tight */
-    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+    margin-top: 0.2rem !important;
 }
 
-/* Tighten gap when a task list follows any list or vice versa */
-ul+ul:has(> .glint-task),
-ul:has(> .glint-task)+ul {
-    margin-top: -1.45rem !important;
-    /* Aggressively close the gap between split lists */
+/* When a task list follows a non-task list, pull it up to eliminate the gap */
+ul:not(:has(> .glint-task))+ul:has(> .glint-task) {
+    margin-top: -1rem !important;
+}
+
+/* Strip margins from anything inside a task to maintain uniform line spacing */
+.glint-task-header,
+.glint-task ul,
+.glint-task ol,
+.glint-task p {
+    margin: 0 !important;
 }
 
 /* Force standard marker back for glint-task if GFM disabled it */
@@ -456,7 +460,7 @@ a.internal-link {
 }
 
 p {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
 
 /* Code & Pre */
@@ -496,11 +500,11 @@ blockquote {
 ul,
 ol {
     padding-left: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
 
 li {
-    margin: 0.25em 0;
+    margin: 0.2rem 0;
 }
 
 /* Task Lists */

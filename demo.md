@@ -13,7 +13,7 @@ description: A tour of the field
 
 ## Glint widget demos
 
-Task lists:
+### Task lists
 
 - Not a task
 - Also not a task
@@ -26,7 +26,7 @@ Task lists:
   - [w] Wait for transaction to clear (due:2026-02-05)
 * [x] Review PR #42 (@jarred)
 
-Comment blocks:
+### Comment blocks
 
 - TBD
 
@@ -67,7 +67,7 @@ We consider a variation $\delta q(t)$ such that $\delta q(t_1) = \delta q(t_2) =
 $$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \delta q + \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta \dot{q} \right) dt = 0 $$
 
 Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
-$$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left[ \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right]_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
+$$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right)_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
 
 The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substituting this back:
 $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt = 0 $$

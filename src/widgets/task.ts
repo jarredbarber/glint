@@ -76,7 +76,7 @@ export const taskHandler: WidgetHandler = {
         data.hName = 'li';
         const hProperties = data.hProperties || (data.hProperties = {});
 
-        hProperties.className = ['glint-widget', 'glint-task'];
+        hProperties.className = ['glint-task'];
         hProperties['data-state'] = state;
 
         for (const [key, value] of Object.entries(attrs)) {
