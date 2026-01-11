@@ -503,7 +503,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const lineContent = lines[lineNum - 1];
 
             // Replace any state marker [ ] , [x] , [/] , [w] , [b]
-            const newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wb]\]/i, `$1${newMarker}`);
+            // 1. Update marker
+            let newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wb]\]/i, `$1${newMarker}`);
+
+            // 2. Manage completed date
+            // Parse existing metadata block if present: (key:val ...) at end of line
+            const metaRegex = /\s*\(([^)]+)\)$/;
+            const hasMeta = metaRegex.exec(newLineContent);
+            const today = new Date().toISOString().split('T')[0];
+
+            if (newMarker === '[x]') {
+                // Adding completed date
+                if (hasMeta) {
+                    // Check if already has completed date
+                    if (!hasMeta[1].match(/(?:completed|done):/)) {
+                        const newMeta = `${hasMeta[1]} completed:${today}`;
+                        newLineContent = newLineContent.replace(metaRegex, ` (${newMeta})`);
+                    }
+                } else {
+                    // No meta, append it
+                    newLineContent = `${newLineContent} (completed:${today})`;
+                }
+            } else {
+                // Removing completed date if present (unchecking)
+                if (hasMeta) {
+                    let inner = hasMeta[1];
+                    // Remove completed:YYYY-MM-DD or done:YYYY-MM-DD
+                    inner = inner.replace(/\s*(?:completed|done):\d{4}-\d{2}-\d{2}\s*/g, ' ').trim();
+
+                    if (inner.length > 0) {
+                        newLineContent = newLineContent.replace(metaRegex, ` (${inner})`);
+                    } else {
+                        // Remove empty parens
+                        newLineContent = newLineContent.replace(metaRegex, '');
+                    }
+                }
+            }
 
             if (newLineContent === lineContent) return;
 

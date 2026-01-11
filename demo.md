@@ -18,12 +18,12 @@ description: A tour of the field
 - Not a task
 - Also not a task
   - Definitely not a task.
-- [ ] Buy milk
+- [x] Buy milk (completed:2026-01-11)
 - [ ] Submit expenses (created:2025-12-25 due:2026-02-05 completed:2026-01-11 @clanker #urgent)
 - [w] Pay invoice (due:2026-02-05 completed:2026-01-11)
   - Not a subtask.
   - [x] Submit invoice (due:2026-02-05 completed:2026-01-22)
-  - [w] Wait for transaction to clear (due:2026-02-05)
+  - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
 * [x] Review PR #42 (@jarred)
 
 ### Comment blocks

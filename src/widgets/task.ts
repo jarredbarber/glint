@@ -134,19 +134,8 @@ export const taskHandler: WidgetHandler = {
                         tagName: 'span',
                         properties: { className: ['meta-scheduled'] },
                         children: [{ type: 'text', value: `plan:${attrs.scheduled}` }]
-                    } : null,
-                    attrs.created ? {
-                        type: 'element',
-                        tagName: 'span',
-                        properties: { className: ['meta-created'] },
-                        children: [{ type: 'text', value: `cre:${attrs.created}` }]
-                    } : null,
-                    attrs.completed ? {
-                        type: 'element',
-                        tagName: 'span',
-                        properties: { className: ['meta-completed'] },
-                        children: [{ type: 'text', value: `done:${attrs.completed}` }]
                     } : null
+                    // created and completed are hidden from view
                 ].filter(Boolean)
             },
             value: ''
