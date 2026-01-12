@@ -14,6 +14,7 @@ $$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
   - Full LaTeX support via KaTeX.
 - **Diagrams**: Mermaid support (Code blocks with language `mermaid`).
 - **Wiki-links**: Use `[[Note Name]]` or `[[Note Name|Label]]` to link pages.
+- **Citations**: Inline citations with `[[#ref:id]]` syntax and a `## References` section with hover cards and click-to-scroll.
 - **Interactive Widgets**:
   - **Tasks**: `- [ ]` checkboxes with states (`x`, `/`, `w`, `b`) and metadata (`due:`, `@assignee`, `#priority`).
   - **Comments**: ` ```comment ` blocks for multi-user discussions with thread collapsing and markdown support.
@@ -22,6 +23,10 @@ $$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
 - **File Outliner**: Automatic table of contents for long documents.
 - **Zero config** — Just point at a directory and go
 - **Hot Reload** — Real-time updates via SSE.
+
+## LLM Instructions
+
+When adding citations to a Glint document, use the inline syntax `[[#ref:id]]` to reference items defined in a `## References` section at the bottom of the document. Each reference should be a list item in the format `- [ref:id] "Title" Author (Year) URL`. Citations automatically render as numbered superscripts with hover previews showing the full reference, and clicking a citation scrolls to the corresponding bibliography entry.
 
 ## Installation
 
@@ -83,6 +88,7 @@ glint setup-auth /path/to/notes
 ```
 
 This will:
+
 - Prompt for a password (min 8 characters)
 - Generate a secure session secret
 - Update your `glint.json` with auth settings
@@ -120,11 +126,13 @@ Make specific paths accessible without login by adding them to `auth.public`:
 ```
 
 **Access levels:**
+
 - `view` — Read-only access
 - `comment` — Can view and add comments
 - `edit` — Full access (same as authenticated)
 
 **Path patterns:**
+
 - `*` — Matches a single path segment
 - `**` — Matches multiple path segments
 
