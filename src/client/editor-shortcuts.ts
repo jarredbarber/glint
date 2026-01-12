@@ -1,6 +1,7 @@
 
 import { insertCommentBlock } from './editor-comments.js';
 import { openInlineEditor } from './editor-sessions.js';
+import { canEdit, canComment } from './permissions.js';
 
 export function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
@@ -8,7 +9,7 @@ export function setupKeyboardShortcuts() {
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-        if (e.key === 'c') {
+        if (e.key === 'c' && canComment()) {
             e.preventDefault();
             const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
             if (hint) {
@@ -20,7 +21,7 @@ export function setupKeyboardShortcuts() {
             return;
         }
 
-        if (e.key === 'e') {
+        if (e.key === 'e' && canEdit()) {
             e.preventDefault();
             editCurrentSection();
             return;

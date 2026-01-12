@@ -4,8 +4,11 @@
  */
 
 import { openInlineEditor, openCodeBlockEditor, openPreambleEditor } from './editor-sessions.js';
+import { canEdit } from './permissions.js';
 
 export function injectEditIcons() {
+    if (!canEdit()) return;
+
     const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
     headings.forEach(h => {
         const heading = h as HTMLElement;

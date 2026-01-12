@@ -3,9 +3,12 @@
  * Clipboard Utilities
  */
 
+import { canEdit } from './permissions.js';
+
 let hasClipboardImage = false;
 
 export function getHasClipboardImage(): boolean {
+    if (!canEdit()) return false;
     return hasClipboardImage;
 }
 
@@ -38,6 +41,7 @@ export async function checkClipboardForImage(): Promise<boolean> {
 }
 
 export function setupClipboardListeners(onUpdate: (found: boolean) => void) {
+    if (!canEdit()) return;
     const handler = async () => {
         const found = await checkClipboardForImage();
         onUpdate(found);

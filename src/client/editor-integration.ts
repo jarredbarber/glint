@@ -9,6 +9,7 @@ import { injectEditIcons } from './editor-icons.js';
 import { injectTaskInteractions } from './editor-tasks.js';
 import { injectCommentInteractions } from './editor-comments.js';
 import { setupKeyboardShortcuts } from './editor-shortcuts.js';
+import { canEdit, canComment } from './permissions.js';
 
 // Extend Window interface for global editing state (compatibility)
 declare global {
@@ -27,8 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingLine = hint.querySelector('.hint-key')?.textContent?.match(/L(\d+)/)?.[1];
         if (existingLine) {
             let hintHtml = `<span class="hint-item"><span class="hint-key">L${existingLine}</span></span>`;
-            hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
-            hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+            if (canComment()) {
+                hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
+            }
+            if (canEdit()) {
+                hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+            }
             if (getHasClipboardImage()) {
                 hintHtml += `<span class="hint-item"><span class="hint-key">⌘V</span> paste image</span>`;
             }
@@ -42,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function setupLineTracker() {
+        if (!canComment() && !canEdit()) return;
         if (document.querySelector('.glint-line-tracker')) return;
 
         const content = document.querySelector('.content-wrapper') as HTMLElement;
@@ -69,8 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sourceLine = focusedSection.getAttribute('data-source-line');
 
                 let hintHtml = `<span class="hint-item"><span class="hint-key">L${sourceLine || '?'}</span></span>`;
-                hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
-                hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+                if (canComment()) {
+                    hintHtml += `<span class="hint-item"><span class="hint-key">c</span> comment</span>`;
+                }
+                if (canEdit()) {
+                    hintHtml += `<span class="hint-item"><span class="hint-key">e</span> edit</span>`;
+                }
                 if (getHasClipboardImage()) {
                     hintHtml += `<span class="hint-item"><span class="hint-key">⌘V</span> paste image</span>`;
                 }

@@ -1,7 +1,9 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+import { canEdit } from './permissions.js';
 
 export function injectTaskInteractions() {
+    if (!canEdit()) return;
     const checks = document.querySelectorAll('.glint-task-check');
     checks.forEach(check => {
         const el = check as HTMLElement;
@@ -59,6 +61,7 @@ export function injectTaskInteractions() {
 }
 
 export async function updateTaskState(taskNode: HTMLElement, newMarker: string) {
+    if (!canEdit()) return;
     const sourceLine = taskNode.getAttribute('data-source-line');
     if (!sourceLine) return;
 

@@ -1,8 +1,16 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+import { canEdit } from './permissions.js';
 
 declare const GlintEditor: any;
 const VIM_MODE_KEY = 'glint-vim-mode';
+
+declare global {
+    interface Window {
+        __glintEditingActive?: boolean;
+        __glintPendingReload?: boolean;
+    }
+}
 
 let activeEditor: any = null;
 let activeEditorContainer: HTMLElement | null = null;
@@ -39,6 +47,7 @@ export function closeInlineEditor() {
 }
 
 export async function openPreambleEditor() {
+    if (!canEdit()) return;
     if (activeEditor) {
         if (!confirm('You have an active editor open. Discard changes?')) return;
         closeInlineEditor();
@@ -126,6 +135,7 @@ export async function openPreambleEditor() {
 }
 
 export async function openInlineEditor(el: HTMLElement, startLine: number, endLineIndexArg?: number, initialRelativeLine?: number) {
+    if (!canEdit()) return;
     if (activeEditor) {
         if (!confirm('You have an active editor open. Discard changes?')) return;
         closeInlineEditor();
@@ -222,6 +232,7 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
 }
 
 export async function openCodeBlockEditor(pre: HTMLElement, startLine: number, language: string) {
+    if (!canEdit()) return;
     if (activeEditor) {
         if (!confirm('You have an active editor open. Discard changes?')) return;
         closeInlineEditor();

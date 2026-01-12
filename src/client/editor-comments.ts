@@ -1,5 +1,6 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+import { canComment } from './permissions.js';
 
 export function injectCommentInteractions() {
     const comments = document.querySelectorAll('.glint-comment');
@@ -19,6 +20,13 @@ export function injectCommentInteractions() {
                 const isCollapsed = el.getAttribute('data-collapsed') === 'true';
                 el.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
             };
+        }
+
+        if (!canComment()) {
+            // Remove reply/resolve buttons if no permission
+            if (replyBtn) replyBtn.remove();
+            if (resolveBtn) resolveBtn.remove();
+            return;
         }
 
         if (replyBtn) {
@@ -49,6 +57,7 @@ export function injectCommentInteractions() {
 }
 
 export function showReplyInput(commentNode: HTMLElement, canDeleteOnCancel: boolean = false) {
+    if (!canComment()) return;
     const actions = commentNode.querySelector('.glint-comment-actions');
     if (!actions) return;
 
@@ -124,6 +133,7 @@ export function showReplyInput(commentNode: HTMLElement, canDeleteOnCancel: bool
 }
 
 export async function submitReply(commentNode: HTMLElement, message: string) {
+    if (!canComment()) return;
     let author = localStorage.getItem('glint-author');
     if (!author) {
         author = prompt('Enter your name for comments:');
@@ -164,6 +174,7 @@ export async function submitReply(commentNode: HTMLElement, message: string) {
 }
 
 export async function deleteCommentBlock(commentNode: HTMLElement) {
+    if (!canComment()) return;
     const sourceLine = commentNode.getAttribute('data-source-line');
     if (!sourceLine) return;
 
@@ -206,6 +217,7 @@ export async function deleteCommentBlock(commentNode: HTMLElement) {
 }
 
 export async function resolveThread(commentNode: HTMLElement) {
+    if (!canComment()) return;
     const sourceLine = commentNode.getAttribute('data-source-line');
     if (!sourceLine) return;
 
@@ -232,6 +244,7 @@ export async function resolveThread(commentNode: HTMLElement) {
 }
 
 export async function insertCommentBlock(sourceLine?: string, nextLine?: string) {
+    if (!canComment()) return;
     const path = window.location.pathname.substring(1) || 'README.md';
 
     let startLine = 0;
