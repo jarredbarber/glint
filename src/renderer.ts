@@ -345,6 +345,51 @@ export const renderRightOutline = (headings: HeadingNode[]) => {
     `;
 };
 
+export const renderBreadcrumbs = (currentPath: string) => {
+    // Clean path
+    const path = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath;
+    if (!path || path === '/' || path === 'index.md') return '';
+
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length === 0) return '';
+
+    let html = `
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                <li><a href="/" class="breadcrumb-home">🏠 Home</a></li>
+    `;
+
+    let currentUrl = '';
+
+    // Process all segments except the last one (which is the current page)
+    for (let i = 0; i < segments.length - 1; i++) {
+        const segment = segments[i];
+        currentUrl += '/' + segment;
+
+        // Capitalize first letter
+        const label = segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+
+        html += `
+            <li class="breadcrumb-separator">/</li>
+            <li><a href="${currentUrl}">${label}</a></li>
+        `;
+    }
+
+    // Add current page (last segment)
+    const lastSegment = segments[segments.length - 1];
+    // Strip .md extension for display if present
+    const label = lastSegment.replace(/\.md$/, '').charAt(0).toUpperCase() + lastSegment.replace(/\.md$/, '').slice(1).replace(/-/g, ' ');
+
+    html += `
+            <li class="breadcrumb-separator">/</li>
+            <li class="breadcrumb-current" aria-current="page">${label}</li>
+        </ol>
+    </nav>
+    `;
+
+    return html;
+};
+
 export interface RenderOptions {
     content: string;
     title: string;
@@ -367,23 +412,24 @@ export const renderHtml = (options: RenderOptions) => {
     const isShared = !!shareId;
 
     return `
-<!DOCTYPE html>
-<html lang="en">
-${renderHead(title, config.theme, styles)}
-<body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
-    <div class="mobile-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</div>
-    <div class="mobile-overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
+                                < !DOCTYPE html >
+                                    <html lang="en" >
+                                        ${renderHead(title, config.theme, styles)}
+    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data - access="${access || (authenticated ? 'edit' : 'view')}" >
+        <div class="mobile-toggle" onclick = "document.body.classList.toggle('sidebar-open')" >☰</div>
+            < div class="mobile-overlay" onclick = "document.body.classList.remove('sidebar-open')" > </div>
     ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
-    <main class="content">
-        <div class="content-wrapper">
-            <header class="article-header">
-                <h1>${title}</h1>
+    <main class="content" >
+        <div class="content-wrapper" >
+            ${renderBreadcrumbs(currentPath)}
+    <header class="article-header" >
+        <h1>${title} </h1>
                 ${renderMetadata(frontmatter)}
-                <div class="title-accent"></div>
-            </header>
+    <div class="title-accent" > </div>
+        </header>
             ${content}
-        </div>
-    </main>
+    </div>
+        </main>
     ${!isShared ? renderRightOutline(headings) : ''}
     ${!isShared ? `
     <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
@@ -438,126 +484,127 @@ ${renderHead(title, config.theme, styles)}
             }
         });
     </script>
-    ` : ''}
+    ` : ''
+        }
     ${renderScripts(shareId, scripts)}
-</body>
-</html>
-`;
+    </body>
+        </html>
+            `;
 };
 
 
 export const renderLoginPage = (config: GlintConfig, redirect: string = '/', error?: string) => `
-<!DOCTYPE html>
-<html lang="en">
-${renderHead('Login', config.theme)}
-<body class="${config.theme}">
-    <div class="login-container">
-        <div class="login-card">
-            <img src="/assets/logo.png" alt="glint" class="login-logo">
-            <h1>Login Required</h1>
+        < !DOCTYPE html >
+            <html lang="en" >
+                ${renderHead('Login', config.theme)}
+    <body class="${config.theme}" >
+        <div class="login-container" >
+            <div class="login-card" >
+                <img src="/assets/logo.png" alt = "glint" class="login-logo" >
+                    <h1>Login Required </h1>
             ${error ? `<div class="login-error">${escapeHtml(error)}</div>` : ''}
-            <form method="POST" action="/api/auth/login" class="login-form">
-                <input type="hidden" name="redirect" value="${escapeHtml(redirect)}">
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        autofocus
-                        autocomplete="current-password"
-                    >
-                </div>
-                <button type="submit" class="login-button">Login</button>
-            </form>
+    <form method="POST" action = "/api/auth/login" class="login-form" >
+        <input type="hidden" name = "redirect" value = "${escapeHtml(redirect)}" >
+            <div class="form-group" >
+                <label for= "password" > Password </label>
+                    < input
+                        type = "password"
+                        id = "password"
+                        name = "password"
+    required
+    autofocus
+    autocomplete = "current-password"
+        >
         </div>
-    </div>
-    <style>
+        < button type = "submit" class="login-button" > Login </button>
+            </form>
+            </div>
+            </div>
+            <style>
         /* Override body flex layout for login page */
         body {
-            display: block !important;
-            overflow: auto !important;
-            height: auto !important;
-        }
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1rem;
-        }
-        .login-card {
-            background: var(--sidebar-bg, #2d353b);
-            border-radius: 12px;
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        }
-        .login-logo {
-            width: 120px;
-            margin-bottom: 1.5rem;
-        }
-        .login-card h1 {
-            margin: 0 0 1.5rem 0;
-            font-size: 1.5rem;
-            color: var(--text-primary, #d3c6aa);
-        }
-        .login-error {
-            background: rgba(255, 100, 100, 0.2);
-            color: #ff6b6b;
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-        .login-form {
-            text-align: left;
-        }
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: var(--text-secondary, #9da9a0);
-        }
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color, #3d484d);
-            border-radius: 6px;
-            background: var(--bg-primary, #232a2e);
-            color: var(--text-primary, #d3c6aa);
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent-color, #a7c080);
-        }
-        .login-button {
-            width: 100%;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 6px;
-            background: var(--accent-color, #a7c080);
-            color: var(--bg-primary, #232a2e);
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        .login-button:hover {
-            opacity: 0.9;
-        }
-    </style>
-</body>
-</html>
-`;
+        display: block!important;
+        overflow: auto!important;
+        height: auto!important;
+    }
+        .login - container {
+    display: flex;
+    align - items: center;
+    justify - content: center;
+    min - height: 100vh;
+    padding: 1rem;
+}
+        .login - card {
+    background: var(--sidebar - bg, #2d353b);
+    border - radius: 12px;
+    padding: 2rem;
+    width: 100 %;
+    max - width: 400px;
+    text - align: center;
+    box - shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+        .login - logo {
+    width: 120px;
+    margin - bottom: 1.5rem;
+}
+        .login - card h1 {
+    margin: 0 0 1.5rem 0;
+    font - size: 1.5rem;
+    color: var(--text - primary, #d3c6aa);
+}
+        .login - error {
+    background: rgba(255, 100, 100, 0.2);
+    color: #ff6b6b;
+    padding: 0.75rem;
+    border - radius: 6px;
+    margin - bottom: 1rem;
+    font - size: 0.9rem;
+}
+        .login - form {
+    text - align: left;
+}
+        .form - group {
+    margin - bottom: 1.25rem;
+}
+        .form - group label {
+    display: block;
+    margin - bottom: 0.5rem;
+    font - size: 0.9rem;
+    color: var(--text - secondary, #9da9a0);
+}
+        .form - group input {
+    width: 100 %;
+    padding: 0.75rem;
+    border: 1px solid var(--border - color, #3d484d);
+    border - radius: 6px;
+    background: var(--bg - primary, #232a2e);
+    color: var(--text - primary, #d3c6aa);
+    font - size: 1rem;
+    box - sizing: border - box;
+}
+        .form - group input:focus {
+    outline: none;
+    border - color: var(--accent - color, #a7c080);
+}
+        .login - button {
+    width: 100 %;
+    padding: 0.75rem;
+    border: none;
+    border - radius: 6px;
+    background: var(--accent - color, #a7c080);
+    color: var(--bg - primary, #232a2e);
+    font - size: 1rem;
+    font - weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+        .login - button:hover {
+    opacity: 0.9;
+}
+</style>
+    </body>
+    </html>
+        `;
 
 function escapeHtml(str: string): string {
     return str
