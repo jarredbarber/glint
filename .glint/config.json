@@ -10,7 +10,7 @@
         "vf": "\\mathbf{#1}"
     },
     "auth": {
-        "enabled": true,
+        "enabled": false,
         "passwordHash": "$2b$10$8G4biaAfaWMrhjc.F7vRWuDk/jZAI930e51yJsDEPCI7PcSFFamEW",
         "sessionSecret": "M2rjnXXViR4TQPPoGdPtTUzxqy2cLyxDtAoKwBou+90=",
         "public": [

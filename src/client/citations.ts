@@ -40,9 +40,15 @@ function setupCitationInteractions() {
             }
         });
 
-        // Hover to show card
+        // Hover to show card with delay for mouse travel
         if (card) {
-            el.addEventListener('mouseenter', () => {
+            let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+            const showCard = () => {
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
+                }
                 // Position the card near the citation
                 const rect = el.getBoundingClientRect();
                 card.style.position = 'fixed';
@@ -51,9 +57,26 @@ function setupCitationInteractions() {
                 card.style.bottom = 'auto';
                 card.style.right = 'auto';
                 card.classList.add('visible');
+            };
+
+            const hideCard = () => {
+                hideTimeout = setTimeout(() => {
+                    card.classList.remove('visible');
+                }, 150); // Small delay to allow mouse to reach card
+            };
+
+            el.addEventListener('mouseenter', showCard);
+            el.addEventListener('mouseleave', hideCard);
+
+            // Keep card visible while hovering over it
+            card.addEventListener('mouseenter', () => {
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
+                }
             });
 
-            el.addEventListener('mouseleave', () => {
+            card.addEventListener('mouseleave', () => {
                 card.classList.remove('visible');
             });
         }
@@ -61,3 +84,4 @@ function setupCitationInteractions() {
 }
 
 export { };
+

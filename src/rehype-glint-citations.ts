@@ -91,17 +91,32 @@ export const rehypeGlintCitations: Plugin<[], Root> = function () {
             if (node.tagName !== 'h2') return;
 
             // Check if this is the "References" heading
-            const textContent = node.children
-                .filter((c): c is Text => c.type === 'text')
-                .map(c => c.value)
-                .join('')
-                .trim();
+            // Need to recursively extract text since autolink-headings wraps text in <a>
+            const extractText = (children: any[]): string => {
+                return children.map(c => {
+                    if (c.type === 'text') return c.value;
+                    if (c.type === 'element' && c.children) return extractText(c.children);
+                    return '';
+                }).join('');
+            };
+            const textContent = extractText(node.children).trim();
 
             if (textContent.toLowerCase() !== 'references') return;
 
-            // Find the next sibling <ul>
-            const nextSibling = parent.children[index + 1] as Element | undefined;
-            if (!nextSibling || nextSibling.tagName !== 'ul') return;
+            // Find the next sibling <ul> (skip whitespace text nodes)
+            let nextIndex = index + 1;
+            while (nextIndex < parent.children.length) {
+                const sibling = parent.children[nextIndex];
+                // Skip whitespace-only text nodes
+                if (sibling.type === 'text' && typeof (sibling as any).value === 'string' && !(sibling as any).value.trim()) {
+                    nextIndex++;
+                    continue;
+                }
+                break;
+            }
+            const nextSibling = parent.children[nextIndex] as Element | undefined;
+            if (!nextSibling || nextSibling.type !== 'element' || nextSibling.tagName !== 'ul') return;
+
 
             // Transform the <ul> into a styled bibliography
             nextSibling.properties = { className: ['glint-bibliography'] };
@@ -112,12 +127,9 @@ export const rehypeGlintCitations: Plugin<[], Root> = function () {
                 if ((li as Element).type !== 'element' || (li as Element).tagName !== 'li') continue;
                 const liEl = li as Element;
 
-                // Try to extract ref id from text
-                const liText = liEl.children
-                    .flatMap((c: any) => c.type === 'element' && c.tagName === 'p' ? c.children : [c])
-                    .filter((c: any) => c.type === 'text')
-                    .map((c: any) => c.value)
-                    .join('');
+                // Try to extract ref id from text (reuse extractText to handle nested elements)
+                const liText = extractText(liEl.children);
+
 
                 const idMatch = liText.match(/\[ref:([^\]]+)\]/);
                 if (idMatch) {

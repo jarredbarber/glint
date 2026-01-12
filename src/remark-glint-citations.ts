@@ -74,14 +74,17 @@ function getListItemText(item: ListItem): string {
                 if (inline.type === 'text') {
                     text += (inline as Text).value;
                 } else if (inline.type === 'link') {
-                    // Include the URL from links
-                    text += (inline as Link).url;
+                    // Include the URL from links, with space so parseReference can find it
+                    const url = (inline as Link).url;
+                    if (!text.endsWith(' ')) text += ' ';
+                    text += url;
                 }
             }
         }
     }
     return text;
 }
+
 
 export const remarkGlintCitations: Plugin<[], Root> = function () {
     return (tree: Root, file: VFile) => {

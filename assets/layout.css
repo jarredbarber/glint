@@ -1975,12 +1975,12 @@ body:has(.glint-inline-editor-container) .drag-handle {
 /* Hover card container */
 .glint-cite-cards {
     position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    display: none;
+    bottom: 0;
+    right: 0;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 1100;
 }
+
 
 /* Individual hover card */
 .glint-cite-card {
