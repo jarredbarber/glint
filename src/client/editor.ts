@@ -223,6 +223,13 @@ class GlintEditor {
                     this.options.onCancel();
                 }
             });
+
+            // Define :wq for Save and Quit
+            Vim.defineEx("wq", "wq", () => {
+                if (this.options.onSave) {
+                    this.options.onSave(this.getValue());
+                }
+            });
         }
     }
 
