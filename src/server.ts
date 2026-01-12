@@ -38,6 +38,9 @@ import { setupAuthRoutes } from './server/routes/auth.js';
 import { setupGitRoutes } from './server/routes/git.js';
 import { setupAuth } from './server/auth.js';
 import { ShareService } from './server/share.js';
+import { TaskScanner } from './tasks/scanner.js';
+import { setupTaskRoutes } from './server/routes/tasks.js';
+
 
 interface CacheEntry {
     html: string;
@@ -97,8 +100,16 @@ export async function createServer(contentDir: string) {
     // Setup Auth Routes
     await setupAuthRoutes(fastify, getConfig);
 
+    // Initialize Task Scanner
+    const taskScanner = new TaskScanner(contentDir);
+    await taskScanner.scanAll(); // Initial scan
+
     // Setup API Routes
-    await setupAPIRoutes(fastify, contentDir, getConfig, shareService);
+    await setupAPIRoutes(fastify, contentDir, getConfig, broadcast, taskScanner);
+
+    // Setup Task Routes
+    await setupTaskRoutes(fastify, contentDir, taskScanner);
+
 
     // Setup Git Routes
     await setupGitRoutes(fastify, contentDir, getConfig);

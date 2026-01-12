@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
             href.startsWith('http') ||
             href.startsWith('//') ||
             href.startsWith('mailto:') ||
+            link.getAttribute('data-router') === 'false' ||
             link.getAttribute('target') === '_blank') {
             return;
         }
@@ -106,8 +107,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (scroll) {
+                const hash = window.location.hash;
+                if (hash) {
+                    const target = document.querySelector(hash);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'auto', block: 'start' });
+                        target.classList.add('highlight-line');
+                        setTimeout(() => target.classList.remove('highlight-line'), 2000);
+                        return;
+                    }
+                }
                 window.scrollTo(0, 0);
             }
+
 
             document.dispatchEvent(new CustomEvent('glint:navigated'));
 

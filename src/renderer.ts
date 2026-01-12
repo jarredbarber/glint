@@ -3,7 +3,7 @@ import { GlintConfig } from './config.js';
 import { FileNode, renderFileTree } from './filetree.js';
 import { HeadingNode } from './rehype-extract-headings.js';
 
-export const renderHead = (title: string, theme: string) => `
+export const renderHead = (title: string, theme: string, styles: string[] = []) => `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +15,9 @@ export const renderHead = (title: string, theme: string) => `
     <link rel="stylesheet" href="/assets/themes/${theme}.css" id="theme-stylesheet">
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
+    ${styles.map(s => `<link rel="stylesheet" href="${s}">`).join('\n')}
     <script>
+
         // Apply user's preferred theme from localStorage (before first paint)
         (function() {
             var saved = localStorage.getItem('glint-theme');
@@ -50,6 +52,22 @@ export const renderSidebar = (options: SidebarOptions) => {
         ">Logout</button>
     ` : '';
 
+    // Views section (Task View)
+    const viewsSection = !isShared ? `
+        <details open class="sidebar-section">
+            <summary class="sidebar-header">Views</summary>
+            <nav class="views-list">
+                <ul>
+                    <li class="${currentPath === '/tasks' ? 'active' : ''}">
+                        <a href="/tasks" data-router="false">
+                            <span class="view-icon">✅</span> Task View
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </details>
+    ` : '';
+
     // If it's a shared view, we only show the branding and the outline, not the full file tree
     const filesSection = !isShared ? `
         <details open class="sidebar-section">
@@ -69,6 +87,7 @@ export const renderSidebar = (options: SidebarOptions) => {
             </a>
         </div>
         
+        ${viewsSection}
         ${filesSection}
     </div>
     <footer class="sidebar-footer">
@@ -107,7 +126,7 @@ export const renderSidebar = (options: SidebarOptions) => {
 `;
 };
 
-export const renderScripts = (shareId?: string) => `
+export const renderScripts = (shareId?: string, extraScripts: string[] = []) => `
 <script>
     // Global share context
     window.__glintShareId = ${shareId ? `'${shareId}'` : 'null'};
@@ -197,7 +216,9 @@ export const renderScripts = (shareId?: string) => `
 <script src="/assets/drag-reorder.bundle.js"></script>
 <script src="/assets/share.bundle.js"></script>
 <script src="/assets/citations.bundle.js"></script>
+${extraScripts.map(s => `<script src="${s}"></script>`).join('\n')}
 `;
+
 
 export const formatDate = (rawDate: unknown): string | null => {
     if (!rawDate) return null;
@@ -336,16 +357,19 @@ export interface RenderOptions {
     authenticated?: boolean;
     access?: string;
     shareId?: string;
+    scripts?: string[];
+    styles?: string[];
 }
 
+
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false, access, shareId } = options;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false, access, shareId, scripts = [], styles = [] } = options;
     const isShared = !!shareId;
 
     return `
 <!DOCTYPE html>
 <html lang="en">
-${renderHead(title, config.theme)}
+${renderHead(title, config.theme, styles)}
 <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
     ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
     <main class="content">
@@ -405,11 +429,12 @@ ${renderHead(title, config.theme)}
         </div>
     </div>
     ` : ''}
-    ${renderScripts(shareId)}
+    ${renderScripts(shareId, scripts)}
 </body>
 </html>
 `;
 };
+
 
 export const renderLoginPage = (config: GlintConfig, redirect: string = '/', error?: string) => `
 <!DOCTYPE html>

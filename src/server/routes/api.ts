@@ -11,8 +11,10 @@ export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
     getConfig: () => GlintConfig,
-    shareService?: any
+    shareService?: any,
+    scanner?: any // TaskScanner
 ) {
+
 
     // Helper to check access level and return 401/403 if insufficient
     const requireAccess = (
@@ -160,7 +162,10 @@ export async function setupAPIRoutes(
             await fs.writeFile(safePath, body.content, 'utf-8');
             const newHash = crypto.createHash('md5').update(body.content).digest('hex');
 
+            if (scanner) scanner.invalidate(body.path);
+
             return { success: true, hash: newHash };
+
         } catch (err: unknown) {
             if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
             request.log.error(err as Error);
@@ -239,7 +244,10 @@ export async function setupAPIRoutes(
 
             const newHash = crypto.createHash('md5').update(newContent).digest('hex');
 
+            if (scanner) scanner.invalidate(body.path);
+
             return { success: true, hash: newHash };
+
 
         } catch (err: unknown) {
             if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });

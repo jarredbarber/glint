@@ -55,6 +55,10 @@ export function rehypeSourceLines() {
                 const originalLine = processedLine + offset;
 
                 node.properties['data-source-line'] = originalLine;
+                if (!node.properties.id) {
+                    node.properties.id = `L${originalLine}`;
+                }
+
             }
         });
     };

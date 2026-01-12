@@ -2,9 +2,9 @@
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canEdit } from './permissions.js';
 
-export function injectTaskInteractions() {
+export function injectTaskInteractions(root: HTMLElement | Document = document, onUpdate?: (path: string) => void) {
     if (!canEdit()) return;
-    const checks = document.querySelectorAll('.glint-task-check');
+    const checks = root.querySelectorAll('.glint-task-check');
     checks.forEach(check => {
         const el = check as HTMLElement;
         if (el.dataset.initialized) return;
@@ -44,7 +44,10 @@ export function injectTaskInteractions() {
                 opt.onclick = async (ev) => {
                     ev.stopPropagation();
                     picker.remove();
-                    await updateTaskState(taskNode, s.marker);
+
+                    const sourcePath = taskNode.getAttribute('data-source-path');
+                    await updateTaskState(taskNode, s.marker, sourcePath || undefined);
+                    if (onUpdate && sourcePath) onUpdate(sourcePath);
                 };
                 picker.appendChild(opt);
             });
@@ -61,12 +64,13 @@ export function injectTaskInteractions() {
     });
 }
 
-export async function updateTaskState(taskNode: HTMLElement, newMarker: string) {
+export async function updateTaskState(taskNode: HTMLElement, newMarker: string, customPath?: string) {
     if (!canEdit()) return;
     const sourceLine = taskNode.getAttribute('data-source-line');
     if (!sourceLine) return;
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    // Use customPath if provided, otherwise fallback to current URL path
+    const path = customPath || (window.location.pathname.substring(1) || 'README.md');
     const lineNum = parseInt(sourceLine);
 
     try {
@@ -77,6 +81,12 @@ export async function updateTaskState(taskNode: HTMLElement, newMarker: string) 
 
         const lines = content.split('\n');
         const lineContent = lines[lineNum - 1];
+
+        // Ensure we match the line correctly (it might have changed since scan)
+        if (!lineContent.match(/^(\s*-?\s*)\[[ x/wbc]\]/i)) {
+            // If we are in the dashboard, we might want to alert that the line changed
+            console.warn("Task line mismatch, possibly file changed on disk.");
+        }
 
         let newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wbc]\]/i, `$1${newMarker}`);
 
@@ -118,12 +128,15 @@ export async function updateTaskState(taskNode: HTMLElement, newMarker: string) 
 
         if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
-        saveScrollPosition();
-        suppressSSEReload();
-        window.location.reload();
+        if (!customPath) {
+            saveScrollPosition();
+            suppressSSEReload();
+            window.location.reload();
+        }
     } catch (err: any) {
         alert(`Error updating task: ${err.message}`);
     } finally {
         taskNode.style.cursor = '';
     }
 }
+

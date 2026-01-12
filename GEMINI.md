@@ -223,7 +223,7 @@ States: `[ ]` open, `[x]` done, `[/]` progress, `[w]` waiting, `[b]` blocked
 Example:
 
 ```markdown
-- [ ] Review PR #42 (due:2026-02-05 @jarred #urgent)
+- [x] Review PR #42 (due:2026-02-05 @jarred #urgent completed:2026-01-12)
 - [x] Submit expenses (completed:2026-01-11)
 ```
 

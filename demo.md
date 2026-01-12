@@ -26,7 +26,7 @@ With *markdown* **formatting** and $m^a(t){\hbar}$ and
 ```python
 here is how you should have implemented it dummy
 ```
-- [ ] Resolve this comment (due:2026-03-04)
+- [x] Resolve this comment (due:2026-03-04 completed:2026-01-12)
 ````
 
 ```comment
