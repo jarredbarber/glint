@@ -1719,6 +1719,26 @@ h6:hover .heading-edit-icon,
     font-weight: 500;
 }
 
+/* Recent Files Sidebar */
+.recent-files {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recent-files .sidebar-section-title {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.recent-files .sidebar-item {
+    font-size: 0.9rem;
+}
+
 .line-tracker-hint .hint-item {
     padding: 0.15rem 0.5rem;
     white-space: nowrap;
