@@ -162,7 +162,7 @@ export async function setupAPIRoutes(
             await fs.writeFile(safePath, body.content, 'utf-8');
             const newHash = crypto.createHash('md5').update(body.content).digest('hex');
 
-            if (scanner) scanner.invalidate(body.path);
+            if (scanner) await scanner.refresh(body.path);
 
             return { success: true, hash: newHash };
 
