@@ -70,6 +70,64 @@ Create an optional `glint.json` in your content root:
 | `theme` | `everforest-dark` | CSS theme name (see below) |
 | `baseFile` | `README.md` | Index file for `/` and `/folder/` |
 
+## Authentication
+
+Glint supports optional password protection for your notes.
+
+### Setup
+
+Run the setup command to configure authentication:
+
+```bash
+glint setup-auth /path/to/notes
+```
+
+This will:
+- Prompt for a password (min 8 characters)
+- Generate a secure session secret
+- Update your `glint.json` with auth settings
+
+### Configuration
+
+After setup, your `glint.json` will include:
+
+```json
+{
+  "auth": {
+    "enabled": true,
+    "passwordHash": "<bcrypt hash>",
+    "sessionSecret": "<generated secret>",
+    "public": []
+  }
+}
+```
+
+### Public Paths
+
+Make specific paths accessible without login by adding them to `auth.public`:
+
+```json
+{
+  "auth": {
+    "enabled": true,
+    "public": [
+      { "path": "docs/**", "access": "view" },
+      { "path": "README.md", "access": "view" },
+      { "path": "blog/*", "access": "comment" }
+    ]
+  }
+}
+```
+
+**Access levels:**
+- `view` — Read-only access
+- `comment` — Can view and add comments
+- `edit` — Full access (same as authenticated)
+
+**Path patterns:**
+- `*` — Matches a single path segment
+- `**` — Matches multiple path segments
+
 ## Themes
 
 Glint comes with several high-quality built-in themes:

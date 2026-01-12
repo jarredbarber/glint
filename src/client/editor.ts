@@ -94,6 +94,22 @@ const glintHighlightStyle = HighlightStyle.define([
     { tag: t.invalid, color: "var(--red)" },
 ]);
 
+/**
+ * Relative line numbers gutter.
+ * Shows absolute line number for current line, relative offsets for others.
+ */
+function relativeLineNumbers() {
+    return lineNumbers({
+        formatNumber: (lineNo: number, state: EditorState) => {
+            const cursorLine = state.doc.lineAt(state.selection.main.head).number;
+            if (lineNo === cursorLine) {
+                return String(lineNo);
+            }
+            return String(Math.abs(lineNo - cursorLine));
+        }
+    });
+}
+
 interface GlintEditorOptions {
     initialValue?: string;
     initialLine?: number; // 1-indexed line to scroll to on load
@@ -137,8 +153,9 @@ class GlintEditor {
         }
 
         const extensions = [
-            lineNumbers(),
+            relativeLineNumbers(),
             highlightActiveLineGutter(),
+            EditorView.lineWrapping,
             highlightSpecialChars(),
             history(),
             foldGutter(),
@@ -230,6 +247,33 @@ class GlintEditor {
                     this.options.onSave(this.getValue());
                 }
             });
+
+            // Define <Space>a to insert align environment
+            Vim.defineAction("insertAlign", (cm: any) => {
+                const alignTemplate = "$$\\begin{align*}\n\n\\end{align*}$$";
+                const cursor = cm.getCursor();
+                cm.replaceRange(alignTemplate, cursor);
+                // Move cursor to the empty line inside the align block
+                cm.setCursor({ line: cursor.line + 1, ch: 0 });
+            });
+            Vim.mapCommand("<Space>a", "action", "insertAlign", {}, { context: "normal" });
+
+            // Define <Space>e to insert equation environment
+            Vim.defineAction("insertEquation", (cm: any) => {
+                const eqnTemplate = "$$\n\n$$";
+                const cursor = cm.getCursor();
+                cm.replaceRange(eqnTemplate, cursor);
+                cm.setCursor({ line: cursor.line + 1, ch: 0 });
+            });
+            Vim.mapCommand("<Space>e", "action", "insertEquation", {}, { context: "normal" });
+
+            // Define <Space>m for inline math
+            Vim.defineAction("insertInlineMath", (cm: any) => {
+                const cursor = cm.getCursor();
+                cm.replaceRange("$$", cursor);
+                cm.setCursor({ line: cursor.line, ch: cursor.ch + 1 });
+            });
+            Vim.mapCommand("<Space>m", "action", "insertInlineMath", {}, { context: "normal" });
         }
     }
 
