@@ -76,9 +76,18 @@ export class TaskScanner {
 
     /**
      * Invalidate cache for a specific file.
+     * WARNING: This removes the file from cache. Use refresh() to update.
      */
     invalidate(relativePath: string) {
         this.cache.delete(relativePath);
+    }
+
+    /**
+     * Force re-scan and cache update for a specific file.
+     */
+    async refresh(relativePath: string): Promise<void> {
+        const fullPath = path.join(this.contentRoot, relativePath);
+        await this.scanFile(fullPath, relativePath);
     }
 
     /**

@@ -94,8 +94,8 @@ export async function setupTaskRoutes(fastify: FastifyInstance, contentDir: stri
             lines[lineIndex] = `${indent}- [${marker}] ${newRest}`;
             await fs.writeFile(fullPath, lines.join('\n'), 'utf-8');
 
-            // Invalidate scanner cache
-            scanner.invalidate(sourcePath);
+            // Refresh scanner cache immediately
+            await scanner.refresh(sourcePath);
 
             return { success: true, newState: marker };
         } catch (error) {
