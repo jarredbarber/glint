@@ -111,6 +111,11 @@ export const renderSidebar = (options: SidebarOptions) => {
             })();
         </script>
         ` : ''}
+        ${!isShared && authenticated ? `
+        <button class="share-sidebar-button" onclick="window.openShareModal()">
+            <span class="share-icon">🔗</span> Share
+        </button>
+        ` : ''}
         ${logoutButton}
     </footer>
 </aside>
@@ -203,6 +208,7 @@ export const renderScripts = (shareId?: string) => `
 <script src="/assets/editor.bundle.js"></script>
 <script src="/assets/editor-integration.bundle.js"></script>
 <script src="/assets/image-resize.bundle.js"></script>
+<script src="/assets/share.bundle.js"></script>
 `;
 
 export const formatDate = (rawDate: unknown): string | null => {
@@ -303,6 +309,52 @@ ${renderHead(title, config.theme)}
             ${content}
         </div>
     </main>
+    ${!isShared ? `
+    <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
+        <div class="share-modal">
+            <div class="share-modal-header">
+                <h2>Share Page</h2>
+                <button class="close-modal" onclick="window.closeShareModal()">&times;</button>
+            </div>
+            <div class="share-modal-content">
+                <div class="share-form">
+                    <div class="form-row">
+                        <div class="form-group-share">
+                            <label>Permission</label>
+                            <select id="share-access">
+                                <option value="view">View Only</option>
+                                <option value="comment">Allow Comments</option>
+                                <option value="edit">Allow Editing</option>
+                            </select>
+                        </div>
+                        <div class="form-group-share">
+                            <label>Expires</label>
+                            <select id="share-expiry">
+                                <option value="0">Never</option>
+                                <option value="3600">1 Hour</option>
+                                <option value="86400">1 Day</option>
+                                <option value="604800">1 Week</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-share">
+                        <label>Label (optional)</label>
+                        <input type="text" id="share-label" placeholder="e.g. For client review">
+                    </div>
+                    <button class="create-share-btn" onclick="window.createShare()">Create Shareable Link</button>
+                </div>
+
+                <div class="existing-shares">
+                    <h3>Active Share Links</h3>
+                    <div class="share-list" id="share-list">
+                        <!-- Populated by JS -->
+                        <div class="loading-shares">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
     ${renderScripts(shareId)}
 </body>
 </html>

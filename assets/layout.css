@@ -1359,3 +1359,231 @@ h6:hover .heading-edit-icon,
     color: var(--aqua);
     font-weight: 600;
 }
+/* Share Sidebar Button */
+.share-sidebar-button {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    border-radius: 4px;
+    background-color: var(--blue);
+    color: white;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
+}
+
+.share-sidebar-button:hover {
+    background-color: var(--aqua);
+}
+
+/* Share Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.share-modal {
+    background: var(--bg-secondary);
+    width: 100%;
+    max-width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.modal-overlay.open .share-modal {
+    transform: translateY(0);
+}
+
+.share-modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.share-modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text-color) !important;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.share-modal-content {
+    padding: 1.5rem;
+}
+
+.share-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-group-share {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.form-group-share label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+.form-group-share select, .form-group-share input {
+    padding: 0.5rem;
+    border-radius: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-family: inherit;
+}
+
+.create-share-btn {
+    padding: 0.6rem;
+    background: var(--green);
+    color: var(--bg-color);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: opacity 0.2s;
+}
+
+.create-share-btn:hover {
+    opacity: 0.9;
+}
+
+.existing-shares {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
+
+.existing-shares h3 {
+    font-size: 1rem;
+    margin: 0 0 1rem 0;
+    color: var(--text-dim) !important;
+}
+
+.share-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.share-item {
+    background: var(--bg-primary);
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.share-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.share-label-text {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.share-access-badge {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: var(--bg-highlight);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.share-url-container {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.share-url-input {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+    background: var(--bg-dim);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-family: monospace;
+}
+
+.copy-btn, .revoke-btn {
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    background: var(--bg-highlight);
+}
+
+.revoke-btn {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.revoke-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+}
