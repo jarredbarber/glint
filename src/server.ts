@@ -30,6 +30,8 @@ import { resolveContentPath } from './utils/fs-utils.js';
 
 import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
+import { setupAuthRoutes } from './server/routes/auth.js';
+import { setupAuth } from './server/auth.js';
 
 interface CacheEntry {
     html: string;
@@ -68,11 +70,20 @@ export async function createServer(contentDir: string) {
 
     const fastify = Fastify({ logger: true });
 
+    // Config getter for dynamic access
+    const getConfig = () => config;
+
+    // Setup Auth (must be before routes)
+    await setupAuth(fastify, getConfig);
+
     // Setup SSE
     const { broadcast } = setupSSERoutes(fastify);
 
+    // Setup Auth Routes
+    await setupAuthRoutes(fastify, getConfig);
+
     // Setup API Routes
-    await setupAPIRoutes(fastify, contentDir);
+    await setupAPIRoutes(fastify, contentDir, getConfig);
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
@@ -162,9 +173,22 @@ export async function createServer(contentDir: string) {
     fastify.get('/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
 
+        // Skip auth check for login page
+        if (urlPath === 'login') {
+            // Login page will be handled by auth routes
+            return reply.code(404).send('Not Found');
+        }
+
+        // Check authentication if auth is enabled
+        const access = request.getAccess(urlPath);
+        if (access === null) {
+            // Not authenticated and path is not public - redirect to login
+            return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent('/' + urlPath)}`);
+        }
+
         try {
             // Note: We use resolveContentPath just to get the safe path and type,
-            // but we don't rely on its isMarkdown check for rendering logic 
+            // but we don't rely on its isMarkdown check for rendering logic
             // because we handle static files and markdown separately.
             const { safePath, stats, isMarkdown } = await resolveContentPath(contentDir, urlPath, config, false);
 
@@ -218,15 +242,17 @@ export async function createServer(contentDir: string) {
             // Get headings from plugin
             const headings = (vfile.data.headings as HeadingNode[]) || [];
 
-            const fullHtml = renderer.renderHtml(
-                htmlContent,
-                pageTitle,
+            const fullHtml = renderer.renderHtml({
+                content: htmlContent,
+                title: pageTitle,
                 config,
                 fileTree,
-                urlPath,
+                currentPath: urlPath,
                 headings,
-                frontmatter
-            );
+                frontmatter,
+                authEnabled: config.auth?.enabled ?? false,
+                authenticated: request.isAuthenticated(),
+            });
 
             // Cache it
             cache.set(cacheKey, { html: fullHtml, mtime: stats!.mtimeMs });

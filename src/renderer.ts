@@ -29,8 +29,25 @@ export const renderHead = (title: string, theme: string) => `
 </head>
 `;
 
-export const renderSidebar = (fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = [], currentTheme: string = 'everforest-dark') => {
+export interface SidebarOptions {
+    fileTree: FileNode[];
+    currentPath: string;
+    headings?: HeadingNode[];
+    currentTheme?: string;
+    authEnabled?: boolean;
+    authenticated?: boolean;
+}
+
+export const renderSidebar = (options: SidebarOptions) => {
+    const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false } = options;
     const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+
+    const logoutButton = authEnabled && authenticated ? `
+        <button class="logout-button" onclick="
+            fetch('/api/auth/logout', { method: 'POST' })
+                .then(() => window.location.reload());
+        ">Logout</button>
+    ` : '';
 
     return `
 <aside class="sidebar">
@@ -46,7 +63,7 @@ export const renderSidebar = (fileTree: FileNode[], currentPath: string, heading
                 <ul>${renderFileTree(fileTree, currentPath)}</ul>
             </nav>
         </details>
-        
+
         ${headings.length > 0 ? `
         <details open class="sidebar-section" style="margin-top: 1rem;">
             <summary class="sidebar-header">Outline</summary>
@@ -72,6 +89,20 @@ export const renderSidebar = (fileTree: FileNode[], currentPath: string, heading
         ">
             ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
+        <label class="vim-toggle">
+            <input type="checkbox" id="vim-mode-toggle" onchange="
+                localStorage.setItem('glint-vim-mode', this.checked);
+            ">
+            <span>Vim mode</span>
+        </label>
+        <script>
+            (function() {
+                var stored = localStorage.getItem('glint-vim-mode');
+                var enabled = stored === null ? true : stored === 'true';
+                document.getElementById('vim-mode-toggle').checked = enabled;
+            })();
+        </script>
+        ${logoutButton}
     </footer>
 </aside>
 `;
@@ -123,6 +154,11 @@ export const renderScripts = () => `
                 return;
             }
             console.log("Config changed, reloading...");
+            // Save scroll position before reload
+            const contentEl = document.querySelector('.content') || document.querySelector('main');
+            if (contentEl) {
+                sessionStorage.setItem('glint-scroll-y', String(contentEl.scrollTop));
+            }
             window.location.reload();
         }
     };
@@ -202,12 +238,26 @@ export const renderMetadata = (frontmatter: Record<string, unknown>) => {
     return html;
 };
 
-export const renderHtml = (content: string, title: string, config: GlintConfig, fileTree: FileNode[], currentPath: string, headings: HeadingNode[] = [], frontmatter: Record<string, unknown> = {}) => `
+export interface RenderOptions {
+    content: string;
+    title: string;
+    config: GlintConfig;
+    fileTree: FileNode[];
+    currentPath: string;
+    headings?: HeadingNode[];
+    frontmatter?: Record<string, unknown>;
+    authEnabled?: boolean;
+    authenticated?: boolean;
+}
+
+export const renderHtml = (options: RenderOptions) => {
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false } = options;
+    return `
 <!DOCTYPE html>
 <html lang="en">
 ${renderHead(title, config.theme)}
 <body class="${config.theme}">
-    ${renderSidebar(fileTree, currentPath, headings, config.theme)}
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated })}
     <main class="content">
         <div class="content-wrapper">
             <header class="article-header">
@@ -222,3 +272,120 @@ ${renderHead(title, config.theme)}
 </body>
 </html>
 `;
+};
+
+export const renderLoginPage = (config: GlintConfig, redirect: string = '/', error?: string) => `
+<!DOCTYPE html>
+<html lang="en">
+${renderHead('Login', config.theme)}
+<body class="${config.theme}">
+    <div class="login-container">
+        <div class="login-card">
+            <img src="/assets/logo.png" alt="glint" class="login-logo">
+            <h1>Login Required</h1>
+            ${error ? `<div class="login-error">${escapeHtml(error)}</div>` : ''}
+            <form method="POST" action="/api/auth/login" class="login-form">
+                <input type="hidden" name="redirect" value="${escapeHtml(redirect)}">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        autofocus
+                        autocomplete="current-password"
+                    >
+                </div>
+                <button type="submit" class="login-button">Login</button>
+            </form>
+        </div>
+    </div>
+    <style>
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .login-card {
+            background: var(--sidebar-bg, #2d353b);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .login-logo {
+            width: 120px;
+            margin-bottom: 1.5rem;
+        }
+        .login-card h1 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.5rem;
+            color: var(--text-primary, #d3c6aa);
+        }
+        .login-error {
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6b6b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .login-form {
+            text-align: left;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary, #9da9a0);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color, #3d484d);
+            border-radius: 6px;
+            background: var(--bg-primary, #232a2e);
+            color: var(--text-primary, #d3c6aa);
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color, #a7c080);
+        }
+        .login-button {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent-color, #a7c080);
+            color: var(--bg-primary, #232a2e);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .login-button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</body>
+</html>
+`;
+
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}

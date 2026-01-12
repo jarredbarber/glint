@@ -1,4 +1,4 @@
-import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
+import { saveScrollPosition, suppressSSEReload, handleAuthError } from './scroll-utils.js';
 
 // Extend Window interface for global editing state
 declare global {
@@ -16,6 +16,18 @@ interface EditorOptions {
 }
 
 declare const GlintEditor: any;
+
+const VIM_MODE_KEY = 'glint-vim-mode';
+
+function getVimModePreference(): boolean {
+    const stored = localStorage.getItem(VIM_MODE_KEY);
+    // Default to true (vim mode enabled)
+    return stored === null ? true : stored === 'true';
+}
+
+function setVimModePreference(enabled: boolean): void {
+    localStorage.setItem(VIM_MODE_KEY, String(enabled));
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     let activeEditor: any = null;
@@ -229,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof GlintEditor !== 'undefined') {
                 activeEditor = new GlintEditor(activeEditorContainer, {
                     initialValue: preambleContent,
-                    vimMode: true,
+                    vimMode: getVimModePreference(),
                     onSave: async (newContent: string) => {
                         const newLines = [...lines];
                         newLines.splice(0, endLine - 1, newContent);
@@ -338,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeEditor = new GlintEditor(activeEditorContainer, {
                     initialValue: sectionContent,
                     initialLine: initialRelativeLine,
-                    vimMode: true,
+                    vimMode: getVimModePreference(),
                     onSave: async (newSectionContent: string) => {
                         const newLines = [...lines];
                         const deleteCount = endLineIndex === -1 ? lines.length - startLine + 1 : endLineIndex - startLine;
@@ -443,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof GlintEditor !== 'undefined') {
                 activeEditor = new GlintEditor(activeEditorContainer, {
                     initialValue: innerContent,
-                    vimMode: true,
+                    vimMode: getVimModePreference(),
                     language: language, // Pass the detected language
                     onSave: async (editedInnerContent: string) => {
                         // Reconstruct full block
@@ -506,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // If there's a pending reload from SSE, trigger it now
         if (window.__glintPendingReload) {
             window.__glintPendingReload = false;
+            saveScrollPosition();
             window.location.reload();
         }
     }

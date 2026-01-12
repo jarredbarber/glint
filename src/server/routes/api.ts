@@ -1,13 +1,40 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { loadConfig, type GlintConfig } from '../../config.js';
+import { loadConfig, type GlintConfig, type AccessLevel } from '../../config.js';
 import { resolveContentPath } from '../../utils/fs-utils.js';
 
-export async function setupAPIRoutes(fastify: FastifyInstance, contentDir: string) {
+export async function setupAPIRoutes(
+    fastify: FastifyInstance,
+    contentDir: string,
+    getConfig?: () => GlintConfig
+) {
     let config = await loadConfig(contentDir);
+    const resolveConfig = () => getConfig?.() ?? config;
+
+    // Helper to check access level and return 401/403 if insufficient
+    const requireAccess = (
+        request: FastifyRequest,
+        reply: FastifyReply,
+        urlPath: string,
+        requiredLevel: AccessLevel
+    ): boolean => {
+        const access = request.getAccess(urlPath);
+        if (access === null) {
+            reply.code(401).send({ error: 'Authentication required', authRequired: true });
+            return false;
+        }
+
+        const levelHierarchy: Record<AccessLevel, number> = { view: 1, comment: 2, edit: 3 };
+        if (levelHierarchy[access] < levelHierarchy[requiredLevel]) {
+            reply.code(403).send({ error: 'Insufficient permissions' });
+            return false;
+        }
+
+        return true;
+    };
 
     // Register multipart support
     await fastify.register(fastifyMultipart, {
@@ -47,7 +74,12 @@ export async function setupAPIRoutes(fastify: FastifyInstance, contentDir: strin
                 return reply.code(400).send({ error: 'Missing path or content' });
             }
 
-            const { safePath } = await resolveContentPath(contentDir, body.path, config);
+            // Check edit access
+            if (!requireAccess(request, reply, body.path, 'edit')) {
+                return;
+            }
+
+            const { safePath } = await resolveContentPath(contentDir, body.path, resolveConfig());
 
             // Optimistic locking
             if (body.hash) {
@@ -79,8 +111,14 @@ export async function setupAPIRoutes(fastify: FastifyInstance, contentDir: strin
     // Get Source
     fastify.get('/api/source/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
+
+        // Require at least view access to read source
+        if (!requireAccess(request, reply, urlPath, 'view')) {
+            return;
+        }
+
         try {
-            const { safePath } = await resolveContentPath(contentDir, urlPath, config, false);
+            const { safePath } = await resolveContentPath(contentDir, urlPath, resolveConfig(), false);
             const content = await fs.readFile(safePath, 'utf-8');
             const hash = crypto.createHash('md5').update(content).digest('hex');
             return { content, hash, path: urlPath };
@@ -119,7 +157,12 @@ export async function setupAPIRoutes(fastify: FastifyInstance, contentDir: strin
                 return reply.code(400).send({ error: 'Missing file or articlePath' });
             }
 
-            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, config);
+            // Check edit access for the article being modified
+            if (!requireAccess(request, reply, articlePath, 'edit')) {
+                return;
+            }
+
+            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, resolveConfig());
 
             const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
             const assetsDir = path.join(path.dirname(resolvedArticlePath), assetsDirName);
