@@ -12,8 +12,6 @@ $$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
 - **Live Reload**: Updates instantly when you save.
 - **Math First**:
   - Full LaTeX support via KaTeX.
-  - Align blocks `$$$ ... $$$`.
-  - Numbered equations (enabled in frontmatter).
 - **Diagrams**: Mermaid support (Code blocks with language `mermaid`).
 - **Wiki-links**: Use `[[Note Name]]` or `[[Note Name|Label]]` to link pages.
 - **Interactive Widgets**:
