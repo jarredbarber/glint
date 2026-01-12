@@ -105,6 +105,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 visual.style.left = `${contentRect.left}px`;
                 visual.style.width = `${contentRect.width}px`;
 
+                // Calculate left position for the badge
+                const hintWidth = hint.getBoundingClientRect().width || 60; // fallback width
+                const sidebarWidth = 250;
+                let hintLeft = contentRect.left - hintWidth - 12;
+
+                // Prevent overlap with sidebar if possible, but prioritize visibility near content
+                // If it goes too far left, just let it be, z-index handles overlap if valid
+                if (hintLeft < sidebarWidth + 10) {
+                    // If really tight, just stick it to the edge of the content
+                    hintLeft = contentRect.left - hintWidth - 8;
+                }
+
+                hint.style.left = `${hintLeft}px`;
+
                 if (!isVisible) {
                     tracker.classList.add('visible');
                     isVisible = true;
@@ -121,6 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tracker.classList.remove('visible');
             isVisible = false;
         });
+
+        // Hide on scroll to prevent "ghost" lines over large widgets
+        content.addEventListener('scroll', () => {
+            if (isVisible) {
+                tracker.classList.remove('visible');
+                isVisible = false;
+            }
+        }, { passive: true });
 
         const observer = new MutationObserver(() => {
             if (window.__glintEditingActive) {
