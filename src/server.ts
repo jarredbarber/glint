@@ -25,6 +25,8 @@ import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
 import { rehypeGlintImage } from './rehype-glint-image.js';
+import { remarkGlintCitations } from './remark-glint-citations.js';
+import { rehypeGlintCitations } from './rehype-glint-citations.js';
 import { VFile } from 'vfile';
 import * as renderer from './renderer.js';
 import { resolveContentPath } from './utils/fs-utils.js';
@@ -53,12 +55,14 @@ function createProcessor(config: GlintConfig) {
         .use(remarkMath)  // Protect $...$ and $$...$$ from markdown parsing
         .use(remarkGfm)
         .use(remarkGlintWidgets)
+        .use(remarkGlintCitations)
         .use(remarkWikiLinkGlint)
         .use(remarkMermaidGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeSourceLines)
         .use(rehypeRaw)
         .use(rehypeGlintImage)
+        .use(rehypeGlintCitations)
         .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)

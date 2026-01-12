@@ -211,6 +211,7 @@ export const renderScripts = (shareId?: string) => `
 <script src="/assets/image-resize.bundle.js"></script>
 <script src="/assets/drag-reorder.bundle.js"></script>
 <script src="/assets/share.bundle.js"></script>
+<script src="/assets/citations.bundle.js"></script>
 `;
 
 export const formatDate = (rawDate: unknown): string | null => {

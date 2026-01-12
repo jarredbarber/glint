@@ -7,6 +7,16 @@
 This project uses **bd (beads)** for issue tracking.
 Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
 
+## Bead workflow
+
+1. Find a bead using `bd ready --json`. Use the suggested order + your judgement about what is important to work on.
+2. Claim the bead by setting its state to in progress `bd update <bead-id> -s in_progress`
+3. Follow the instructions to design, implement, or review
+4. Keep the bead up to date with status updates.
+5. When done, decide if you need to issue follow-up beads for additional work or review.
+6. Close the bead with `bd close` and push your work to github
+7. Go to step (1) and find a new bead to work on.
+
 **Quick reference:**
 
 - `bd ready` - Find unblocked work

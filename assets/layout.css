@@ -1384,6 +1384,7 @@ h6:hover .heading-edit-icon,
     color: var(--aqua);
     font-weight: 600;
 }
+
 /* Share Sidebar Button */
 .share-sidebar-button {
     width: 100%;
@@ -1498,7 +1499,8 @@ h6:hover .heading-edit-icon,
     font-weight: 500;
 }
 
-.form-group-share select, .form-group-share input {
+.form-group-share select,
+.form-group-share input {
     padding: 0.5rem;
     border-radius: 6px;
     background: var(--bg-primary);
@@ -1588,7 +1590,8 @@ h6:hover .heading-edit-icon,
     font-family: monospace;
 }
 
-.copy-btn, .revoke-btn {
+.copy-btn,
+.revoke-btn {
     padding: 0.3rem 0.6rem;
     border-radius: 4px;
     border: 1px solid var(--border-color);
@@ -1915,10 +1918,13 @@ body.shared-view .content-wrapper {
 }
 
 @keyframes dropPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translate(-50%, -50%) scale(1);
         opacity: 1;
     }
+
     50% {
         transform: translate(-50%, -50%) scale(1.2);
         opacity: 0.7;
@@ -1938,7 +1944,132 @@ body:has(.glint-inline-editor-container) .drag-handle {
     .drag-handle {
         display: none !important;
     }
+
     .draggable-section {
         cursor: default !important;
     }
+}
+
+/* ===========================
+   CITATIONS & BIBLIOGRAPHY
+   =========================== */
+
+/* Inline citation */
+.glint-cite {
+    color: var(--accent-color, #81a1c1);
+    cursor: pointer;
+    font-size: 0.85em;
+    vertical-align: super;
+    text-decoration: none;
+    font-style: normal;
+    transition: color 0.2s, background 0.2s;
+    padding: 0 0.15em;
+    border-radius: 3px;
+}
+
+.glint-cite:hover {
+    background: var(--hover-bg, rgba(129, 161, 193, 0.15));
+    color: var(--accent-color-bright, #a3c4dc);
+}
+
+/* Hover card container */
+.glint-cite-cards {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    display: none;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Individual hover card */
+.glint-cite-card {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    max-width: 320px;
+    background: var(--bg-primary, #2e3440);
+    border: 1px solid var(--border-color, #3b4252);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    display: none;
+    pointer-events: auto;
+}
+
+.glint-cite-card.visible {
+    display: block;
+}
+
+.glint-cite-card .cite-title {
+    display: block;
+    color: var(--text-primary, #eceff4);
+    margin-bottom: 0.25rem;
+}
+
+.glint-cite-card .cite-meta {
+    color: var(--text-secondary, #9da9a0);
+    font-size: 0.85em;
+    margin-bottom: 0.25rem;
+}
+
+.glint-cite-card .cite-url {
+    display: block;
+    color: var(--accent-color, #81a1c1);
+    font-size: 0.8em;
+    word-break: break-all;
+    text-decoration: none;
+}
+
+.glint-cite-card .cite-url:hover {
+    text-decoration: underline;
+}
+
+/* Bibliography section */
+.glint-bibliography {
+    list-style-type: decimal;
+    padding-left: 2rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--border-color, #3b4252);
+    padding-top: 1rem;
+}
+
+.glint-bib-entry {
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.glint-bib-entry:target,
+.glint-bib-entry:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.05));
+}
+
+.glint-bib-entry .bib-title {
+    font-weight: 500;
+    color: var(--text-primary, #eceff4);
+}
+
+.glint-bib-entry .bib-author {
+    color: var(--text-secondary, #9da9a0);
+}
+
+.glint-bib-entry .bib-year {
+    color: var(--text-muted, #6b7280);
+}
+
+.glint-bib-entry .bib-url {
+    display: block;
+    color: var(--accent-color, #81a1c1);
+    font-size: 0.85em;
+    text-decoration: none;
+    margin-top: 0.25rem;
+}
+
+.glint-bib-entry .bib-url:hover {
+    text-decoration: underline;
 }
