@@ -13,6 +13,11 @@
         "enabled": true,
         "passwordHash": "$2b$10$8G4biaAfaWMrhjc.F7vRWuDk/jZAI930e51yJsDEPCI7PcSFFamEW",
         "sessionSecret": "M2rjnXXViR4TQPPoGdPtTUzxqy2cLyxDtAoKwBou+90=",
-        "public": []
+        "public": [
+            {
+                "path": "test-shares.md",
+                "access": "edit"
+            }
+        ]
     }
 }

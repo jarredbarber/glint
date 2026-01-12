@@ -34,6 +34,7 @@ import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
 import { setupAuthRoutes } from './server/routes/auth.js';
 import { setupAuth } from './server/auth.js';
+import { ShareService } from './server/share.js';
 
 interface CacheEntry {
     html: string;
@@ -78,8 +79,12 @@ export async function createServer(contentDir: string) {
     // Parse form submissions (needed for login form)
     await fastify.register(formbody);
 
+    // Initialize Share Service
+    const shareService = new ShareService(contentDir);
+    await shareService.load();
+
     // Setup Auth (must be before routes)
-    await setupAuth(fastify, getConfig);
+    await setupAuth(fastify, getConfig, shareService);
 
     // Setup SSE
     const { broadcast } = setupSSERoutes(fastify);
@@ -88,13 +93,14 @@ export async function createServer(contentDir: string) {
     await setupAuthRoutes(fastify, getConfig);
 
     // Setup API Routes
-    await setupAPIRoutes(fastify, contentDir, getConfig);
+    await setupAPIRoutes(fastify, contentDir, getConfig, shareService);
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
 
     // Title cache for sidebar
     const titleCache = new Map<string, string>();
+    let fileTree: FileNode[] = [];
 
     const updateTitleCache = async (relativePath: string) => {
         try {
@@ -173,7 +179,73 @@ export async function createServer(contentDir: string) {
         }
     };
     await scanTitles(initialTree);
-    let fileTree = await buildFileTree(contentDir, '', titleCache);
+    fileTree = await buildFileTree(contentDir, '', titleCache);
+
+    // Share Route
+    fastify.get('/s/:shareId', async (request, reply) => {
+        const { shareId } = request.params as { shareId: string };
+        const share = shareService.getShare(shareId);
+
+        if (!share) {
+            return reply.code(404).send('Share link not found or expired');
+        }
+
+        try {
+            const { safePath, stats, isMarkdown } = await resolveContentPath(contentDir, share.filePath, config, false);
+
+            if (!isMarkdown || !stats) {
+                return reply.code(404).send('Linked file not found');
+            }
+
+            // Check if share is already cached (use a special key to avoid mixing with normal view)
+            const cacheKey = `share:${shareId}:${safePath}`;
+            if (cache.has(cacheKey)) {
+                const entry = cache.get(cacheKey)!;
+                if (entry.mtime >= stats!.mtimeMs) {
+                    return reply.type('text/html').send(entry.html);
+                }
+            }
+
+            // Read and Process
+            const rawContent = await fs.readFile(safePath, 'utf-8');
+            const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
+
+            // Run Unified Pipeline
+            const file = new VFile({ value: cleanContent });
+            file.data.contentStartLine = contentStartLine;
+            file.data.filePath = share.filePath;
+            file.data.shareId = shareId;
+
+            const vfile = await processor.process(file);
+            let htmlContent = String(vfile);
+
+            const pageTitle = frontmatterTitle || path.basename(share.filePath, '.md').replace(/-/g, ' ');
+            const headings = (vfile.data.headings as HeadingNode[]) || [];
+
+            const fullHtml = renderer.renderHtml({
+                content: htmlContent,
+                title: pageTitle,
+                config,
+                fileTree,
+                currentPath: share.filePath,
+                headings,
+                frontmatter,
+                authEnabled: config.auth?.enabled ?? false,
+                authenticated: request.isAuthenticated(),
+                access: share.access,
+                shareId: shareId
+            });
+
+            cache.set(cacheKey, { html: fullHtml, mtime: stats.mtimeMs });
+            return reply.type('text/html').send(fullHtml);
+
+        } catch (err) {
+            if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
+            if (isNotFoundError(err)) return reply.code(404).send('Not Found');
+            fastify.log.error(err as Error);
+            return reply.code(500).send('Internal Server Error');
+        }
+    });
 
     fastify.get('/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';

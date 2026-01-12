@@ -10,7 +10,8 @@ import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
 export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
-    getConfig: () => GlintConfig
+    getConfig: () => GlintConfig,
+    shareService?: any
 ) {
 
     // Helper to check access level and return 401/403 if insufficient
@@ -20,7 +21,13 @@ export async function setupAPIRoutes(
         urlPath: string,
         requiredLevel: AccessLevel
     ): boolean => {
-        const access = request.getAccess(urlPath);
+        // Check share access first if sharedId is provided
+        const { shareId } = (request.query || {}) as { shareId?: string };
+        const bodyShareId = (request.body as any)?.shareId;
+        const effectiveShareId = shareId || bodyShareId;
+
+        const access = request.getAccess(urlPath) || (effectiveShareId ? request.getShareAccess(urlPath, effectiveShareId) : null);
+
         if (access === null) {
             reply.code(401).send({ error: 'Authentication required', authRequired: true });
             return false;
@@ -55,7 +62,7 @@ export async function setupAPIRoutes(
     // Asset Resolver Endpoint
     fastify.get('/api/asset/resolve', async (request, reply) => {
         try {
-            const { path: assetPath, context } = request.query as { path: string, context?: string };
+            const { path: assetPath, context, shareId } = request.query as { path: string, context?: string, shareId?: string };
 
             if (!assetPath) {
                 return reply.code(400).send({ error: 'Missing path parameter' });
@@ -238,5 +245,53 @@ export async function setupAPIRoutes(
             request.log.error(err as Error);
             return reply.code(500).send({ error: 'Upload failed' });
         }
+    });
+
+    // List shares for a file
+    fastify.get('/api/shares', async (request, reply) => {
+        const { path: filePath } = request.query as { path: string };
+        if (!filePath) return reply.code(400).send({ error: 'Missing path' });
+
+        if (!requireAccess(request, reply, filePath, 'edit')) return;
+
+        const shares = shareService.getSharesForFile(filePath);
+        return reply.send(shares);
+    });
+
+    // Create a new share
+    fastify.post('/api/shares', async (request, reply) => {
+        const { path: filePath, access, expiresAt, label } = request.body as {
+            path: string,
+            access: 'view' | 'comment' | 'edit',
+            expiresAt?: number,
+            label?: string
+        };
+
+        if (!filePath || !access) return reply.code(400).send({ error: 'Missing required fields' });
+
+        if (!requireAccess(request, reply, filePath, 'edit')) return;
+
+        const share = await shareService.createShare({
+            filePath,
+            access,
+            expiresAt,
+            label
+        });
+
+        return reply.code(201).send(share);
+    });
+
+    // Revoke a share
+    fastify.delete('/api/shares/:id', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const share = shareService.getShare(id);
+
+        if (!share) return reply.code(404).send({ error: 'Share not found' });
+
+        // Must have edit access to the underlying file to revoke
+        if (!requireAccess(request, reply, share.filePath, 'edit')) return;
+
+        await shareService.revokeShare(id);
+        return reply.code(204).send();
     });
 }

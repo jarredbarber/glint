@@ -36,10 +36,11 @@ export interface SidebarOptions {
     currentTheme?: string;
     authEnabled?: boolean;
     authenticated?: boolean;
+    isShared?: boolean;
 }
 
 export const renderSidebar = (options: SidebarOptions) => {
-    const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false } = options;
+    const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false, isShared = false } = options;
     const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
     const logoutButton = authEnabled && authenticated ? `
@@ -49,20 +50,26 @@ export const renderSidebar = (options: SidebarOptions) => {
         ">Logout</button>
     ` : '';
 
-    return `
-<aside class="sidebar">
-    <div class="sidebar-scrollable">
-        <div class="sidebar-branding">
-            <a href="/">
-                <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
-            </a>
-        </div>
+    // If it's a shared view, we only show the branding and the outline, not the full file tree
+    const filesSection = !isShared ? `
         <details open class="sidebar-section">
             <summary class="sidebar-header">Files</summary>
             <nav class="file-tree">
                 <ul>${renderFileTree(fileTree, currentPath)}</ul>
             </nav>
         </details>
+    ` : '';
+
+    return `
+<aside class="sidebar ${isShared ? 'shared-view' : ''}">
+    <div class="sidebar-scrollable">
+        <div class="sidebar-branding">
+            <a href="/">
+                <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
+            </a>
+        </div>
+        
+        ${filesSection}
 
         ${headings.length > 0 ? `
         <details open class="sidebar-section" style="margin-top: 1rem;">
@@ -89,6 +96,7 @@ export const renderSidebar = (options: SidebarOptions) => {
         ">
             ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
+        ${!isShared ? `
         <label class="vim-toggle">
             <input type="checkbox" id="vim-mode-toggle" onchange="
                 localStorage.setItem('glint-vim-mode', this.checked);
@@ -102,14 +110,17 @@ export const renderSidebar = (options: SidebarOptions) => {
                 document.getElementById('vim-mode-toggle').checked = enabled;
             })();
         </script>
+        ` : ''}
         ${logoutButton}
     </footer>
 </aside>
 `;
 };
 
-export const renderScripts = () => `
+export const renderScripts = (shareId?: string) => `
 <script>
+    // Global share context
+    window.__glintShareId = ${shareId ? `'${shareId}'` : 'null'};
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof mermaid !== 'undefined') {
             // Get theme from localStorage or body class
@@ -268,16 +279,20 @@ export interface RenderOptions {
     frontmatter?: Record<string, unknown>;
     authEnabled?: boolean;
     authenticated?: boolean;
+    access?: string;
+    shareId?: string;
 }
 
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false } = options;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false, access, shareId } = options;
+    const isShared = !!shareId;
+
     return `
 <!DOCTYPE html>
 <html lang="en">
 ${renderHead(title, config.theme)}
-<body class="${config.theme}">
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated })}
+<body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
     <main class="content">
         <div class="content-wrapper">
             <header class="article-header">
@@ -288,7 +303,7 @@ ${renderHead(title, config.theme)}
             ${content}
         </div>
     </main>
-    ${renderScripts()}
+    ${renderScripts(shareId)}
 </body>
 </html>
 `;

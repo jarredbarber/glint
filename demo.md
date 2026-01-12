@@ -9,7 +9,7 @@ reading-time: 4 years
 description: A tour of the field
 ---
 
-![Einstein Field Equations|128](/content/demo.md.assets/5f88de18.png)
+![Einstein Field Equations|128](5f88de18.png)
 
 ## Glint widget demos
 
