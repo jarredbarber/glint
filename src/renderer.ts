@@ -70,21 +70,6 @@ export const renderSidebar = (options: SidebarOptions) => {
         </div>
         
         ${filesSection}
-
-        ${headings.length > 0 ? `
-        <details open class="sidebar-section sidebar-outline" style="margin-top: 1rem;">
-            <summary class="sidebar-header">Outline</summary>
-            <nav class="outline-tree">
-                <ul>
-                    ${headings.map(h => `
-                        <li class="depth-${h.depth}">
-                            <a href="#${h.id}">${h.text}</a>
-                        </li>
-                    `).join('')}
-                </ul>
-            </nav>
-        </details>
-        ` : ''}
     </div>
     <footer class="sidebar-footer">
         <select class="theme-select" onchange="
