@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import { LRUCache } from 'lru-cache';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
+import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeHighlight from 'rehype-highlight';
@@ -16,7 +17,7 @@ import rehypeRaw from 'rehype-raw';
 import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
-import { rehypeGlintKatex } from './rehype-glint-katex.js';
+import rehypeKatex from 'rehype-katex';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
@@ -43,6 +44,7 @@ function createProcessor(config: GlintConfig) {
 
     return unified()
         .use(remarkParse)
+        .use(remarkMath)  // Protect $...$ and $$...$$ from markdown parsing
         .use(remarkGfm)
         .use(remarkGlintWidgets)
         .use(remarkWikiLinkGlint)
@@ -51,7 +53,7 @@ function createProcessor(config: GlintConfig) {
         .use(rehypeSourceLines)
         .use(rehypeRaw)
         .use(rehypeGlintImage)
-        .use(rehypeGlintKatex, { macros })
+        .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
         .use(rehypeHighlight, { detect: true })
         .use(rehypeSlug)
         .use(rehypeAutolinkHeadings, { behavior: 'wrap' })

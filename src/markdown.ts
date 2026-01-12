@@ -8,6 +8,47 @@ export interface ParsedMarkdown {
 }
 
 /**
+ * Fix single-line display math for remark-math compatibility.
+ * 
+ * remark-math treats single-line $$ content $$ as INLINE math.
+ * This function converts them to multi-line format to trigger display mode.
+ * 
+ * Important: This is LINE-PRESERVING. Each single-line $$ becomes 3 lines,
+ * but this happens at the start before line mapping begins.
+ */
+function fixDisplayMath(content: string): string {
+    const lines = content.split('\n');
+    const result: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check for single-line display math: $$ content $$ on its own line
+        // The regex: starts with optional whitespace, $$, content, $$, optional whitespace
+        const displayMathMatch = line.match(/^(\s*)\$\$\s*(.+?)\s*\$\$(\s*)$/);
+
+        if (displayMathMatch) {
+            const [, leadingSpace, mathContent] = displayMathMatch;
+            // Check if this appears to be on its own paragraph
+            const prevEmpty = i === 0 || lines[i - 1].trim() === '';
+            const nextEmpty = i === lines.length - 1 || lines[i + 1].trim() === '';
+
+            if (prevEmpty && nextEmpty) {
+                // Split into multi-line format
+                result.push(leadingSpace + '$$');
+                result.push(mathContent);
+                result.push('$$');
+                continue;
+            }
+        }
+
+        result.push(line);
+    }
+
+    return result.join('\n');
+}
+
+/**
  * Parse markdown, extracting frontmatter and title.
  * 
  * Strips frontmatter and optionally the first H1 heading.
@@ -39,7 +80,10 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
         // Fallback: treat everything as content if frontmatter parsing fails
     }
 
-    // 2. Handle H1 stripping
+    // 2. Fix display math (before any line-sensitive operations)
+    content = fixDisplayMath(content);
+
+    // 3. Handle H1 stripping
     let title: string | null = null;
     let additionalLinesStripped = 0;
 

@@ -104,16 +104,20 @@ $$ I^2 = \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} e^{-(x^2 + y^2)} dx \, 
 
 Changing to polar coordinates where $x^2 + y^2 = r^2$ and the Jacobian $dx \, dy = r \, dr \, d\theta$:
 
-$$$
+$$
+\begin{align*}
 I^2 &= \int_{0}^{2\pi} d\theta \int_{0}^{\infty} e^{-r^2} r \, dr \\
 &= 2\pi \int_{0}^{\infty} e^{-r^2} r \, dr
-$$$
+\end{align*}
+$$
 
 Using $u$-substitution with $u = r^2, du = 2r \, dr$:
-$$$
+$$
+\begin{align*}
 I^2 &= 2\pi \left[ -\frac{1}{2} e^{-r^2} \right]_{0}^{\infty} \\
-&= \pi (0 - (-1)) = \pi
-$$$
+&= \pi (0 - (-1)) \\&= \pi
+\end{align*}
+$$
 
 Therefore:
 $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
@@ -150,10 +154,12 @@ Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under 
 $$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$
 
 Substituting the Euler-Lagrange equation $\frac{\partial \mathcal{L}}{\partial \phi} = \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)}$:
-$$$
+$$
+\begin{align*}
 \delta \mathcal{L} &= \left( \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \right) \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \partial_\mu(\delta \phi) \\
 &= \partial_\mu \left( \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta \phi \right)
-$$$
+\end{align*}
+$$
 
 If the transformation is a symmetry, then $\delta \mathcal{L} = \epsilon \partial_\mu K^\mu$ for some vector $K^\mu$. Setting these equal:
 $$ \epsilon \partial_\mu \left( \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \Delta \phi \right) = \epsilon \partial_\mu K^\mu $$
@@ -175,13 +181,17 @@ Varying the action with respect to the inverse metric $g^{\mu\nu}$:
 $$ \delta S = \int \left[ \frac{1}{2\kappa} \left( \frac{\delta(\sqrt{-g}R)}{\delta g^{\mu\nu}} \right) + \frac{\delta(\sqrt{-g}\mathcal{L}_M)}{\delta g^{\mu\nu}} \right] \delta g^{\mu\nu} d^4x = 0 $$
 
 Using the variation of the Ricci scalar $R = g^{\mu\nu} R_{\mu\nu}$:
+
 $$ \delta(\sqrt{-g}R) = R_{\mu\nu} \delta(g^{\mu\nu}\sqrt{-g}) + \sqrt{-g} g^{\mu\nu} \delta R_{\mu\nu} $$
 
 The second term (Palatini identity) is a total divergence and vanishes. Using Jacobi's formula for the variation of the determinant $\delta \sqrt{-g} = -\frac{1}{2}\sqrt{-g}g_{\mu\nu}\delta g^{\mu\nu}$:
+
 $$ \delta(\sqrt{-g}R) = \sqrt{-g} \left( R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} \right) \delta g^{\mu\nu} $$
 
 Defining the Energy-Momentum tensor $T_{\mu\nu} = -2 \frac{1}{\sqrt{-g}} \frac{\delta(\sqrt{-g}\mathcal{L}_M)}{\delta g^{\mu\nu}}$:
+
 $$ \frac{1}{2\kappa} \sqrt{-g} \left( R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} \right) - \frac{1}{2} \sqrt{-g} T_{\mu\nu} = 0 $$
 
 Rearranging with $\kappa = 8\pi G/c^4$ gives:
+
 $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
