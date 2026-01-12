@@ -33,6 +33,7 @@ import { isForbiddenError, isNotFoundError } from './utils/errors.js';
 import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
 import { setupAuthRoutes } from './server/routes/auth.js';
+import { setupGitRoutes } from './server/routes/git.js';
 import { setupAuth } from './server/auth.js';
 import { ShareService } from './server/share.js';
 
@@ -94,6 +95,9 @@ export async function createServer(contentDir: string) {
 
     // Setup API Routes
     await setupAPIRoutes(fastify, contentDir, getConfig, shareService);
+
+    // Setup Git Routes
+    await setupGitRoutes(fastify, contentDir, getConfig);
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });

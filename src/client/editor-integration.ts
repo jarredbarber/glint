@@ -138,6 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
         injectCommentInteractions();
         setupKeyboardShortcuts();
         setupLineTracker();
+
+        // Initialize drag-to-reorder (if available)
+        if (typeof (window as any).initDragReorder === 'function') {
+            (window as any).initDragReorder();
+        }
     }
 
     init();

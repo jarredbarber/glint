@@ -5,8 +5,9 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search"
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete"
 import { lintKeymap } from "@codemirror/lint"
-import { markdown } from "@codemirror/lang-markdown"
 import { tags as t } from "@lezer/highlight"
+import { emojiCompletionSource } from "./emoji-completion.js"
+import { createMarkdownWithNesting } from "./editor-languages.js"
 import { vim, Vim } from "@replit/codemirror-vim"
 import { javascript } from "@codemirror/lang-javascript"
 import { python } from "@codemirror/lang-python"
@@ -166,7 +167,9 @@ class GlintEditor {
             syntaxHighlighting(glintHighlightStyle),
             bracketMatching(),
             closeBrackets(),
-            autocompletion(),
+            autocompletion({
+                override: [emojiCompletionSource]
+            }),
             highlightActiveLine(),
             highlightSelectionMatches(),
             keymap.of([
@@ -292,7 +295,7 @@ class GlintEditor {
             case 'css':
                 return css();
             default:
-                return markdown();
+                return createMarkdownWithNesting();
         }
     }
 

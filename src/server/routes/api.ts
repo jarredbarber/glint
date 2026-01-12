@@ -168,6 +168,87 @@ export async function setupAPIRoutes(
         }
     });
 
+    // Reorder Content
+    fastify.post('/api/reorder', async (request, reply) => {
+        try {
+            const body = request.body as {
+                path: string;
+                fromLine: number;
+                toLine: number;
+                insertBeforeLine: number;
+                hash?: string;
+            };
+
+            if (
+                typeof body.path !== 'string' ||
+                typeof body.fromLine !== 'number' ||
+                typeof body.toLine !== 'number' ||
+                typeof body.insertBeforeLine !== 'number'
+            ) {
+                return reply.code(400).send({ error: 'Invalid parameters' });
+            }
+
+            if (!requireAccess(request, reply, body.path, 'edit')) {
+                return;
+            }
+
+            if (body.fromLine >= body.toLine) {
+                return reply.code(400).send({ error: 'Invalid line range' });
+            }
+
+            const { safePath } = await resolveContentPath(contentDir, body.path, getConfig());
+
+            if (body.hash) {
+                try {
+                    const existingContent = await fs.readFile(safePath, 'utf-8');
+                    const existingHash = crypto.createHash('md5').update(existingContent).digest('hex');
+                    if (existingHash !== body.hash) {
+                        return reply.code(409).send({
+                            error: 'Conflict: The file has been modified by someone else.',
+                            conflict: true
+                        });
+                    }
+                } catch (err) {
+                    return reply.code(404).send({ error: 'File not found' });
+                }
+            }
+
+            const content = await fs.readFile(safePath, 'utf-8');
+            const lines = content.split('\n');
+
+            if (body.fromLine < 1 || body.fromLine > lines.length || body.toLine > lines.length + 1) {
+                return reply.code(400).send({ error: 'Line numbers out of bounds' });
+            }
+
+            const sectionLength = body.toLine - body.fromLine;
+            const sectionLines = lines.slice(body.fromLine - 1, body.toLine - 1);
+
+            let adjustedInsertBefore = body.insertBeforeLine;
+
+            if (body.insertBeforeLine > body.fromLine) {
+                adjustedInsertBefore -= sectionLength;
+            }
+
+            lines.splice(body.fromLine - 1, sectionLength);
+
+            const insertIndex = Math.min(adjustedInsertBefore - 1, lines.length);
+            lines.splice(insertIndex, 0, ...sectionLines);
+
+            const newContent = lines.join('\n');
+            await fs.writeFile(safePath, newContent, 'utf-8');
+
+            const newHash = crypto.createHash('md5').update(newContent).digest('hex');
+
+            return { success: true, hash: newHash };
+
+        } catch (err: unknown) {
+            if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
+            if (isNotFoundError(err)) return reply.code(404).send({ error: 'Not Found' });
+            request.log.error(err as Error);
+            return reply.code(500).send({ error: 'Reorder failed' });
+        }
+    });
+
     // Get Source
     fastify.get('/api/source/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
