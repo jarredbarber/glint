@@ -13,6 +13,31 @@ const labelInput = document.getElementById('share-label') as HTMLInputElement;
 // Get current page path from URL
 const currentPath = window.location.pathname.startsWith('/') ? window.location.pathname.substring(1) : window.location.pathname;
 
+// Toast Helper
+function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
+    let container = document.querySelector('.glint-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'glint-toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `glint-toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+        <span class="toast-message">${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.add('out');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, 3000);
+}
+
 window.openShareModal = async function () {
     if (!overlay) return;
     overlay.classList.add('open');
@@ -48,16 +73,17 @@ window.createShare = async function () {
 
         if (!res.ok) {
             const err = await res.json();
-            alert('Failed to create share: ' + (err.error || 'Unknown error'));
+            showToast('Failed to create share: ' + (err.error || 'Unknown error'), 'error');
             return;
         }
 
         // Reset form
         labelInput.value = '';
+        showToast('Share link created successfully', 'success');
         await refreshShareList();
     } catch (err) {
         console.error('Error creating share:', err);
-        alert('Failed to create share.');
+        showToast('Failed to create share', 'error');
     }
 };
 
@@ -72,27 +98,24 @@ window.revokeShare = async function (id: string) {
         });
 
         if (!res.ok) {
-            alert('Failed to revoke share.');
+            showToast('Failed to revoke share', 'error');
             return;
         }
 
+        showToast('Link revoked', 'success');
         await refreshShareList();
     } catch (err) {
         console.error('Error revoking share:', err);
+        showToast('Error revoking share', 'error');
     }
 };
 
 window.copyShareLink = function (id: string) {
     const url = window.location.origin + '/s/' + id;
     navigator.clipboard.writeText(url).then(() => {
-        const btn = document.querySelector(`.copy-btn[data-id="${id}"]`);
-        if (btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '✅ Copied!';
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-            }, 2000);
-        }
+        showToast('Link copied to clipboard', 'success');
+    }).catch(() => {
+        showToast('Failed to copy link', 'error');
     });
 };
 

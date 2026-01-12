@@ -1431,6 +1431,74 @@ h6:hover .heading-edit-icon,
     transition: left 0.1s ease-out;
 }
 
+/* Toast Notifications */
+.glint-toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.glint-toast {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: auto;
+    animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 300px;
+}
+
+.glint-toast.success {
+    border-left: 3px solid var(--green);
+}
+
+.glint-toast.error {
+    border-left: 3px solid var(--red);
+}
+
+.glint-toast.info {
+    border-left: 3px solid var(--blue);
+}
+
+.glint-toast.out {
+    animation: toast-out 0.2s ease-in forwards;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes toast-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+}
+
 .line-tracker-hint .hint-item {
     padding: 0.15rem 0.5rem;
     white-space: nowrap;
