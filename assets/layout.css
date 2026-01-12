@@ -15,6 +15,8 @@
     /* amber */
     --task-progress: #8b5cf6;
     /* purple */
+    --task-cancelled: #6b7280;
+    /* gray */
 }
 
 /* Base widget styles */
@@ -126,6 +128,16 @@ ul.contains-task-list .glint-task {
 
 .glint-task[data-state="blocked"]>.glint-task-header {
     border-left-color: var(--task-blocked);
+}
+
+.glint-task[data-state="cancelled"]>.glint-task-header {
+    border-left-color: var(--task-cancelled);
+    opacity: 0.6;
+}
+
+.glint-task[data-state="cancelled"] .glint-task-content {
+    text-decoration: line-through;
+    color: var(--text-dim);
 }
 
 .glint-task-check {
@@ -424,12 +436,25 @@ details:not([open]) .sidebar-header::after {
     padding: 2rem;
     padding-bottom: 4rem;
     /* Extra space at bottom */
+    scroll-behavior: smooth;
 }
 
 /* Container for text to keep max-width but allow full background */
 .content-wrapper {
     max-width: 800px;
     margin: 0 auto;
+    min-height: calc(100vh - 4rem);
+    /* Ensure last section can scroll to top */
+}
+
+/* Scroll offset for anchor links to account for any fixed elements */
+.content-wrapper h1[id],
+.content-wrapper h2[id],
+.content-wrapper h3[id],
+.content-wrapper h4[id],
+.content-wrapper h5[id],
+.content-wrapper h6[id] {
+    scroll-margin-top: 2rem;
 }
 
 /* Typography Elements */
@@ -1780,6 +1805,26 @@ h6:hover .heading-edit-icon,
         right: 1rem;
         width: 200px;
     }
+}
+
+/* ============================================
+   SHARED VIEW STYLES
+   ============================================ */
+
+/* Hide sidebar on shared pages */
+.sidebar.shared-view {
+    display: none;
+}
+
+/* Adjust content width when sidebar is hidden */
+body.shared-view .content {
+    margin-left: 0;
+    max-width: 100%;
+}
+
+body.shared-view .content-wrapper {
+    max-width: 900px;
+    padding: 0 2rem;
 }
 
 /* ============================================

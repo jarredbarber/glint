@@ -72,7 +72,7 @@ export const renderSidebar = (options: SidebarOptions) => {
         ${filesSection}
 
         ${headings.length > 0 ? `
-        <details open class="sidebar-section" style="margin-top: 1rem;">
+        <details open class="sidebar-section sidebar-outline" style="margin-top: 1rem;">
             <summary class="sidebar-header">Outline</summary>
             <nav class="outline-tree">
                 <ul>
@@ -453,6 +453,12 @@ ${renderHead('Login', config.theme)}
         </div>
     </div>
     <style>
+        /* Override body flex layout for login page */
+        body {
+            display: block !important;
+            overflow: auto !important;
+            height: auto !important;
+        }
         .login-container {
             display: flex;
             align-items: center;

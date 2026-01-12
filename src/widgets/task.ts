@@ -27,8 +27,8 @@ export const taskHandler: WidgetHandler = {
         const firstChild = paragraph.children[0];
         if (firstChild && firstChild.type === 'text') {
             const textNode = firstChild as Text;
-            // Match [ ], [x], [/], [w], [b] at start
-            markerMatch = textNode.value.match(/^\[([ x/wb])\]\s*/i);
+            // Match [ ], [x], [/], [w], [b], [c] at start
+            markerMatch = textNode.value.match(/^\[([ x/wbc])\]\s*/i);
             if (markerMatch) {
                 const marker = markerMatch[1].toLowerCase();
                 if (marker === ' ') state = 'open';
@@ -36,6 +36,7 @@ export const taskHandler: WidgetHandler = {
                 else if (marker === '/') state = 'progress';
                 else if (marker === 'w') state = 'waiting';
                 else if (marker === 'b') state = 'blocked';
+                else if (marker === 'c') state = 'cancelled';
 
                 // Strip marker from text
                 textNode.value = textNode.value.slice(markerMatch[0].length);
@@ -89,7 +90,8 @@ export const taskHandler: WidgetHandler = {
             done: '✅',
             progress: '🏃',
             waiting: '⌛',
-            blocked: '⛔'
+            blocked: '⛔',
+            cancelled: '🚫'
         };
 
         // 1. Checkbox node
@@ -188,7 +190,7 @@ export const taskHandler: WidgetHandler = {
     getLLMInstructions: () => `
 ### Tasks
 - Syntax: \`- [state] Task description (key:value ...)\`
-- States: \`[ ]\` Open, \`[x]\` Done, \`[/]\` Progress, \`[w]\` Waiting, \`[b]\` Blocked
+- States: \`[ ]\` Open, \`[x]\` Done, \`[/]\` Progress, \`[w]\` Waiting, \`[b]\` Blocked, \`[c]\` Cancelled
 - Metadata: \`#priority\`, \`@assignee\`, \`due:YYYY-MM-DD\`, \`remind:YYYY-MM-DD\`, \`created:YYYY-MM-DD\`, \`completed:YYYY-MM-DD\`
 - Metadata optional: don't include if not specified or "default" (e.g. normal priority, no due date, etc.)
 - Example: \`- [/] Refactor API (due:2024-03-01 @alice #urgent)\`

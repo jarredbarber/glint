@@ -32,7 +32,8 @@ export function injectTaskInteractions() {
                 { icon: '✅', marker: '[x]', label: 'Done' },
                 { icon: '🏃', marker: '[/]', label: 'Progress' },
                 { icon: '⌛', marker: '[w]', label: 'Waiting' },
-                { icon: '⛔', marker: '[b]', label: 'Blocked' }
+                { icon: '⛔', marker: '[b]', label: 'Blocked' },
+                { icon: '🚫', marker: '[c]', label: 'Cancelled' }
             ];
 
             states.forEach(s => {
@@ -77,7 +78,7 @@ export async function updateTaskState(taskNode: HTMLElement, newMarker: string) 
         const lines = content.split('\n');
         const lineContent = lines[lineNum - 1];
 
-        let newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wb]\]/i, `$1${newMarker}`);
+        let newLineContent = lineContent.replace(/^(\s*-?\s*)\[[ x/wbc]\]/i, `$1${newMarker}`);
 
         const metaRegex = /\s*\(([^)]+)\)$/;
         const hasMeta = metaRegex.exec(newLineContent);
