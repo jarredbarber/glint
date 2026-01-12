@@ -412,24 +412,163 @@ export const renderHtml = (options: RenderOptions) => {
     const isShared = !!shareId;
 
     return `
-                                < !DOCTYPE html >
-                                    <html lang="en" >
-                                        ${renderHead(title, config.theme, styles)}
-    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data - access="${access || (authenticated ? 'edit' : 'view')}" >
-        <div class="mobile-toggle" onclick = "document.body.classList.toggle('sidebar-open')" >☰</div>
-            < div class="mobile-overlay" onclick = "document.body.classList.remove('sidebar-open')" > </div>
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
-    <main class="content" >
-        <div class="content-wrapper" >
-            ${renderBreadcrumbs(currentPath)}
-    <header class="article-header" >
-        <h1>${title} </h1>
-                ${renderMetadata(frontmatter)}
-    <div class="title-accent" > </div>
-        </header>
-            ${content}
+<!DOCTYPE html>
+<html lang="en">
+    ${renderHead(title, config.theme, styles)}
+    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
+        <div class="mobile-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</div>
+        <div class="mobile-overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
+        <div id="command-palette-overlay" class="command-palette-overlay" style="display: none;">
+        <div class="command-palette-modal">
+            <div class="command-palette-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="command-input" placeholder="Search commands..." autocomplete="off">
+            </div>
+            <div class="command-palette-results" id="command-results"></div>
+            <div class="command-palette-footer">
+                <span><kbd>↑↓</kbd> to navigate</span>
+                <span><kbd>↵</kbd> to select</span>
+                <span><kbd>esc</kbd> to close</span>
+            </div>
+        </div>
     </div>
-        </main>
+    <script>
+        (function() {
+            const overlay = document.getElementById('command-palette-overlay');
+            const input = document.getElementById('command-input');
+            const results = document.getElementById('command-results');
+            let selectedIndex = 0;
+            let commands = [];
+
+            // Define commands
+            const getCommands = () => [
+                { title: 'Go to Home', desc: 'Navigate to home page', action: () => window.location.href = '/' },
+                { title: 'Go to Task View', desc: 'Managed tracked tasks', action: () => window.location.href = '/task-dashboard' },
+                { title: 'Toggle Theme', desc: 'Switch light/dark mode', action: () => {
+                    const themes = ['nord', 'everforest-dark', 'gruvbox-dark', 'dracula', 'one-dark'];
+                    const current = document.body.className.split(' ').find(c => themes.includes(c)) || 'nord';
+                    const next = themes[(themes.indexOf(current) + 1) % themes.length];
+                    
+                    fetch('/api/theme', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ theme: next })
+                    }).then(() => window.location.reload());
+                }},
+                { title: 'Print Page', desc: 'Export as PDF', action: () => window.print() },
+                { title: 'Share Page', desc: 'Create shareable link', action: () => window.openShareModal && window.openShareModal() },
+                { title: 'Edit Page', desc: 'Toggle editor', action: () => {
+                    const editBtn = document.querySelector('.code-edit-btn');
+                    if (editBtn) editBtn.click();
+                }}
+            ];
+
+            function openPalette() {
+                commands = getCommands();
+                overlay.style.display = 'flex';
+                input.value='';
+                input.focus();
+                renderResults();
+            }
+
+            function closePalette() {
+                overlay.style.display = 'none';
+            }
+
+            function renderResults() {
+                const query = input.value.toLowerCase();
+                const filtered = commands.filter(c => 
+                    c.title.toLowerCase().includes(query) || 
+                    c.desc.toLowerCase().includes(query)
+                );
+
+                results.innerHTML = filtered.map((c, i) => {
+                    return \`
+                    <div class="command-item \${i === selectedIndex ? 'selected' : ''}" data-index="\${i}">
+                        <div class="command-content">
+                            <div class="command-title">\${c.title}</div>
+                            <div class="command-desc">\${c.desc}</div>
+                        </div>
+                    </div>\`;
+                }).join('');
+                
+                // Reset index if out of bounds
+                if (selectedIndex >= filtered.length) selectedIndex = 0;
+            }
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    if (overlay.style.display === 'flex') closePalette();
+                    else openPalette();
+                }
+
+                if (overlay.style.display !== 'flex') return;
+
+                if (e.key === 'Escape') closePalette();
+
+                const filteredCount = results.children.length;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedIndex = (selectedIndex + 1) % filteredCount;
+                    renderResults();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedIndex = (selectedIndex - 1 + filteredCount) % filteredCount;
+                    renderResults();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const visibleCmds = commands.filter(c =>
+                        c.title.toLowerCase().includes(input.value.toLowerCase()) ||
+                        c.desc.toLowerCase().includes(input.value.toLowerCase())
+                    );
+                    if (visibleCmds[selectedIndex]) {
+                        visibleCmds[selectedIndex].action();
+                        closePalette();
+                    }
+                }
+            });
+
+            input.addEventListener('input', () => {
+                selectedIndex = 0;
+                renderResults();
+            });
+
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closePalette();
+            });
+
+            // Delegate clicks on items
+            results.addEventListener('click', (e) => {
+                const item = e.target.closest('.command-item');
+                if (item) {
+                    const idx = parseInt(item.dataset.index);
+                    const visibleCmds = commands.filter(c =>
+                        c.title.toLowerCase().includes(input.value.toLowerCase()) ||
+                        c.desc.toLowerCase().includes(input.value.toLowerCase())
+                    );
+                    if (visibleCmds[idx]) {
+                        visibleCmds[idx].action();
+                        closePalette();
+                    }
+                }
+            });
+        })();
+    </script>
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
+    <main class="content">
+        <div class="content-wrapper">
+            ${renderBreadcrumbs(currentPath)}
+            <header class="article-header">
+                <h1>${title}</h1>
+                ${renderMetadata(frontmatter)}
+                <div class="title-accent"></div>
+            </header>
+            ${content}
+        </div>
+    </main>
     ${!isShared ? renderRightOutline(headings) : ''}
     ${!isShared ? `
     <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
@@ -487,124 +626,124 @@ export const renderHtml = (options: RenderOptions) => {
     ` : ''
         }
     ${renderScripts(shareId, scripts)}
-    </body>
-        </html>
-            `;
+</body>
+</html>
+`;
 };
 
 
 export const renderLoginPage = (config: GlintConfig, redirect: string = '/', error?: string) => `
-        < !DOCTYPE html >
-            <html lang="en" >
-                ${renderHead('Login', config.theme)}
-    <body class="${config.theme}" >
-        <div class="login-container" >
-            <div class="login-card" >
-                <img src="/assets/logo.png" alt = "glint" class="login-logo" >
-                    <h1>Login Required </h1>
-            ${error ? `<div class="login-error">${escapeHtml(error)}</div>` : ''}
-    <form method="POST" action = "/api/auth/login" class="login-form" >
-        <input type="hidden" name = "redirect" value = "${escapeHtml(redirect)}" >
-            <div class="form-group" >
-                <label for= "password" > Password </label>
-                    < input
-                        type = "password"
-                        id = "password"
-                        name = "password"
-    required
-    autofocus
-    autocomplete = "current-password"
-        >
+<!DOCTYPE html>
+<html lang="en">
+    ${renderHead('Login', config.theme)}
+    <body class="${config.theme}">
+        <div class="login-container">
+            <div class="login-card">
+                <img src="/assets/logo.png" alt="glint" class="login-logo">
+                <h1>Login Required</h1>
+                ${error ? `<div class="login-error">${escapeHtml(error)}</div>` : ''}
+                <form method="POST" action="/api/auth/login" class="login-form">
+                    <input type="hidden" name="redirect" value="${escapeHtml(redirect)}">
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            required
+                            autofocus
+                            autocomplete="current-password"
+                        >
+                    </div>
+                    <button type="submit" class="login-button">Login</button>
+                </form>
+            </div>
         </div>
-        < button type = "submit" class="login-button" > Login </button>
-            </form>
-            </div>
-            </div>
-            <style>
+        <style>
         /* Override body flex layout for login page */
         body {
-        display: block!important;
-        overflow: auto!important;
-        height: auto!important;
-    }
-        .login - container {
-    display: flex;
-    align - items: center;
-    justify - content: center;
-    min - height: 100vh;
-    padding: 1rem;
-}
-        .login - card {
-    background: var(--sidebar - bg, #2d353b);
-    border - radius: 12px;
-    padding: 2rem;
-    width: 100 %;
-    max - width: 400px;
-    text - align: center;
-    box - shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-        .login - logo {
-    width: 120px;
-    margin - bottom: 1.5rem;
-}
-        .login - card h1 {
-    margin: 0 0 1.5rem 0;
-    font - size: 1.5rem;
-    color: var(--text - primary, #d3c6aa);
-}
-        .login - error {
-    background: rgba(255, 100, 100, 0.2);
-    color: #ff6b6b;
-    padding: 0.75rem;
-    border - radius: 6px;
-    margin - bottom: 1rem;
-    font - size: 0.9rem;
-}
-        .login - form {
-    text - align: left;
-}
-        .form - group {
-    margin - bottom: 1.25rem;
-}
-        .form - group label {
-    display: block;
-    margin - bottom: 0.5rem;
-    font - size: 0.9rem;
-    color: var(--text - secondary, #9da9a0);
-}
-        .form - group input {
-    width: 100 %;
-    padding: 0.75rem;
-    border: 1px solid var(--border - color, #3d484d);
-    border - radius: 6px;
-    background: var(--bg - primary, #232a2e);
-    color: var(--text - primary, #d3c6aa);
-    font - size: 1rem;
-    box - sizing: border - box;
-}
-        .form - group input:focus {
-    outline: none;
-    border - color: var(--accent - color, #a7c080);
-}
-        .login - button {
-    width: 100 %;
-    padding: 0.75rem;
-    border: none;
-    border - radius: 6px;
-    background: var(--accent - color, #a7c080);
-    color: var(--bg - primary, #232a2e);
-    font - size: 1rem;
-    font - weight: 500;
-    cursor: pointer;
-    transition: opacity 0.2s;
-}
-        .login - button:hover {
-    opacity: 0.9;
-}
-</style>
+            display: block!important;
+            overflow: auto!important;
+            height: auto!important;
+        }
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .login-card {
+            background: var(--sidebar-bg, #2d353b);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        .login-logo {
+            width: 120px;
+            margin-bottom: 1.5rem;
+        }
+        .login-card h1 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.5rem;
+            color: var(--text-primary, #d3c6aa);
+        }
+        .login-error {
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6b6b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .login-form {
+            text-align: left;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary, #9da9a0);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color, #3d484d);
+            border-radius: 6px;
+            background: var(--bg-primary, #232a2e);
+            color: var(--text-primary, #d3c6aa);
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color, #a7c080);
+        }
+        .login-button {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent-color, #a7c080);
+            color: var(--bg-primary, #232a2e);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .login-button:hover {
+            opacity: 0.9;
+        }
+        </style>
     </body>
-    </html>
-        `;
+</html>
+`;
 
 function escapeHtml(str: string): string {
     return str
