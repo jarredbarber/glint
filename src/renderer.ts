@@ -112,18 +112,38 @@ export const renderScripts = () => `
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof mermaid !== 'undefined') {
+            // Get theme from localStorage or body class
+            var savedTheme = localStorage.getItem('glint-theme');
+            var bodyClass = document.body.className;
+            var theme = savedTheme || bodyClass || 'nord';
+
+            // Theme configurations for Mermaid
+            var themeConfigs = {
+                'default': { base: 'default', primary: '#4a90d9', secondary: '#45b7d1', tertiary: '#96ceb4', text: '#333', bg: '#fff' },
+                'everforest-dark': { base: 'dark', primary: '#a7c080', secondary: '#dbbc7f', tertiary: '#e67e80', text: '#d3c6aa', bg: '#2d353b' },
+                'nord': { base: 'dark', primary: '#88c0d0', secondary: '#81a1c1', tertiary: '#b48ead', text: '#eceff4', bg: '#2e3440' },
+                'gruvbox-dark': { base: 'dark', primary: '#b8bb26', secondary: '#fabd2f', tertiary: '#fb4934', text: '#ebdbb2', bg: '#282828' },
+                'catppuccin-mocha': { base: 'dark', primary: '#89b4fa', secondary: '#f5c2e7', tertiary: '#f38ba8', text: '#cdd6f4', bg: '#1e1e2e' },
+                'solarized-light': { base: 'default', primary: '#268bd2', secondary: '#2aa198', tertiary: '#d33682', text: '#657b83', bg: '#fdf6e3' }
+            };
+
+            var config = themeConfigs[theme] || themeConfigs['nord'];
+
             mermaid.initialize({
                 startOnLoad: true,
-                theme: 'dark',
+                theme: config.base,
                 securityLevel: 'loose',
                 themeVariables: {
                     fontFamily: '"Inter", sans-serif',
-                    primaryColor: '#a7c080',
-                    primaryTextColor: '#2d353b',
-                    primaryBorderColor: '#a7c080',
-                    lineColor: '#d3c6aa',
-                    secondaryColor: '#dbbc7f',
-                    tertiaryColor: '#e67e80'
+                    primaryColor: config.primary,
+                    primaryTextColor: config.bg,
+                    primaryBorderColor: config.primary,
+                    lineColor: config.text,
+                    secondaryColor: config.secondary,
+                    tertiaryColor: config.tertiary,
+                    background: config.bg,
+                    mainBkg: config.bg,
+                    textColor: config.text
                 }
             });
         }

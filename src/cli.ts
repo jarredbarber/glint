@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import readline from 'node:readline';
 import { createServer } from './server.js';
 import { hashPassword } from './server/auth.js';
-import { loadConfig } from './config.js';
+import { loadConfig, getConfigPath } from './config.js';
 
 const program = new Command();
 
@@ -42,7 +42,7 @@ program
     .argument('[path]', 'Path to content directory', process.cwd())
     .action(async (contentPath: string) => {
         const contentDir = path.resolve(contentPath);
-        const configPath = path.join(contentDir, 'glint.json');
+        const configPath = await getConfigPath(contentDir);
 
         console.log('Glint Authentication Setup');
         console.log('==========================\n');
@@ -82,6 +82,8 @@ program
         };
 
         // Write config
+        const dotGlintDir = path.dirname(configPath);
+        await fs.mkdir(dotGlintDir, { recursive: true });
         await fs.writeFile(configPath, JSON.stringify(config, null, 4));
 
         console.log('\nAuthentication configured successfully!');

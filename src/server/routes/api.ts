@@ -3,16 +3,15 @@ import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { loadConfig, type GlintConfig, type AccessLevel } from '../../config.js';
+import { type GlintConfig, type AccessLevel, getConfigPath } from '../../config.js';
 import { resolveContentPath } from '../../utils/fs-utils.js';
+import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
 
 export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
-    getConfig?: () => GlintConfig
+    getConfig: () => GlintConfig
 ) {
-    let config = await loadConfig(contentDir);
-    const resolveConfig = () => getConfig?.() ?? config;
 
     // Helper to check access level and return 401/403 if insufficient
     const requireAccess = (
@@ -43,6 +42,61 @@ export async function setupAPIRoutes(
         }
     });
 
+    const IMAGE_EXTENSIONS: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.webp': 'image/webp',
+        '.ico': 'image/x-icon',
+    };
+
+    // Asset Resolver Endpoint
+    fastify.get('/api/asset/resolve', async (request, reply) => {
+        try {
+            const { path: assetPath, context } = request.query as { path: string, context?: string };
+
+            if (!assetPath) {
+                return reply.code(400).send({ error: 'Missing path parameter' });
+            }
+
+            let targetUrlPath = assetPath;
+
+            // Resolve relative paths if context is provided
+            if (context && !assetPath.startsWith('/')) {
+                const contextDir = path.dirname(context);
+                // Handle ./ prefix explicitly or just join
+                const cleanAssetPath = assetPath.startsWith('./') ? assetPath.substring(2) : assetPath;
+                targetUrlPath = path.join(contextDir, cleanAssetPath);
+            }
+
+            // Check access for the resolved path
+            // Note: Currently we check 'view' access.
+            if (!requireAccess(request, reply, targetUrlPath, 'view')) {
+                return;
+            }
+
+            const { safePath, stats } = await resolveContentPath(contentDir, targetUrlPath, getConfig(), false);
+
+            if (!stats || stats.isDirectory()) {
+                return reply.code(404).send({ error: 'Asset not found' });
+            }
+
+            const ext = path.extname(safePath).toLowerCase();
+            const contentType = IMAGE_EXTENSIONS[ext] || 'application/octet-stream';
+
+            const fileBuffer = await fs.readFile(safePath);
+            return reply.type(contentType).send(fileBuffer);
+
+        } catch (err: unknown) {
+            if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
+            if (isNotFoundError(err)) return reply.code(404).send({ error: 'Not Found' });
+            request.log.error(err as Error);
+            return reply.code(500).send({ error: 'Resolution failed' });
+        }
+    });
+
     // Theme Update Endpoint
     fastify.post('/api/theme', async (request, reply) => {
         try {
@@ -50,13 +104,12 @@ export async function setupAPIRoutes(
             const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
             if (themes.includes(theme)) {
-                const configPath = path.join(contentDir, 'glint.json');
-                const currentConfig = await loadConfig(contentDir);
+                const configPath = await getConfigPath(contentDir);
+                const currentConfig = getConfig();
                 const newConfig = { ...currentConfig, theme };
 
                 await fs.writeFile(configPath, JSON.stringify(newConfig, null, 4));
-                // Reload local config reference
-                config = await loadConfig(contentDir);
+                // Config is auto-reloaded via server.ts file watcher
                 return { success: true };
             }
             return reply.code(400).send({ error: 'Invalid theme' });
@@ -79,7 +132,7 @@ export async function setupAPIRoutes(
                 return;
             }
 
-            const { safePath } = await resolveContentPath(contentDir, body.path, resolveConfig());
+            const { safePath } = await resolveContentPath(contentDir, body.path, getConfig());
 
             // Optimistic locking
             if (body.hash) {
@@ -101,9 +154,9 @@ export async function setupAPIRoutes(
             const newHash = crypto.createHash('md5').update(body.content).digest('hex');
 
             return { success: true, hash: newHash };
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            request.log.error(err);
+        } catch (err: unknown) {
+            if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
+            request.log.error(err as Error);
             return reply.code(500).send({ error: 'Failed to save file' });
         }
     });
@@ -118,16 +171,14 @@ export async function setupAPIRoutes(
         }
 
         try {
-            const { safePath } = await resolveContentPath(contentDir, urlPath, resolveConfig(), false);
+            const { safePath } = await resolveContentPath(contentDir, urlPath, getConfig(), false);
             const content = await fs.readFile(safePath, 'utf-8');
             const hash = crypto.createHash('md5').update(content).digest('hex');
             return { content, hash, path: urlPath };
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            if (err.code === 'ENOENT' || err.message === 'NOT_FOUND') {
-                return reply.code(404).send({ error: 'Not Found' });
-            }
-            request.log.error(err);
+        } catch (err: unknown) {
+            if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
+            if (isNotFoundError(err)) return reply.code(404).send({ error: 'Not Found' });
+            request.log.error(err as Error);
             return reply.code(500).send({ error: 'Internal Server Error' });
         }
     });
@@ -162,7 +213,7 @@ export async function setupAPIRoutes(
                 return;
             }
 
-            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, resolveConfig());
+            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, getConfig());
 
             const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
             const assetsDir = path.join(path.dirname(resolvedArticlePath), assetsDirName);
@@ -177,13 +228,14 @@ export async function setupAPIRoutes(
             await fs.writeFile(destPath, fileBuffer);
 
             const relativeAssetsDir = path.relative(contentDir, assetsDir);
-            const url = path.join('/content', relativeAssetsDir, newFilename);
+            const assetSubPath = path.join(relativeAssetsDir, newFilename);
 
-            return { url };
+            // Return relative path for the markdown source
+            return { url: assetSubPath };
 
-        } catch (err: any) {
-            if (err.message === 'FORBIDDEN') return reply.code(403).send({ error: 'Forbidden' });
-            request.log.error(err);
+        } catch (err: unknown) {
+            if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });
+            request.log.error(err as Error);
             return reply.code(500).send({ error: 'Upload failed' });
         }
     });

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { GlintConfig } from '../config.js';
+import { ForbiddenError, NotFoundError } from './errors.js';
 
 export interface ResolvedPath {
     safePath: string;
@@ -23,7 +24,7 @@ export async function resolveContentPath(
 
     // Security: Prevent directory traversal
     if (!safePath.startsWith(contentDir)) {
-        throw new Error('FORBIDDEN');
+        throw new ForbiddenError('Directory traversal not allowed');
     }
 
     let stats: any = null;
@@ -64,7 +65,7 @@ export async function resolveContentPath(
     }
 
     if (!stats && !allowMissing) {
-        throw new Error('NOT_FOUND');
+        throw new NotFoundError('File not found');
     }
 
     return {

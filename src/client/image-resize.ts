@@ -107,7 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lineNum <= 0 || lineNum > lines.length) return;
 
             let line = lines[lineNum - 1];
-            const srcAttr = img.getAttribute('src');
+            // Use data-glint-src if available (the original markdown path), fallback to src
+            const srcAttr = img.getAttribute('data-glint-src') || img.getAttribute('src');
             if (!srcAttr) return;
 
             // Simple regex to find the image on this line. 

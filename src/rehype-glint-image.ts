@@ -23,15 +23,17 @@ import { Root, Element, Text } from 'hast';
  * ============================================================================
  */
 export function rehypeGlintImage() {
-    return (tree: Root) => {
+    return (tree: Root, file: any) => {
+        const filePath = file.data.filePath;
+
         visit(tree, ['element', 'raw'], (node: any, index, parent: any) => {
             // Case 1: Standard <img> element from markdown
             if (node.type === 'element' && node.tagName === 'img') {
-                handleImageElement(node, index, parent);
+                handleImageElement(node, index, parent, filePath);
             }
             // Case 2: Raw HTML <img> (legacy from old resize saves)
             else if (node.type === 'raw' && node.value.includes('<img')) {
-                handleRawImageHtml(node, index, parent);
+                handleRawImageHtml(node, index, parent, filePath);
             }
         });
     };
@@ -41,7 +43,7 @@ export function rehypeGlintImage() {
  * Handle standard <img> elements.
  * Parses alt text for |width syntax and wraps in figure if alt text exists.
  */
-function handleImageElement(node: Element, index: number | undefined, parent: any) {
+function handleImageElement(node: Element, index: number | undefined, parent: any, filePath?: string) {
     const rawAlt = node.properties?.alt ? String(node.properties.alt) : '';
 
     // Parse width from alt text: "Caption|500" → { caption: "Caption", width: "500" }
@@ -56,6 +58,13 @@ function handleImageElement(node: Element, index: number | undefined, parent: an
     // Update alt to be just the caption (without width)
     if (node.properties) {
         node.properties.alt = caption;
+
+        // Rewrite SRC to use resolver API
+        if (node.properties.src && typeof node.properties.src === 'string') {
+            const originalSrc = node.properties.src;
+            node.properties['data-glint-src'] = originalSrc;
+            node.properties.src = resolveImageUrl(originalSrc, filePath);
+        }
     }
 
     // Wrap in figure if there's a caption
@@ -70,7 +79,7 @@ function handleImageElement(node: Element, index: number | undefined, parent: an
 /**
  * Handle raw HTML <img> tags (legacy support for old resized images).
  */
-function handleRawImageHtml(node: any, index: number | undefined, parent: any) {
+function handleRawImageHtml(node: any, index: number | undefined, parent: any, filePath?: string) {
     const imgMatch = node.value.match(/<img[^>]*src=["']([^"']*)["'][^>]*alt=["']([^"']*)["'][^>]*>/i) ||
         node.value.match(/<img[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']*)["'][^>]*>/i);
 
@@ -83,7 +92,11 @@ function handleRawImageHtml(node: any, index: number | undefined, parent: any) {
             const altMatch = node.value.match(/alt=["']([^"']*)["']/i);
             const lineMatch = node.value.match(/data-source-line=["']([^"']*)["']/i);
 
-            if (srcMatch) props.src = srcMatch[1];
+            if (srcMatch) {
+                const originalSrc = srcMatch[1];
+                props['data-glint-src'] = originalSrc;
+                props.src = resolveImageUrl(originalSrc, filePath);
+            }
             if (altMatch) props.alt = altMatch[1];
             if (widthMatch) props.width = widthMatch[1];
             if (lineMatch) props['data-source-line'] = lineMatch[1];
@@ -101,6 +114,30 @@ function handleRawImageHtml(node: any, index: number | undefined, parent: any) {
             }
         }
     }
+}
+
+/**
+ * Resolves an image URL to a robust API endpoint.
+ */
+function resolveImageUrl(src: string, filePath?: string): string {
+    // Skip external URLs
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('//') || src.startsWith('data:')) {
+        return src;
+    }
+
+    // If it's already an API call, skip
+    if (src.startsWith('/api/asset/')) {
+        return src;
+    }
+
+    // Create resolver URL
+    const params = new URLSearchParams();
+    params.set('path', src);
+    if (filePath) {
+        params.set('context', filePath);
+    }
+
+    return `/api/asset/resolve?${params.toString()}`;
 }
 
 /**

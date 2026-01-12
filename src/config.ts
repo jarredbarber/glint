@@ -36,30 +36,74 @@ const DEFAULTS: GlintConfig = {
 };
 
 export async function loadConfig(contentDir: string): Promise<GlintConfig> {
-    const configPath = path.join(contentDir, 'glint.json');
+    const dotGlintDir = path.join(contentDir, '.glint');
+    const newConfigPath = path.join(dotGlintDir, 'config.json');
+    const oldConfigPath = path.join(contentDir, 'glint.json');
 
+    let raw: string;
     try {
-        const raw = await fs.readFile(configPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        const config = ConfigSchema.parse({ ...DEFAULTS, ...parsed });
-
-        // Process latex-macros if present
-        if (config['latex-macros']) {
-            const macros: Record<string, string> = {};
-            for (const [key, value] of Object.entries(config['latex-macros'])) {
-                macros[`\\${key}`] = value;
-            }
-            // Overwrite the original 'latex-macros' with the processed version
-            // This ensures the type is correct for later use
-            config['latex-macros'] = macros;
-        }
-
-        return config;
+        // Try new path first (prefers .glint/config.json)
+        raw = await fs.readFile(newConfigPath, 'utf-8');
     } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-            return DEFAULTS;
+            try {
+                // Try old path
+                raw = await fs.readFile(oldConfigPath, 'utf-8');
+
+                // Automatic migration
+                await fs.mkdir(dotGlintDir, { recursive: true });
+                await fs.writeFile(newConfigPath, raw, 'utf-8');
+
+                // We keep the old one but the system now prefers the new one.
+            } catch (oldErr) {
+                if ((oldErr as NodeJS.ErrnoException).code === 'ENOENT') {
+                    return DEFAULTS;
+                }
+                throw oldErr;
+            }
+        } else {
+            throw err;
         }
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+        return ConfigSchema.parse({ ...DEFAULTS, ...parsed });
+    } catch (err) {
         throw err;
+    }
+}
+
+/**
+ * Get processed LaTeX macros with leading backslashes for KaTeX.
+ */
+export function getProcessedMacros(config: GlintConfig): Record<string, string> {
+    const rawMacros = config['latex-macros'] || {};
+    const processed: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawMacros)) {
+        const processedKey = key.startsWith('\\') ? key : `\\${key}`;
+        processed[processedKey] = value;
+    }
+    return processed;
+}
+
+/**
+ * Get the path to the current config file (prefers .glint/config.json).
+ */
+export async function getConfigPath(contentDir: string): Promise<string> {
+    const newPath = path.join(contentDir, '.glint', 'config.json');
+    const oldPath = path.join(contentDir, 'glint.json');
+
+    try {
+        await fs.access(newPath);
+        return newPath;
+    } catch {
+        try {
+            await fs.access(oldPath);
+            return oldPath;
+        } catch {
+            return newPath; // Default to new path even if neither exists (for creation)
+        }
     }
 }
 

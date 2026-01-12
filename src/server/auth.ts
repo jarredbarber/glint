@@ -103,13 +103,16 @@ export function getRequestAccess(
     config: GlintConfig,
     urlPath: string
 ): AccessLevel | null {
-    // Check if user is authenticated
+    // 1. Check if user is authenticated
     if (isAuthenticated(request, config)) {
         return 'edit'; // Authenticated users have full access
     }
 
-    // Check if path is public
-    return getPublicAccess(config, urlPath);
+    // 2. Check if path is public
+    const publicAccess = getPublicAccess(config, urlPath);
+    if (publicAccess) return publicAccess;
+
+    return null;
 }
 
 /**
@@ -117,7 +120,8 @@ export function getRequestAccess(
  */
 export async function setupAuth(
     fastify: FastifyInstance,
-    getConfig: () => GlintConfig
+    getConfig: () => GlintConfig,
+    shareService?: any // Using any to avoid circular dependency if needed, will typed in final
 ) {
     // Register cookie plugin
     await fastify.register(cookie, {
@@ -131,6 +135,22 @@ export async function setupAuth(
 
     fastify.decorateRequest('getAccess', function (urlPath: string) {
         return getRequestAccess(this, getConfig(), urlPath);
+    });
+
+    fastify.decorateRequest('getShareAccess', function (urlPath: string, shareId?: string) {
+        if (!shareId || !shareService) return null;
+
+        const share = shareService.getShare(shareId);
+        if (!share) return null;
+
+        // Verify the share points to the requested file
+        if (share.filePath === urlPath) {
+            return share.access;
+        }
+
+        // If it's an asset within the share's context, allowed
+        // (This is a bit loose but Asset API will handle context validation)
+        return null;
     });
 }
 
@@ -170,5 +190,6 @@ declare module 'fastify' {
     interface FastifyRequest {
         isAuthenticated(): boolean;
         getAccess(urlPath: string): AccessLevel | null;
+        getShareAccess(urlPath: string, shareId?: string): AccessLevel | null;
     }
 }

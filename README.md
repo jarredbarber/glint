@@ -187,26 +187,4 @@ pm2 save
 pm2 startup  # generates startup script
 ```
 
-### Docker
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY dist ./dist
-COPY assets ./assets
-EXPOSE 3000
-CMD ["node", "dist/cli.js", "serve", "/content"]
-```
-
-Build and run:
-
-```bash
-docker build -t glint .
-docker run -p 3000:3000 -v /path/to/notes:/content glint
-```
-
-## License
-
 MIT
