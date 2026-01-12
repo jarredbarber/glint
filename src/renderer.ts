@@ -371,6 +371,8 @@ export const renderHtml = (options: RenderOptions) => {
 <html lang="en">
 ${renderHead(title, config.theme, styles)}
 <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
+    <div class="mobile-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</div>
+    <div class="mobile-overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
     ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
     <main class="content">
         <div class="content-wrapper">
@@ -428,6 +430,14 @@ ${renderHead(title, config.theme, styles)}
             </div>
         </div>
     </div>
+    <script>
+        // Close mobile sidebar on navigation
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A' && document.body.classList.contains('sidebar-open')) {
+                document.body.classList.remove('sidebar-open');
+            }
+        });
+    </script>
     ` : ''}
     ${renderScripts(shareId, scripts)}
 </body>

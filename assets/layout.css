@@ -1584,6 +1584,92 @@ h6:hover .heading-edit-icon,
     }
 }
 
+/* Mobile Responsive */
+.mobile-toggle,
+.mobile-overlay {
+    display: none;
+}
+
+@media (max-width: 768px) {
+
+    /* Mobile Toggle Button */
+    .mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        width: 40px;
+        height: 40px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 2000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        color: var(--text-primary);
+    }
+
+    /* Sidebar as Overlay */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 2001;
+        width: 280px;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+    }
+
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+
+    /* Overlay Backdrop */
+    .mobile-overlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        backdrop-filter: blur(2px);
+    }
+
+    body.sidebar-open .mobile-overlay {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Content adjustments */
+    .content {
+        margin-left: 0;
+        /* Override the 300px desktop margin */
+        padding-top: 4rem;
+        /* Space for hamburger */
+    }
+
+    /* Hide right outline on mobile */
+    .right-outline {
+        display: none;
+    }
+
+    /* Adjust tools for mobile */
+    .glint-line-tracker {
+        display: none;
+        /* Too cramped */
+    }
+}
+
 .line-tracker-hint .hint-item {
     padding: 0.15rem 0.5rem;
     white-space: nowrap;
