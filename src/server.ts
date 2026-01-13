@@ -24,7 +24,9 @@ import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
+import { rehypeGlintSections } from './rehype-glint-sections.js';
 import { rehypeGlintImage } from './rehype-glint-image.js';
+import { rehypeGlintCodeBlocks } from './rehype-glint-code-blocks.js';
 import { remarkGlintCitations } from './remark-glint-citations.js';
 import { rehypeGlintCitations } from './rehype-glint-citations.js';
 import { VFile } from 'vfile';
@@ -50,7 +52,7 @@ interface CacheEntry {
 // Image extensions to serve directly
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
-function createProcessor(config: GlintConfig) {
+function createProcessor(config: GlintConfig, contentDir: string) {
     const macros = getProcessedMacros(config);
 
     return unified()
@@ -59,17 +61,23 @@ function createProcessor(config: GlintConfig) {
         .use(remarkGfm)
         .use(remarkGlintWidgets)
         .use(remarkGlintCitations)
-        .use(remarkWikiLinkGlint)
+        .use(remarkWikiLinkGlint, { contentDir })
         .use(remarkMermaidGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeSourceLines)
+        .use(rehypeGlintSections)
         .use(rehypeRaw)
         .use(rehypeGlintImage)
         .use(rehypeGlintCitations)
         .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
         .use(rehypeHighlight, { detect: true })
+        .use(rehypeGlintCodeBlocks)
         .use(rehypeSlug)
-        .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
+        .use(rehypeAutolinkHeadings, {
+            behavior: 'prepend',
+            properties: { className: ['heading-anchor'] },
+            content: { type: 'text', value: '#' }
+        })
         .use(rehypeExtractHeadings)
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
@@ -77,7 +85,7 @@ function createProcessor(config: GlintConfig) {
 export async function createServer(contentDir: string) {
     let config = await loadConfig(contentDir);
     const assetsDir = path.join(import.meta.dirname, '..', 'assets');
-    let processor = createProcessor(config);
+    let processor = createProcessor(config, contentDir);
 
     const fastify = Fastify({ logger: true });
 
@@ -161,7 +169,7 @@ export async function createServer(contentDir: string) {
                         fastify.log.info(`${filename} changed, reloading config...`);
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for write
                         config = await loadConfig(contentDir);
-                        processor = createProcessor(config);
+                        processor = createProcessor(config, contentDir);
                         cache.clear();
                         broadcast('reload');
                         fastify.log.info('Config reloaded successfully');

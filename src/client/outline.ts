@@ -53,13 +53,13 @@ class OutlineManager {
         this.observer = new IntersectionObserver((entries) => {
             let mostVisible: { entry: IntersectionObserverEntry; ratio: number } | null = null;
 
-            entries.forEach(entry => {
+            for (const entry of entries) {
                 if (entry.isIntersecting && entry.intersectionRatio > 0) {
                     if (!mostVisible || entry.intersectionRatio > mostVisible.ratio) {
                         mostVisible = { entry, ratio: entry.intersectionRatio };
                     }
                 }
-            });
+            }
 
             if (mostVisible) {
                 const headingId = mostVisible.entry.target.getAttribute('id');

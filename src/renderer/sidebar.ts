@@ -1,0 +1,97 @@
+import { FileNode, renderFileTree } from '../filetree.js';
+import { HeadingNode } from '../rehype-extract-headings.js';
+
+export interface SidebarOptions {
+    fileTree: FileNode[];
+    currentPath: string;
+    headings?: HeadingNode[];
+    currentTheme?: string;
+    authEnabled?: boolean;
+    authenticated?: boolean;
+    isShared?: boolean;
+}
+
+export const renderSidebar = (options: SidebarOptions) => {
+    const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false, isShared = false } = options;
+    const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
+
+    const logoutButton = authEnabled && authenticated ? `
+        <button class="logout-button" onclick="
+            fetch('/api/auth/logout', { method: 'POST' })
+                .then(() => window.location.reload());
+        ">Logout</button>
+    ` : '';
+
+    // Views section (Task View)
+    const viewsSection = !isShared ? `
+        <details open class="sidebar-section">
+            <summary class="sidebar-header">Views</summary>
+            <nav class="views-list">
+                <ul>
+                    <li class="${currentPath === '/tasks' ? 'active' : ''}">
+                        <a href="/tasks" data-router="false">
+                            <span class="view-icon">✅</span> Task View
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </details>
+    ` : '';
+
+    // If it's a shared view, we only show the branding and the outline, not the full file tree
+    const filesSection = !isShared ? `
+        <details open class="sidebar-section">
+            <summary class="sidebar-header">Files</summary>
+            <nav class="file-tree">
+                <ul>${renderFileTree(fileTree, currentPath)}</ul>
+            </nav>
+        </details>
+    ` : '';
+
+    return `
+<aside class="sidebar ${isShared ? 'shared-view' : ''}">
+    <div class="sidebar-scrollable">
+        <div class="sidebar-branding">
+            <a href="/">
+                <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
+            </a>
+        </div>
+        
+        ${viewsSection}
+        ${filesSection}
+    </div>
+    <footer class="sidebar-footer">
+        <select class="theme-select" onchange="
+            const theme = this.value;
+            localStorage.setItem('glint-theme', theme);
+            const themeLink = document.querySelector('link[href*=\\'themes/\\']');
+            if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
+            fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+        ">
+            ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
+        </select>
+        ${!isShared ? `
+        <label class="vim-toggle">
+            <input type="checkbox" id="vim-mode-toggle" onchange="
+                localStorage.setItem('glint-vim-mode', this.checked);
+            ">
+            <span>Vim mode</span>
+        </label>
+        <script>
+            (function() {
+                var stored = localStorage.getItem('glint-vim-mode');
+                var enabled = stored === null ? true : stored === 'true';
+                document.getElementById('vim-mode-toggle').checked = enabled;
+            })();
+        </script>
+        ` : ''}
+        ${!isShared && authenticated ? `
+        <button class="share-sidebar-button" onclick="window.openShareModal()">
+            <span class="share-icon">🔗</span> Share
+        </button>
+        ` : ''}
+        ${logoutButton}
+    </footer>
+</aside>
+`;
+};

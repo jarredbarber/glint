@@ -2,7 +2,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { parseTaskLine } from './parser.js';
 import type { TaskItem, FileTasks } from './types.js';
-import { resolveContentPath } from '../utils/fs-utils.js';
 
 export class TaskScanner {
     private cache: Map<string, FileTasks> = new Map();

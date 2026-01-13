@@ -257,7 +257,7 @@ Metadata: `#priority`, `@assignee`, `due:YYYY-MM-DD`, `scheduled:YYYY-MM-DD`, `c
 Example:
 
 ```markdown
-- [x] Review PR #42 (due:2026-02-05 @jarred #urgent completed:2026-01-12)
+- [x] Review PR #42 (due:2026-02-05 @jarred #urgent completed:2026-01-13)
 - [/] Refactor API (@alice due:2026-03-01)
 ```
 

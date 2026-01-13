@@ -1,4 +1,4 @@
-import { visit } from 'unist-util-visit';
+import { CONTINUE } from 'unist-util-visit';
 import type { Node, Parent } from 'unist';
 import type { VisitorResult } from 'unist-util-visit';
 import type { WidgetHandler } from './types.js';
@@ -10,7 +10,7 @@ import rehypeStringify from 'rehype-stringify';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 
-const CONTINUE = undefined; // unist-util-visit expects undefined to continue
+
 
 // Simple sync processor for comment bodies (Markdown -> HTML)
 const bodyProcessor = unified()

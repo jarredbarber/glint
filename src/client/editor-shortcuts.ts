@@ -26,6 +26,20 @@ export function setupKeyboardShortcuts() {
             editCurrentSection();
             return;
         }
+
+        if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+            e.preventDefault();
+            const help = document.getElementById('shortcuts-help-overlay');
+            if (help) {
+                help.style.display = 'flex';
+            }
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            const help = document.getElementById('shortcuts-help-overlay');
+            if (help) help.style.display = 'none';
+        }
     });
 }
 
