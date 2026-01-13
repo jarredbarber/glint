@@ -243,18 +243,23 @@ export async function createServer(contentDir: string) {
         try {
             // Check existence and get stats
             let stat;
+            let resolvedPath = share.filePath;
+
             try {
-                stat = await storageManager.stat(share.filePath);
+                const resolved = await resolveStoragePath(storageManager, share.filePath, config);
+                stat = resolved.stat;
+                resolvedPath = resolved.path;
+
+                if (!resolved.isMarkdown || stat.isDirectory) {
+                    return reply.code(404).send('Linked file not found');
+                }
+
             } catch {
                 return reply.code(404).send('Linked file not found');
             }
 
-            if (stat.isDirectory || !share.filePath.endsWith('.md')) {
-                 return reply.code(404).send('Linked file not found');
-            }
-
             // Check if share is already cached
-            const cacheKey = `share:${shareId}:${share.filePath}`;
+            const cacheKey = `share:${shareId}:${resolvedPath}`;
             if (cache.has(cacheKey)) {
                 const entry = cache.get(cacheKey)!;
                 if (entry.mtime >= stat.mtime.getTime()) {
@@ -263,19 +268,19 @@ export async function createServer(contentDir: string) {
             }
 
             // Read and Process
-            const rawContent = await storageManager.read(share.filePath);
+            const rawContent = await storageManager.read(resolvedPath);
             const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
 
             // Run Unified Pipeline
             const file = new VFile({ value: cleanContent });
             file.data.contentStartLine = contentStartLine;
-            file.data.filePath = share.filePath;
+            file.data.filePath = resolvedPath;
             file.data.shareId = shareId;
 
             const vfile = await processor.process(file);
             let htmlContent = String(vfile);
 
-            const pageTitle = frontmatterTitle || path.basename(share.filePath, '.md').replace(/-/g, ' ');
+            const pageTitle = frontmatterTitle || path.basename(resolvedPath, '.md').replace(/-/g, ' ');
             const headings = (vfile.data.headings as HeadingNode[]) || [];
 
             const fullHtml = renderer.renderHtml({
@@ -283,7 +288,7 @@ export async function createServer(contentDir: string) {
                 title: pageTitle,
                 config,
                 fileTree,
-                currentPath: share.filePath,
+                currentPath: resolvedPath,
                 headings,
                 frontmatter,
                 authEnabled: config.auth?.enabled ?? false,

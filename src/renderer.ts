@@ -94,7 +94,7 @@ export const renderHtml = (options: RenderOptions) => {
     ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
     <main class="content">
         <div class="content-wrapper">
-            ${renderBreadcrumbs(currentPath)}
+            ${!isShared ? renderBreadcrumbs(currentPath) : ''}
             <header class="article-header">
                 <h1>${title}</h1>
                 ${renderMetadata(frontmatter)}

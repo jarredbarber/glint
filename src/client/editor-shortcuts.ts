@@ -54,7 +54,7 @@ function editCurrentSection() {
         const match = hint.textContent.match(/L(\d+)/);
         if (match) {
             const targetLine = parseInt(match[1]);
-            const target = document.querySelector(`.content-wrapper > [data-source-line="${targetLine}"]`) as HTMLElement;
+            const target = document.querySelector(`[data-source-line="${targetLine}"]`) as HTMLElement;
             if (target) {
                 const contentWrapper = target.parentElement;
                 const allBlocks = Array.from(contentWrapper?.children || []) as HTMLElement[];

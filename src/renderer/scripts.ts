@@ -99,7 +99,7 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
 <script src="/assets/editor-integration.bundle.js"></script>
 <script src="/assets/outline.bundle.js"></script>
 <script src="/assets/image-resize.bundle.js"></script>
-<script src="/assets/drag-reorder.bundle.js"></script>
+
 <script src="/assets/share.bundle.js"></script>
 <script src="/assets/command-palette.bundle.js"></script>
 <script src="/assets/citations.bundle.js"></script>

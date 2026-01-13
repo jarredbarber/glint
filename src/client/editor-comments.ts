@@ -18,7 +18,7 @@ function findClosingFence(lines: string[], startLineIndex: number): number {
     for (let i = startLineIndex + 1; i < lines.length; i++) {
         const line = lines[i].trim();
         const pureMatch = line.match(/^(`{3,})$/);
-        const openingMatch = line.match(/^(`{3,})\S+/);
+        const openingMatch = line.match(/^(`{3,})([^`\s]+)/);
 
         if (openingMatch && openingMatch[1].length >= 3) {
             depth++;

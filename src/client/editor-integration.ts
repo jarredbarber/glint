@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = document.elementFromPoint(x, y) as HTMLElement;
             if (!target) return;
 
-            const focusedSection = target.closest('.content-wrapper > [data-source-line]') as HTMLElement;
+            const focusedSection = target.closest('[data-source-line]') as HTMLElement;
+            if (focusedSection && !content.contains(focusedSection)) return;
 
             if (focusedSection) {
                 const rect = focusedSection.getBoundingClientRect();
@@ -167,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update state on scroll but keep hidden until mouse moves
         // This ensures shortcuts (e/c) work after scroll even if visual is hidden
         content.addEventListener('scroll', () => {
-             updateTracker(lastX, lastY, false);
+            updateTracker(lastX, lastY, false);
         }, { passive: true });
     }
 
@@ -194,10 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             observer.observe(document.body, { childList: true, subtree: true });
         }
 
-        // Initialize drag-to-reorder (if available)
-        if (typeof (window as any).initDragReorder === 'function') {
-            (window as any).initDragReorder();
-        }
+
     }
 
     init();
