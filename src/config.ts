@@ -12,6 +12,45 @@ const AuthSchema = z.object({
     passwordHash: z.string().optional(),
     sessionSecret: z.string().optional(),
     public: z.array(PublicPathSchema).default([]),
+    serviceTokenHash: z.string().optional(),
+});
+
+const StorageProviderSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('local'),
+        basePath: z.string(),
+    }),
+    z.object({
+        type: z.literal('github'),
+        owner: z.string(),
+        repo: z.string(),
+        branch: z.string().optional(),
+        token: z.string().optional(),
+    }),
+]);
+
+const MountSchema = z.object({
+    prefix: z.string(),
+    provider: z.string(),
+});
+
+const CacheConfigSchema = z.object({
+    enabled: z.boolean().default(true),
+    ttl: z.number().default(300000), // 5 minutes
+    maxSize: z.number().default(100 * 1024 * 1024), // 100MB
+});
+
+const StorageConfigSchema = z.object({
+    default: z.string().default('local'),
+    providers: z.record(z.string(), StorageProviderSchema).default({
+        local: { type: 'local', basePath: '.' }
+    }),
+    mounts: z.array(MountSchema).default([]),
+    cache: CacheConfigSchema.default(() => ({
+        enabled: true,
+        ttl: 300000,
+        maxSize: 100 * 1024 * 1024
+    })),
 });
 
 const ConfigSchema = z.object({
@@ -21,11 +60,28 @@ const ConfigSchema = z.object({
     baseFile: z.string().default('README.md'),
     'latex-macros': z.record(z.string(), z.string()).optional(),
     auth: AuthSchema.optional(),
+    storage: StorageConfigSchema.default(() => ({
+        default: 'local',
+        providers: {
+            local: { type: 'local' as const, basePath: '.' }
+        },
+        mounts: [],
+        cache: {
+            enabled: true,
+            ttl: 300000,
+            maxSize: 100 * 1024 * 1024
+        }
+    })),
+    github: z.object({
+        webhookSecret: z.string().optional(),
+        token: z.string().optional(),
+    }).optional(),
 });
 
 export type GlintConfig = z.infer<typeof ConfigSchema>;
 export type AuthConfig = z.infer<typeof AuthSchema>;
 export type PublicPath = z.infer<typeof PublicPathSchema>;
+export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 export type AccessLevel = 'view' | 'comment' | 'edit';
 
 const DEFAULTS: GlintConfig = {
@@ -33,6 +89,18 @@ const DEFAULTS: GlintConfig = {
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
+    storage: {
+        default: 'local',
+        providers: {
+            local: { type: 'local', basePath: '.' }
+        },
+        mounts: [],
+        cache: {
+            enabled: true,
+            ttl: 300000,
+            maxSize: 100 * 1024 * 1024
+        }
+    }
 };
 
 export async function loadConfig(contentDir: string): Promise<GlintConfig> {

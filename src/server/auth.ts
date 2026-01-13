@@ -74,6 +74,43 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
+ * Generate a service token for API authentication.
+ * Returns both the plaintext token (to give to the client) and the hash (to store in config).
+ */
+export async function generateServiceToken(): Promise<{ token: string; hash: string }> {
+    const token = crypto.randomBytes(32).toString('base64url');
+    const hash = await bcrypt.hash(token, 10);
+    return { token, hash };
+}
+
+/**
+ * Validate a service token against its bcrypt hash.
+ */
+export async function validateServiceToken(token: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(token, hash);
+}
+
+/**
+ * Check if a request has a valid service token (for API authentication).
+ * Looks for Authorization: Bearer <token> header.
+ */
+export async function hasValidServiceToken(request: FastifyRequest, config: GlintConfig): Promise<boolean> {
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return false;
+    }
+
+    const token = authHeader.substring(7); // Remove "Bearer " prefix
+    const serviceTokenHash = config.auth?.serviceTokenHash;
+
+    if (!serviceTokenHash) {
+        return false; // No service token configured
+    }
+
+    return await validateServiceToken(token, serviceTokenHash);
+}
+
+/**
  * Check if a request is authenticated.
  */
 export function isAuthenticated(request: FastifyRequest, config: GlintConfig): boolean {

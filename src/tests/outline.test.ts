@@ -8,7 +8,13 @@ const mockConfig = {
     port: 3000,
     host: '0.0.0.0',
     theme: 'nord',
-    baseFile: 'README.md'
+    baseFile: 'README.md',
+    storage: {
+        default: 'local',
+        providers: { local: { type: 'local' as const, basePath: '.' } },
+        mounts: [],
+        cache: { enabled: true, ttl: 300000, maxSize: 100 * 1024 * 1024 }
+    }
 };
 
 test('outline extraction', async (t) => {

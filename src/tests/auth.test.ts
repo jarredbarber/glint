@@ -20,6 +20,12 @@ test('auth: state check', async (t) => {
         host: 'localhost',
         theme: 'nord',
         baseFile: 'README.md',
+        storage: {
+            default: 'local',
+            providers: { local: { type: 'local', basePath: '.' } },
+            mounts: [],
+            cache: { enabled: true, ttl: 300000, maxSize: 100 * 1024 * 1024 }
+        },
         auth: {
             enabled: true,
             passwordHash: 'hash',
@@ -46,6 +52,12 @@ test('auth: access control', async (t) => {
         host: 'localhost',
         theme: 'nord',
         baseFile: 'README.md',
+        storage: {
+            default: 'local',
+            providers: { local: { type: 'local', basePath: '.' } },
+            mounts: [],
+            cache: { enabled: true, ttl: 300000, maxSize: 100 * 1024 * 1024 }
+        },
         auth: {
             enabled: true,
             passwordHash: 'hash',
