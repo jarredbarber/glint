@@ -56,12 +56,44 @@ export interface VersionEntry {
     url?: string;
 }
 
+export interface GitStatus {
+    isRepo: boolean;
+    branch: string | null;
+    ahead: number;
+    behind: number;
+    hasChanges: boolean;
+    clean: boolean;
+    message?: string;
+}
+
+export interface GitSyncResult {
+    success: boolean;
+    pulledChanges: boolean;
+    pushedChanges: boolean;
+    messages: string[];
+    error?: string;
+}
+
+export interface GitPullResult {
+    success: boolean;
+    changes: boolean;
+    message: string;
+}
+
+export interface GitPushResult {
+    success: boolean;
+    pushed: boolean;
+    message: string;
+}
+
 export interface StorageProvider {
     readonly name: string;
 
     // Core CRUD operations
     read(path: string): Promise<string>;
+    readBuffer(path: string): Promise<Buffer>;
     write(path: string, content: string, options?: WriteOptions): Promise<void>;
+    writeBuffer(path: string, content: Buffer, options?: WriteOptions): Promise<void>;
     delete(path: string): Promise<void>;
     exists(path: string): Promise<boolean>;
     move(oldPath: string, newPath: string): Promise<void>;
@@ -75,25 +107,26 @@ export interface StorageProvider {
     // Version history (optional, mainly GitHub)
     history?(path: string): Promise<VersionEntry[]>;
 
-    // Get file stats (optional)
-    stat?(path: string): Promise<{
+    // Git operations (optional)
+    getGitStatus?(): Promise<GitStatus>;
+    gitSync?(): Promise<GitSyncResult>;
+    gitPull?(): Promise<GitPullResult>;
+    gitPush?(): Promise<GitPushResult>;
+
+    // Get file stats
+    stat(path: string): Promise<{
         size: number;
         mtime: Date;
         isDirectory: boolean;
     }>;
+
+    // Watch for changes (optional)
+    watch?(path: string, listener: (event: 'change' | 'rename', filename: string) => void): () => void;
 }
 
-export interface StorageConfig {
-    default: string;
-    providers: Record<string, ProviderConfig>;
-    mounts: MountConfig[];
-}
-
-export type ProviderConfig =
-    | { type: 'local'; basePath: string }
-    | { type: 'github'; owner: string; repo: string; branch?: string; token?: string };
-
-export interface MountConfig {
-    prefix: string;
-    provider: string;
-}
+export {
+    type StorageConfig,
+    type StorageProviderConfig as ProviderConfig,
+    type MountConfig,
+    type CacheConfig
+} from '../config.js';

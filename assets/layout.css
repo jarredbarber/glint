@@ -692,7 +692,7 @@ h6 {
 
 .heading-anchor {
     position: absolute;
-    left: -1.5rem;
+    left: -18px;
     opacity: 0;
     color: var(--text-dim);
     transition: all 0.2s ease;
@@ -701,6 +701,7 @@ h6 {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.9em;
     padding-right: 0.5rem;
+    z-index: 110;
 }
 
 h1:hover .heading-anchor,
@@ -1352,7 +1353,7 @@ tr:nth-child(even) {
     opacity: 0;
     cursor: pointer;
     position: absolute;
-    left: -56px;
+    left: -64px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.9rem;
@@ -1367,7 +1368,7 @@ tr:nth-child(even) {
     border-radius: 50%;
     background: var(--bg-highlight);
     border: 1px solid var(--border-color);
-    z-index: 10;
+    z-index: 110;
 }
 
 .heading-edit-icon:hover {
@@ -1395,7 +1396,7 @@ h6:hover .heading-edit-icon,
     opacity: 0;
     cursor: pointer;
     position: absolute;
-    left: -56px;
+    left: -64px;
     top: 20px;
     /* Fixed offset from top of code block */
     font-size: 0.9rem;
@@ -1410,7 +1411,7 @@ h6:hover .heading-edit-icon,
     border-radius: 50%;
     background: var(--bg-highlight);
     border: 1px solid var(--border-color);
-    z-index: 10;
+    z-index: 110;
 }
 
 .code-edit-icon:hover {
@@ -2573,7 +2574,7 @@ body.shared-view .content-wrapper {
 .drag-handle {
     display: none;
     position: absolute;
-    left: -2rem;
+    left: -36px;
     top: 50%;
     transform: translateY(-50%);
     cursor: grab;
@@ -2584,6 +2585,7 @@ body.shared-view .content-wrapper {
     user-select: none;
     padding: 0.25rem;
     line-height: 1;
+    z-index: 110;
 }
 
 .draggable-section:hover .drag-handle {
@@ -2671,19 +2673,7 @@ body:has(.glint-inline-editor-container) .drag-handle {
     display: none !important;
 }
 
-.heading-edit-icon {
-    z-index: 10;
-    position: relative;
-}
-
-@media (max-width: 768px) {
-    .drag-handle {
-        display: none !important;
-    }
-
-    .draggable-section {
-        cursor: default !important;
-    }
+/* End of file */
 }
 
 /* ===========================

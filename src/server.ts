@@ -2,7 +2,6 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import formbody from '@fastify/formbody';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { LRUCache } from 'lru-cache';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -31,8 +30,7 @@ import { remarkGlintCitations } from './remark-glint-citations.js';
 import { rehypeGlintCitations } from './rehype-glint-citations.js';
 import { VFile } from 'vfile';
 import * as renderer from './renderer.js';
-import { resolveContentPath } from './utils/fs-utils.js';
-import { isForbiddenError, isNotFoundError } from './utils/errors.js';
+import { isForbiddenError, isNotFoundError, NotFoundError } from './utils/errors.js';
 
 import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
@@ -41,7 +39,11 @@ import { setupGitRoutes } from './server/routes/git.js';
 import { setupAuth } from './server/auth.js';
 import { ShareService } from './server/share.js';
 import { TaskScanner } from './tasks/scanner.js';
+import { StorageManager } from './storage/index.js';
+import { resolveStoragePath } from './storage/utils.js';
 import { setupTaskRoutes } from './server/routes/tasks.js';
+import { setupDocumentRoutes } from './server/routes/documents.js';
+import { setupWebhookRoutes } from './server/routes/webhooks.js';
 
 
 interface CacheEntry {
@@ -52,7 +54,7 @@ interface CacheEntry {
 // Image extensions to serve directly
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
-export function createProcessor(config: GlintConfig, contentDir: string) {
+export function createProcessor(config: GlintConfig, linkValidator: (path: string) => boolean) {
     const macros = getProcessedMacros(config);
 
     return unified()
@@ -61,7 +63,7 @@ export function createProcessor(config: GlintConfig, contentDir: string) {
         .use(remarkGfm)
         .use(remarkGlintWidgets)
         .use(remarkGlintCitations)
-        .use(remarkWikiLinkGlint, { contentDir })
+        .use(remarkWikiLinkGlint, { validateLink: linkValidator })
         .use(remarkMermaidGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeSourceLines)
@@ -85,7 +87,13 @@ export function createProcessor(config: GlintConfig, contentDir: string) {
 export async function createServer(contentDir: string) {
     let config = await loadConfig(contentDir);
     const assetsDir = path.join(import.meta.dirname, '..', 'assets');
-    let processor = createProcessor(config, contentDir);
+
+    // State
+    const titleCache = new Map<string, string>();
+    const knownPaths = new Set<string>();
+    let fileTree: FileNode[] = [];
+
+    let processor = createProcessor(config, (p) => knownPaths.has(p));
 
     const fastify = Fastify({ logger: true });
 
@@ -95,8 +103,11 @@ export async function createServer(contentDir: string) {
     // Parse form submissions (needed for login form)
     await fastify.register(formbody);
 
+    // Initialize Storage Manager
+    const storageManager = new StorageManager(config, contentDir);
+
     // Initialize Share Service
-    const shareService = new ShareService(contentDir);
+    const shareService = new ShareService(storageManager);
     await shareService.load();
 
     // Setup Auth (must be before routes)
@@ -109,31 +120,41 @@ export async function createServer(contentDir: string) {
     await setupAuthRoutes(fastify, getConfig);
 
     // Initialize Task Scanner
-    const taskScanner = new TaskScanner(contentDir);
+    const taskScanner = new TaskScanner(storageManager);
     await taskScanner.scanAll(); // Initial scan
 
     // Setup API Routes
-    await setupAPIRoutes(fastify, contentDir, getConfig, broadcast, taskScanner);
+    await setupAPIRoutes(fastify, contentDir, getConfig, shareService, taskScanner, storageManager);
 
     // Setup Task Routes
-    await setupTaskRoutes(fastify, contentDir, taskScanner);
+    await setupTaskRoutes(fastify, getConfig, taskScanner, storageManager);
 
+    // Setup Document Routes
+    await setupDocumentRoutes(fastify, storageManager, getConfig, processor);
+
+    // Setup Webhook Routes
+    await setupWebhookRoutes(fastify, storageManager, getConfig);
 
     // Setup Git Routes
-    await setupGitRoutes(fastify, contentDir, getConfig);
+    await setupGitRoutes(fastify, contentDir, getConfig, storageManager);
 
     // LRU cache for rendered HTML
     const cache = new LRUCache<string, CacheEntry>({ max: 100 });
 
-    // Title cache for sidebar
-    const titleCache = new Map<string, string>();
-    let fileTree: FileNode[] = [];
+    const updateKnownPaths = (nodes: FileNode[]) => {
+        for (const node of nodes) {
+            if (node.isDir) {
+                updateKnownPaths(node.children || []);
+            } else {
+                knownPaths.add(node.path + '.md');
+            }
+        }
+    };
 
     const updateTitleCache = async (relativePath: string) => {
         try {
-            const { safePath } = await resolveContentPath(contentDir, relativePath, config, false);
-            const raw = await fs.readFile(safePath, 'utf-8');
-            const { title } = parseMarkdown(raw);
+            const content = await storageManager.read(relativePath);
+            const { title } = parseMarkdown(content);
             if (title) {
                 titleCache.set(relativePath, title);
             } else {
@@ -145,10 +166,9 @@ export async function createServer(contentDir: string) {
     };
 
     // Unified Watcher
-    const watchAll = async () => {
+    const watchAll = () => {
         try {
-            const fsSync = await import('node:fs');
-            fsSync.watch(contentDir, { recursive: true }, async (event, filename) => {
+            storageManager.watch('', async (event, filename) => {
                 if (!filename) return;
 
                 if (filename.endsWith('.md')) {
@@ -158,7 +178,9 @@ export async function createServer(contentDir: string) {
                 }
 
                 // Re-build file tree on any FS change
-                fileTree = await buildFileTree(contentDir, '', titleCache);
+                fileTree = await buildFileTree(storageManager, '', titleCache);
+                knownPaths.clear();
+                updateKnownPaths(fileTree);
 
                 const isConfig = filename === 'glint.json' ||
                     filename === '.glint/config.json' ||
@@ -169,7 +191,7 @@ export async function createServer(contentDir: string) {
                         fastify.log.info(`${filename} changed, reloading config...`);
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for write
                         config = await loadConfig(contentDir);
-                        processor = createProcessor(config, contentDir);
+                        processor = createProcessor(config, (p) => knownPaths.has(p));
                         cache.clear();
                         broadcast('reload');
                         fastify.log.info('Config reloaded successfully');
@@ -195,7 +217,7 @@ export async function createServer(contentDir: string) {
     // REMOVED: Now handled by /api/asset/resolve
 
     // Build file tree once at startup
-    const initialTree = await buildFileTree(contentDir);
+    const initialTree = await buildFileTree(storageManager);
     const scanTitles = async (nodes: FileNode[]) => {
         for (const node of nodes) {
             if (node.isDir) {
@@ -206,7 +228,8 @@ export async function createServer(contentDir: string) {
         }
     };
     await scanTitles(initialTree);
-    fileTree = await buildFileTree(contentDir, '', titleCache);
+    fileTree = await buildFileTree(storageManager, '', titleCache);
+    updateKnownPaths(fileTree);
 
     // Share Route
     fastify.get('/s/:shareId', async (request, reply) => {
@@ -218,23 +241,29 @@ export async function createServer(contentDir: string) {
         }
 
         try {
-            const { safePath, stats, isMarkdown } = await resolveContentPath(contentDir, share.filePath, config, false);
-
-            if (!isMarkdown || !stats) {
+            // Check existence and get stats
+            let stat;
+            try {
+                stat = await storageManager.stat(share.filePath);
+            } catch {
                 return reply.code(404).send('Linked file not found');
             }
 
-            // Check if share is already cached (use a special key to avoid mixing with normal view)
-            const cacheKey = `share:${shareId}:${safePath}`;
+            if (stat.isDirectory || !share.filePath.endsWith('.md')) {
+                 return reply.code(404).send('Linked file not found');
+            }
+
+            // Check if share is already cached
+            const cacheKey = `share:${shareId}:${share.filePath}`;
             if (cache.has(cacheKey)) {
                 const entry = cache.get(cacheKey)!;
-                if (entry.mtime >= stats!.mtimeMs) {
+                if (entry.mtime >= stat.mtime.getTime()) {
                     return reply.type('text/html').send(entry.html);
                 }
             }
 
             // Read and Process
-            const rawContent = await fs.readFile(safePath, 'utf-8');
+            const rawContent = await storageManager.read(share.filePath);
             const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
 
             // Run Unified Pipeline
@@ -263,7 +292,7 @@ export async function createServer(contentDir: string) {
                 shareId: shareId
             });
 
-            cache.set(cacheKey, { html: fullHtml, mtime: stats.mtimeMs });
+            cache.set(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
             return reply.type('text/html').send(fullHtml);
 
         } catch (err) {
@@ -291,26 +320,24 @@ export async function createServer(contentDir: string) {
         }
 
         try {
-            // Note: We use resolveContentPath just to get the safe path and type,
-            // but we don't rely on its isMarkdown check for rendering logic
-            // because we handle static files and markdown separately.
-            const { safePath, stats, isMarkdown } = await resolveContentPath(contentDir, urlPath, config, false);
+            // Resolve path using StorageManager
+            const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, urlPath, config);
 
             if (!isMarkdown) {
                 return reply.code(404).send('Not Found');
             }
 
             // Check cache
-            const cacheKey = safePath;
+            const cacheKey = filePath;
             if (cache.has(cacheKey)) {
                 const entry = cache.get(cacheKey)!;
-                if (entry.mtime >= stats!.mtimeMs) {
+                if (entry.mtime >= stat.mtime.getTime()) {
                     return reply.type('text/html').send(entry.html);
                 }
             }
 
             // Read and Process
-            const rawContent = await fs.readFile(safePath, 'utf-8');
+            const rawContent = await storageManager.read(filePath);
 
             // Parse markdown (handles frontmatter and H1 stripping)
             const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
@@ -318,13 +345,13 @@ export async function createServer(contentDir: string) {
             // Run Unified Pipeline
             const file = new VFile({ value: cleanContent });
             file.data.contentStartLine = contentStartLine;
-            file.data.filePath = urlPath;
+            file.data.filePath = filePath;
 
             const vfile = await processor.process(file);
             let htmlContent = String(vfile);
 
             // Combine into full HTML
-            const pageTitle = frontmatterTitle || path.basename(urlPath, '.md').replace(/-/g, ' ');
+            const pageTitle = frontmatterTitle || path.basename(filePath, '.md').replace(/-/g, ' ');
 
             // Get headings from plugin
             const headings = (vfile.data.headings as HeadingNode[]) || [];
@@ -334,7 +361,7 @@ export async function createServer(contentDir: string) {
                 title: pageTitle,
                 config,
                 fileTree,
-                currentPath: urlPath,
+                currentPath: filePath,
                 headings,
                 frontmatter,
                 authEnabled: config.auth?.enabled ?? false,
@@ -342,7 +369,7 @@ export async function createServer(contentDir: string) {
             });
 
             // Cache it
-            cache.set(cacheKey, { html: fullHtml, mtime: stats!.mtimeMs });
+            cache.set(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
 
             return reply.type('text/html').send(fullHtml);
 
@@ -355,5 +382,5 @@ export async function createServer(contentDir: string) {
         }
     });
 
-    return { fastify, config };
+    return { fastify, config, storageManager };
 }

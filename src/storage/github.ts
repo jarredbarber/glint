@@ -115,7 +115,23 @@ export class GitHubStorageProvider implements StorageProvider {
         return Buffer.from(data.content, 'base64').toString('utf-8');
     }
 
+    async readBuffer(path: string): Promise<Buffer> {
+        const data = await this.request<GitHubContent>(`contents/${path}?ref=${this.branch}`);
+        if (data.type !== 'file' || !data.content) {
+            throw new Error('Not a file or empty content');
+        }
+        return Buffer.from(data.content, 'base64');
+    }
+
     async write(path: string, content: string, options?: WriteOptions): Promise<void> {
+        return this._writeInternal(path, Buffer.from(content).toString('base64'), options);
+    }
+
+    async writeBuffer(path: string, content: Buffer, options?: WriteOptions): Promise<void> {
+        return this._writeInternal(path, content.toString('base64'), options);
+    }
+
+    private async _writeInternal(path: string, contentBase64: string, options?: WriteOptions): Promise<void> {
         const maxRetries = 3;
         const delays = [100, 200, 300];
 
@@ -130,7 +146,7 @@ export class GitHubStorageProvider implements StorageProvider {
 
                 const body: any = {
                     message: options?.message || `Update ${path}`,
-                    content: Buffer.from(content).toString('base64'),
+                    content: contentBase64,
                     branch: this.branch
                 };
 
@@ -239,10 +255,43 @@ export class GitHubStorageProvider implements StorageProvider {
         }));
     }
 
+    async stat(path: string): Promise<{ size: number; mtime: Date; isDirectory: boolean }> {
+        let data: GitHubContent | GitHubContent[];
+        try {
+            data = await this.request<GitHubContent | GitHubContent[]>(`contents/${path}?ref=${this.branch}`);
+        } catch (err: any) {
+            if (err.message === 'Not found') {
+                throw new Error(`File not found: ${path}`);
+            }
+            throw err;
+        }
+
+        const isArray = Array.isArray(data);
+        const isDirectory = isArray || (data as GitHubContent).type === 'dir';
+        const size = isArray ? 0 : (data as GitHubContent).size;
+
+        // Get last commit for mtime
+        let mtime = new Date();
+        try {
+            const commits = await this.request<GitHubCommit[]>(`commits?path=${path}&sha=${this.branch}&per_page=1`);
+            if (commits && commits.length > 0) {
+                mtime = new Date(commits[0].commit.author.date);
+            }
+        } catch (e) {
+            // Ignore commit fetch errors, fallback to now
+        }
+
+        return { size, mtime, isDirectory };
+    }
+
     getRateLimitStatus() {
         return {
             remaining: this.rateLimitRemaining,
             reset: this.rateLimitReset
         };
+    }
+
+    isFromRepo(owner: string, repo: string): boolean {
+        return this.owner === owner && this.repo === repo;
     }
 }

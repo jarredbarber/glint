@@ -82,6 +82,9 @@ export type GlintConfig = z.infer<typeof ConfigSchema>;
 export type AuthConfig = z.infer<typeof AuthSchema>;
 export type PublicPath = z.infer<typeof PublicPathSchema>;
 export type StorageConfig = z.infer<typeof StorageConfigSchema>;
+export type StorageProviderConfig = z.infer<typeof StorageProviderSchema>;
+export type MountConfig = z.infer<typeof MountSchema>;
+export type CacheConfig = z.infer<typeof CacheConfigSchema>;
 export type AccessLevel = 'view' | 'comment' | 'edit';
 
 const DEFAULTS: GlintConfig = {

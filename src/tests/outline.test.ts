@@ -18,7 +18,7 @@ const mockConfig = {
 };
 
 test('outline extraction', async (t) => {
-    const processor = createProcessor(mockConfig, '/tmp');
+    const processor = createProcessor(mockConfig, () => true);
 
     await t.test('extracts headings without anchor hash', async () => {
         const content = '# Introduction\n\nSome text.\n\n## Section 1\n\nMore text.';

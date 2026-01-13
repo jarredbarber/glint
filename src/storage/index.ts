@@ -78,6 +78,11 @@ export class StorageManager {
         return await provider.read(relativePath);
     }
 
+    async readBuffer(path: string): Promise<Buffer> {
+        const { provider, relativePath } = this.resolveProvider(path);
+        return await provider.readBuffer(relativePath);
+    }
+
     async write(path: string, content: string, options?: WriteOptions): Promise<void> {
         const { provider, relativePath } = this.resolveProvider(path);
         await provider.write(relativePath, content, options);
@@ -85,6 +90,15 @@ export class StorageManager {
         // Invalidate cache for this path
         if (this.cache) {
             // We invalidate the full path since that's the cache key
+            this.cache.invalidate(path);
+        }
+    }
+
+    async writeBuffer(path: string, content: Buffer, options?: WriteOptions): Promise<void> {
+        const { provider, relativePath } = this.resolveProvider(path);
+        await provider.writeBuffer(relativePath, content, options);
+
+        if (this.cache) {
             this.cache.invalidate(path);
         }
     }
@@ -135,6 +149,53 @@ export class StorageManager {
         return [];
     }
 
+    async stat(path: string): Promise<{ size: number; mtime: Date; isDirectory: boolean }> {
+        const { provider, relativePath } = this.resolveProvider(path);
+        return await provider.stat(relativePath);
+    }
+
+    watch(path: string, listener: (event: 'change' | 'rename', filename: string) => void): () => void {
+        const { provider, relativePath } = this.resolveProvider(path);
+        if (provider.watch) {
+            return provider.watch(relativePath, listener);
+        }
+        return () => {};
+    }
+
+    // Git Operations (delegated to default provider for now)
+
+    async getGitStatus() {
+        const provider = this.providers.get(this.defaultProvider);
+        if (provider && provider.getGitStatus) {
+            return await provider.getGitStatus();
+        }
+        throw new Error('Git operations not supported by current storage provider');
+    }
+
+    async gitSync() {
+        const provider = this.providers.get(this.defaultProvider);
+        if (provider && provider.gitSync) {
+            return await provider.gitSync();
+        }
+        throw new Error('Git operations not supported by current storage provider');
+    }
+
+    async gitPull() {
+        const provider = this.providers.get(this.defaultProvider);
+        if (provider && provider.gitPull) {
+            return await provider.gitPull();
+        }
+        throw new Error('Git operations not supported by current storage provider');
+    }
+
+    async gitPush() {
+        const provider = this.providers.get(this.defaultProvider);
+        if (provider && provider.gitPush) {
+            return await provider.gitPush();
+        }
+        throw new Error('Git operations not supported by current storage provider');
+    }
+
     // Cache methods
 
     getCachedHtml(path: string): { html: string; mtime: number } | undefined {
@@ -147,5 +208,28 @@ export class StorageManager {
 
     invalidateCache(path: string): void {
         this.cache?.invalidate(path);
+    }
+
+    invalidateByRepo(owner: string, repo: string, files: string[]): void {
+        if (!this.cache) return;
+
+        // Find all mounts that point to this repo
+        for (const mount of this.mounts) {
+            const provider = this.providers.get(mount.provider);
+            if (provider instanceof GitHubStorageProvider && provider.isFromRepo(owner, repo)) {
+                // Invalidate each changed file in the cache with the correct prefix
+                for (const file of files) {
+                    this.cache.invalidate(mount.prefix + file);
+                }
+            }
+        }
+
+        // Also check default provider if it's a GitHub provider
+        const defaultProvider = this.providers.get(this.defaultProvider);
+        if (defaultProvider instanceof GitHubStorageProvider && defaultProvider.isFromRepo(owner, repo)) {
+            for (const file of files) {
+                this.cache.invalidate(file);
+            }
+        }
     }
 }

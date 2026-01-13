@@ -1,12 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { TaskScanner } from '../../tasks/scanner.js';
 import * as renderer from '../../renderer.js';
-import { loadConfig } from '../../config.js';
+import { GlintConfig } from '../../config.js';
 import { buildFileTree } from '../../filetree.js';
-import path from 'node:path';
-import fs from 'node:fs/promises';
+import { StorageManager } from '../../storage/index.js';
 
-export async function setupTaskRoutes(fastify: FastifyInstance, contentDir: string, scanner: TaskScanner) {
+export async function setupTaskRoutes(
+    fastify: FastifyInstance,
+    getConfig: () => GlintConfig,
+    scanner: TaskScanner,
+    storage: StorageManager
+) {
 
     // API: Get all tasks
     fastify.get('/api/tasks', async (request, reply) => {
@@ -16,8 +20,8 @@ export async function setupTaskRoutes(fastify: FastifyInstance, contentDir: stri
 
     // Page: Task View Dashboard
     fastify.get('/tasks', async (request, reply) => {
-        const config = await loadConfig(contentDir);
-        const fileTree = await buildFileTree(contentDir);
+        const config = getConfig();
+        const fileTree = await buildFileTree(storage);
 
         // Initial scan if cache is empty
         let tasks = scanner.getAllTasks();
@@ -49,10 +53,8 @@ export async function setupTaskRoutes(fastify: FastifyInstance, contentDir: stri
             newState?: string
         };
 
-        const fullPath = path.join(contentDir, sourcePath);
-
         try {
-            const content = await fs.readFile(fullPath, 'utf-8');
+            const content = await storage.read(sourcePath);
             const lines = content.split('\n');
             const lineIndex = lineNumber - 1;
             const line = lines[lineIndex];
@@ -92,7 +94,7 @@ export async function setupTaskRoutes(fastify: FastifyInstance, contentDir: stri
             }
 
             lines[lineIndex] = `${indent}- [${marker}] ${newRest}`;
-            await fs.writeFile(fullPath, lines.join('\n'), 'utf-8');
+            await storage.write(sourcePath, lines.join('\n'));
 
             // Refresh scanner cache immediately
             await scanner.refresh(sourcePath);

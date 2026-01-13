@@ -78,9 +78,9 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
                 // Regex explanation:
                 // ^(\s*[\w-]+\s*:)  -> Group 1: Key (e.g. "title:")
                 // \s+               -> Whitespace separator
-                // (?!["'|>\-])      -> Negative lookahead: not starting with quote, block char, or list dash
-                // (.*:.*)           -> Group 2: Value containing a colon
-                return line.replace(/^(\s*[\w-]+\s*:)\s+(?!["'|>\-])(.*:.*)$/, '$1 "$2"');
+                // (?!["'|>\-\[\{\*\&\!]) -> Negative lookahead: not starting with quote, block char, list dash, flow style, or special YAML chars
+                // (.*:.*)$           -> Group 2: Value containing a colon
+                return line.replace(/^(\s*[\w-]+\s*:)\s+(?!["'|>\-\[\{\*\&\!])(.*:.*)$/, '$1 "$2"');
             }).join('\n');
 
             processedRaw = fixedFrontmatter + raw.substring(endOfFrontmatter + 4);

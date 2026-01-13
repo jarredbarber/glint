@@ -1,11 +1,13 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { visit } from 'unist-util-visit';
 import type { Plugin } from 'unified';
 import type { Root, Text, PhrasingContent } from 'mdast';
 
-interface WikiLinkOptions {
-    contentDir?: string;
+export interface WikiLinkOptions {
+    /**
+     * Callback to check if a link target exists.
+     * Should return true if the file exists.
+     */
+    validateLink?: (target: string) => boolean;
 }
 
 /**
@@ -13,11 +15,11 @@ interface WikiLinkOptions {
  * Supports:
  * - [[Page Name]] -> [Page Name](Page%20Name)
  * - [[Page Name|Label]] -> [Label](Page%20Name)
- * 
- * If contentDir is provided, it validates if the target file exists.
+ *
+ * If validateLink is provided, it validates if the target file exists.
  */
 export const remarkWikiLinkGlint: Plugin<[WikiLinkOptions?], Root> = function (options = {}) {
-    const { contentDir } = options;
+    const { validateLink } = options;
 
     return (tree: Root) => {
         visit(tree, 'text', (node: Text, index, parent) => {
@@ -46,20 +48,10 @@ export const remarkWikiLinkGlint: Plugin<[WikiLinkOptions?], Root> = function (o
 
                 // Existence check
                 let exists = true;
-                if (contentDir) {
-                    // Normalize target to a file path
-                    // We assume it's relative to content root or a simple name
-                    // In Glint, wiki links usually map to filenames in the root or subdirs
-                    // We'll check for Target.md
+                if (validateLink) {
+                    // Normalize target to a file path convention (append .md if missing)
                     const targetFile = target.endsWith('.md') ? target : `${target}.md`;
-                    const fullPath = path.resolve(contentDir, targetFile);
-
-                    // Basic check: must be inside contentDir
-                    if (fullPath.startsWith(path.resolve(contentDir))) {
-                        exists = fs.existsSync(fullPath);
-                    } else {
-                        exists = false;
-                    }
+                    exists = validateLink(targetFile);
                 }
 
                 newNodes.push({

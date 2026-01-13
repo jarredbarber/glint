@@ -1,14 +1,13 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { StorageManager } from '../storage/index.js';
 import { parseTaskLine } from './parser.js';
 import type { TaskItem, FileTasks } from './types.js';
 
 export class TaskScanner {
     private cache: Map<string, FileTasks> = new Map();
-    private contentRoot: string;
+    private storage: StorageManager;
 
-    constructor(contentRoot: string) {
-        this.contentRoot = contentRoot;
+    constructor(storage: StorageManager) {
+        this.storage = storage;
     }
 
     /**
@@ -16,32 +15,36 @@ export class TaskScanner {
      */
     async scanAll(): Promise<TaskItem[]> {
         const allTasks: TaskItem[] = [];
-        await this.scanDirectory(this.contentRoot, allTasks);
+        await this.scanDirectory('', allTasks);
         return allTasks;
     }
 
     private async scanDirectory(dir: string, allTasks: TaskItem[]) {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
+        try {
+            const entries = await this.storage.list(dir);
 
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            const relativePath = path.relative(this.contentRoot, fullPath);
+            for (const entry of entries) {
+                // Use POSIX paths
+                const relativePath = dir ? `${dir}/${entry.name}` : entry.name;
 
-            if (entry.isDirectory()) {
-                // Skip hidden directories and .assets folders
-                if (entry.name.startsWith('.') || entry.name.endsWith('.assets')) continue;
-                await this.scanDirectory(fullPath, allTasks);
-            } else if (entry.isFile() && entry.name.endsWith('.md')) {
-                const tasks = await this.scanFile(fullPath, relativePath);
-                allTasks.push(...tasks);
+                if (entry.type === 'directory') {
+                    // Skip hidden directories and .assets folders
+                    if (entry.name.startsWith('.') || entry.name.endsWith('.assets')) continue;
+                    await this.scanDirectory(relativePath, allTasks);
+                } else if (entry.type === 'file' && entry.name.endsWith('.md')) {
+                    const tasks = await this.scanFile(relativePath);
+                    allTasks.push(...tasks);
+                }
             }
+        } catch (err) {
+            console.error(`Error scanning directory ${dir}:`, err);
         }
     }
 
-    private async scanFile(fullPath: string, relativePath: string): Promise<TaskItem[]> {
+    private async scanFile(relativePath: string): Promise<TaskItem[]> {
         try {
-            const stats = await fs.stat(fullPath);
-            const mtime = stats.mtimeMs;
+            const stats = await this.storage.stat(relativePath);
+            const mtime = stats.mtime.getTime();
 
             const cached = this.cache.get(relativePath);
             if (cached && cached.mtime === mtime) {
@@ -49,7 +52,7 @@ export class TaskScanner {
             }
 
             // Read and parse
-            const content = await fs.readFile(fullPath, 'utf-8');
+            const content = await this.storage.read(relativePath);
             const lines = content.split('\n');
             const tasks: TaskItem[] = [];
 
@@ -85,8 +88,7 @@ export class TaskScanner {
      * Force re-scan and cache update for a specific file.
      */
     async refresh(relativePath: string): Promise<void> {
-        const fullPath = path.join(this.contentRoot, relativePath);
-        await this.scanFile(fullPath, relativePath);
+        await this.scanFile(relativePath);
     }
 
     /**

@@ -74,6 +74,8 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
             window.location.reload();
         }
     };
+
+    evtSource.onerror = () => {
         // SSE connection errors are normal during navigation, don't reload
         console.debug('SSE connection error');
     };

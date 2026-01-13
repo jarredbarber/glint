@@ -4,11 +4,25 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { ShareService } from '../server/share.js';
+import { StorageManager } from '../storage/index.js';
+import { GlintConfig } from '../config.js';
 
 test('ShareService', async (t) => {
     // Setup temp directory
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-test-'));
-    const service = new ShareService(tempDir);
+
+    const mockConfig = {
+        storage: {
+            default: 'local',
+            providers: {
+                local: { type: 'local', basePath: tempDir }
+            },
+            mounts: []
+        }
+    } as unknown as GlintConfig;
+
+    const storage = new StorageManager(mockConfig, tempDir);
+    const service = new ShareService(storage);
     await service.load();
 
     // Ensure cleanup
@@ -55,7 +69,7 @@ test('ShareService', async (t) => {
 
     await t.test('persistence', async () => {
         // Create new service pointing to same dir to test load()
-        const newService = new ShareService(tempDir);
+        const newService = new ShareService(storage);
         await newService.load();
 
         // Should have the remaining valid shares

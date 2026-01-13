@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import readline from 'node:readline';
 import { createServer } from './server.js';
-import { hashPassword } from './server/auth.js';
+import { hashPassword, generateServiceToken } from './server/auth.js';
 import { loadConfig, getConfigPath } from './config.js';
 
 const program = new Command();
@@ -90,6 +90,50 @@ program
         console.log('The glint.json file has been updated.');
         console.log('\nTo make paths publicly accessible, add them to auth.public:');
         console.log('  "public": [{ "path": "docs/*", "access": "view" }]');
+    });
+
+program
+    .command('auth-token')
+    .description('Manage service tokens for external agents (e.g. Hector AI)')
+    .argument('action', 'Action to perform: generate')
+    .argument('[path]', 'Path to content directory', process.cwd())
+    .action(async (action: string, contentPath: string) => {
+        if (action !== 'generate') {
+            console.error('Error: Unknown action. Supported actions: generate');
+            process.exit(1);
+        }
+
+        const contentDir = path.resolve(contentPath);
+        const configPath = await getConfigPath(contentDir);
+
+        console.log('Glint Service Token Generation');
+        console.log('=============================\n');
+
+        const { token, hash } = await generateServiceToken();
+
+        // Load existing config
+        let config: any;
+        try {
+            const existing = await fs.readFile(configPath, 'utf-8');
+            config = JSON.parse(existing);
+        } catch {
+            config = {};
+        }
+
+        if (!config.auth) {
+            config.auth = { enabled: true };
+        }
+        config.auth.serviceTokenHash = hash;
+
+        // Write config
+        const dotGlintDir = path.dirname(configPath);
+        await fs.mkdir(dotGlintDir, { recursive: true });
+        await fs.writeFile(configPath, JSON.stringify(config, null, 4));
+
+        console.log('New service token generated and stored in config.\n');
+        console.log('IMPORTANT: Copy this token now. It will not be shown again.');
+        console.log('TOKEN: ' + token + '\n');
+        console.log('Store this in Hector\'s GLINT_SERVICE_TOKEN environment variable.');
     });
 
 program.parse();

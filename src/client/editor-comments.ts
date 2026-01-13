@@ -2,6 +2,38 @@
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canComment } from './permissions.js';
 
+/**
+ * Finds the index of the closing fence for a block starting at startLineIndex.
+ * Handles nested fenced blocks by tracking depth.
+ */
+function findClosingFence(lines: string[], startLineIndex: number): number {
+    const openingLine = lines[startLineIndex];
+    if (!openingLine) return -1;
+    const fenceMatch = openingLine.match(/^(\s*)(`{3,})/);
+    if (!fenceMatch) return -1;
+
+    const minFenceLength = fenceMatch[2].length;
+    let depth = 0;
+
+    for (let i = startLineIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const pureMatch = line.match(/^(`{3,})$/);
+        const openingMatch = line.match(/^(`{3,})\S+/);
+
+        if (openingMatch && openingMatch[1].length >= 3) {
+            depth++;
+        } else if (pureMatch && pureMatch[1].length >= 3) {
+            if (depth === 0 && pureMatch[1].length >= minFenceLength) {
+                return i;
+            }
+            if (depth > 0) {
+                depth--;
+            }
+        }
+    }
+    return -1;
+}
+
 export function injectCommentInteractions() {
     const comments = document.querySelectorAll('.glint-comment');
     comments.forEach(comment => {
@@ -58,6 +90,14 @@ export function injectCommentInteractions() {
 
 export function showReplyInput(commentNode: HTMLElement, canDeleteOnCancel: boolean = false) {
     if (!canComment()) return;
+
+    // Prevent multiple reply forms
+    if (commentNode.querySelector('.glint-comment-reply-form')) {
+        const existingTextarea = commentNode.querySelector('textarea');
+        if (existingTextarea) existingTextarea.focus();
+        return;
+    }
+
     const actions = commentNode.querySelector('.glint-comment-actions');
     if (!actions) return;
 
@@ -120,10 +160,11 @@ export function showReplyInput(commentNode: HTMLElement, canDeleteOnCancel: bool
 
         try {
             sendBtn.disabled = true;
+            textarea.disabled = true;
             sendBtn.innerText = 'Sending...';
             await submitReply(commentNode, message);
-            inputContainer.remove();
-            (actions as HTMLElement).style.display = '';
+            // On success, we don't remove the form because window.location.reload() is coming.
+            // This prevents a "ghost" state where the form disappears and shows old state before reload.
         } catch (err: any) {
             alert('Failed to send reply: ' + err.message);
             sendBtn.disabled = false;
@@ -160,23 +201,9 @@ export async function submitReply(commentNode: HTMLElement, message: string) {
     const lines = content.split('\n');
     const startLine = parseInt(sourceLine);
 
-    // Determine fence length from the opening line
-    const openingLine = lines[startLine - 1];
-    const fenceMatch = openingLine.match(/^(\s*)(`{3,})/);
-    const minFenceLength = fenceMatch ? fenceMatch[2].length : 3;
-
-    let endLineIndex = -1;
-    for (let i = startLine; i < lines.length; i++) {
-        const line = lines[i].trim();
-        // Closing fence must be just backticks and at least as long as opening fence
-        const match = line.match(/^(`{3,})$/);
-        if (match && match[1].length >= minFenceLength) {
-            endLineIndex = i;
-            break;
-        }
-    }
-
+    const endLineIndex = findClosingFence(lines, startLine - 1);
     if (endLineIndex === -1) throw new Error('Could not find closing fence');
+
     lines.splice(endLineIndex, 0, newLine);
 
     await saveContent(path, lines.join('\n'), hash);
@@ -196,21 +223,7 @@ export async function deleteCommentBlock(commentNode: HTMLElement) {
         const { content, hash } = await res.json();
         const lines = content.split('\n');
 
-        // Determine fence length from the opening line
-        const openingLine = lines[startLine - 1];
-        const fenceMatch = openingLine.match(/^(\s*)(`{3,})/);
-        const minFenceLength = fenceMatch ? fenceMatch[2].length : 3;
-
-        let endLineIndex = -1;
-        for (let i = startLine; i < lines.length; i++) {
-            const line = lines[i].trim();
-            const match = line.match(/^(`{3,})$/);
-            if (match && match[1].length >= minFenceLength) {
-                endLineIndex = i;
-                break;
-            }
-        }
-
+        const endLineIndex = findClosingFence(lines, startLine - 1);
         if (endLineIndex === -1) throw new Error('Could not find closing fence');
 
         let deleteFrom = startLine - 1;
@@ -259,11 +272,16 @@ export async function resolveThread(commentNode: HTMLElement) {
     }
 }
 
+let isInsertingComment = false;
+
 export async function insertCommentBlock(sourceLine?: string, nextLine?: string) {
     if (!canComment()) return;
+    if (isInsertingComment) return;
+
     const path = window.location.pathname.substring(1) || 'README.md';
 
     let startLine = 0;
+    // ... rest of logic
     if (sourceLine) {
         startLine = parseInt(sourceLine);
     } else {
@@ -282,6 +300,7 @@ export async function insertCommentBlock(sourceLine?: string, nextLine?: string)
     if (!startLine) return;
 
     try {
+        isInsertingComment = true;
         const res = await fetch(`/api/source/${path}`);
         if (!res.ok) throw new Error('Failed to load source');
         const { content, hash } = await res.json();
@@ -297,14 +316,9 @@ export async function insertCommentBlock(sourceLine?: string, nextLine?: string)
 
             if (fenceMatch) {
                 // If we are on a fence line (code block or existing comment), insert AFTER the block
-                const minFenceLength = fenceMatch[1].length;
-                for (let i = startLine; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    const match = line.match(/^(`{3,})$/);
-                    if (match && match[1].length >= minFenceLength) {
-                        insertAt = i + 1;
-                        break;
-                    }
+                const endLineIndex = findClosingFence(lines, startLine - 1);
+                if (endLineIndex !== -1) {
+                    insertAt = endLineIndex + 1;
                 }
             }
         }
@@ -314,6 +328,8 @@ export async function insertCommentBlock(sourceLine?: string, nextLine?: string)
         await saveContent(path, lines.join('\n'), hash);
     } catch (err: any) {
         alert('Failed to insert comment: ' + err.message);
+    } finally {
+        isInsertingComment = false;
     }
 }
 

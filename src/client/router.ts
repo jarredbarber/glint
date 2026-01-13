@@ -100,6 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.title = newTitle.innerText;
             }
 
+            // Update body attributes (permissions, theme, etc.)
+            const newBody = doc.querySelector('body');
+            if (newBody) {
+                document.body.className = newBody.className;
+                if (newBody.dataset.access) {
+                    document.body.dataset.access = newBody.dataset.access;
+                } else {
+                    delete document.body.dataset.access;
+                }
+            }
+
             // Re-initialize dynamic content
             const mermaid = (window as any).mermaid;
             if (typeof mermaid !== 'undefined') {

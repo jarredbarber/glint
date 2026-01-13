@@ -3,7 +3,12 @@ import { insertCommentBlock } from './editor-comments.js';
 import { openInlineEditor } from './editor-sessions.js';
 import { canEdit, canComment } from './permissions.js';
 
+let shortcutsAttached = false;
+
 export function setupKeyboardShortcuts() {
+    if (shortcutsAttached) return;
+    shortcutsAttached = true;
+
     document.addEventListener('keydown', (e) => {
         const target = e.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;

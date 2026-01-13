@@ -1,7 +1,6 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import crypto from 'node:crypto';
 import { z } from 'zod';
+import { StorageManager } from '../storage/index.js';
+import crypto from 'node:crypto';
 
 export const ShareConfigSchema = z.object({
     id: z.string(),
@@ -15,43 +14,44 @@ export const ShareConfigSchema = z.object({
 export type ShareConfig = z.infer<typeof ShareConfigSchema>;
 
 export class ShareService {
-    private sharesPath: string;
+    private sharesPath = '.glint/shares.json';
     private shares: ShareConfig[] = [];
+    private storage: StorageManager;
 
-    constructor(contentDir: string) {
-        this.sharesPath = path.join(contentDir, '.glint', 'shares.json');
+    constructor(storage: StorageManager) {
+        this.storage = storage;
     }
 
     async load(): Promise<void> {
         try {
-            const raw = await fs.readFile(this.sharesPath, 'utf-8');
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                this.shares = parsed
-                    .map(s => {
-                        try {
-                            return ShareConfigSchema.parse(s);
-                        } catch (err) {
-                            console.error('Failed to parse share config:', err);
-                            return null;
-                        }
-                    })
-                    .filter((s): s is ShareConfig => s !== null);
+            if (await this.storage.exists(this.sharesPath)) {
+                const raw = await this.storage.read(this.sharesPath);
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    this.shares = parsed
+                        .map(s => {
+                            try {
+                                return ShareConfigSchema.parse(s);
+                            } catch (err) {
+                                console.error('Failed to parse share config:', err);
+                                return null;
+                            }
+                        })
+                        .filter((s): s is ShareConfig => s !== null);
+                }
+            } else {
+                this.shares = [];
+                await this.save();
             }
         } catch (err) {
-            if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-                this.shares = [];
-                // Ensure directory exists
-                await fs.mkdir(path.dirname(this.sharesPath), { recursive: true });
-                await this.save();
-            } else {
-                throw err;
-            }
+            console.error('Failed to load shares:', err);
+            // Don't throw, just start with empty
+            this.shares = [];
         }
     }
 
     async save(): Promise<void> {
-        await fs.writeFile(this.sharesPath, JSON.stringify(this.shares, null, 4), 'utf-8');
+        await this.storage.write(this.sharesPath, JSON.stringify(this.shares, null, 4));
     }
 
     async createShare(params: {

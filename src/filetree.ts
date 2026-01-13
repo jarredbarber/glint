@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import { StorageManager } from './storage/index.js';
 import path from 'path';
 
 export interface FileNode {
@@ -10,15 +10,15 @@ export interface FileNode {
 }
 
 export async function buildFileTree(
-    dir: string,
-    basePath: string = '',
+    storage: StorageManager,
+    dir: string = '',
     titleCache?: Map<string, string>
 ): Promise<FileNode[]> {
     let entries;
     try {
-        entries = await fs.readdir(dir, { withFileTypes: true });
+        entries = await storage.list(dir);
     } catch (err) {
-        // Skip directories we can't access (permission denied, etc.)
+        // Skip directories we can't access
         return [];
     }
     const nodes: FileNode[] = [];
@@ -34,12 +34,12 @@ export async function buildFileTree(
             continue;
         }
 
-        const relativePath = path.join(basePath, entry.name);
-        const fullPath = path.join(dir, entry.name);
+        // Use POSIX paths for URLs
+        const relativePath = dir ? `${dir}/${entry.name}` : entry.name;
 
-        if (entry.isDirectory()) {
+        if (entry.type === 'directory') {
             try {
-                const children = await buildFileTree(fullPath, relativePath, titleCache);
+                const children = await buildFileTree(storage, relativePath, titleCache);
                 if (children.length > 0) {
                     nodes.push({
                         name: entry.name,

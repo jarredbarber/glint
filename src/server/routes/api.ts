@@ -1,18 +1,20 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel, getConfigPath } from '../../config.js';
-import { resolveContentPath } from '../../utils/fs-utils.js';
+import { type GlintConfig, type AccessLevel } from '../../config.js';
+import { StorageManager } from '../../storage/index.js';
+import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
+import { TaskScanner } from '../../tasks/scanner.js';
 
 export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
     getConfig: () => GlintConfig,
-    shareService?: any,
-    scanner?: any // TaskScanner
+    shareService: any,
+    taskScanner: TaskScanner,
+    storage: StorageManager
 ) {
 
 
@@ -86,16 +88,16 @@ export async function setupAPIRoutes(
                 return;
             }
 
-            const { safePath, stats } = await resolveContentPath(contentDir, targetUrlPath, getConfig(), false);
+            const { path: safePath, stat } = await resolveStoragePath(storage, targetUrlPath, getConfig());
 
-            if (!stats || stats.isDirectory()) {
+            if (!stat || stat.isDirectory) {
                 return reply.code(404).send({ error: 'Asset not found' });
             }
 
             const ext = path.extname(safePath).toLowerCase();
             const contentType = IMAGE_EXTENSIONS[ext] || 'application/octet-stream';
 
-            const fileBuffer = await fs.readFile(safePath);
+            const fileBuffer = await storage.readBuffer(safePath);
             return reply.type(contentType).send(fileBuffer);
 
         } catch (err: unknown) {
@@ -113,11 +115,17 @@ export async function setupAPIRoutes(
             const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
             if (themes.includes(theme)) {
-                const configPath = await getConfigPath(contentDir);
+                // We assume config is at .glint/config.json or glint.json
+                // Storage abstraction might not map exactly to where config is if it's outside mounts?
+                // But typically config is in the root or .glint/ in the root.
+                // Let's try writing to .glint/config.json using storage.
+
                 const currentConfig = getConfig();
                 const newConfig = { ...currentConfig, theme };
 
-                await fs.writeFile(configPath, JSON.stringify(newConfig, null, 4));
+                // Try writing to standard location
+                await storage.write('.glint/config.json', JSON.stringify(newConfig, null, 4));
+
                 // Config is auto-reloaded via server.ts file watcher
                 return { success: true };
             }
@@ -141,12 +149,12 @@ export async function setupAPIRoutes(
                 return;
             }
 
-            const { safePath } = await resolveContentPath(contentDir, body.path, getConfig());
+            const { path: safePath } = await resolveStoragePath(storage, body.path, getConfig());
 
             // Optimistic locking
             if (body.hash) {
                 try {
-                    const existingContent = await fs.readFile(safePath, 'utf-8');
+                    const existingContent = await storage.read(safePath);
                     const existingHash = crypto.createHash('md5').update(existingContent).digest('hex');
                     if (existingHash !== body.hash) {
                         return reply.code(409).send({
@@ -159,10 +167,10 @@ export async function setupAPIRoutes(
                 }
             }
 
-            await fs.writeFile(safePath, body.content, 'utf-8');
+            await storage.write(safePath, body.content);
             const newHash = crypto.createHash('md5').update(body.content).digest('hex');
 
-            if (scanner) await scanner.refresh(body.path);
+            if (taskScanner) await taskScanner.refresh(body.path);
 
             return { success: true, hash: newHash };
 
@@ -201,11 +209,11 @@ export async function setupAPIRoutes(
                 return reply.code(400).send({ error: 'Invalid line range' });
             }
 
-            const { safePath } = await resolveContentPath(contentDir, body.path, getConfig());
+            const { path: safePath } = await resolveStoragePath(storage, body.path, getConfig());
 
             if (body.hash) {
                 try {
-                    const existingContent = await fs.readFile(safePath, 'utf-8');
+                    const existingContent = await storage.read(safePath);
                     const existingHash = crypto.createHash('md5').update(existingContent).digest('hex');
                     if (existingHash !== body.hash) {
                         return reply.code(409).send({
@@ -218,7 +226,7 @@ export async function setupAPIRoutes(
                 }
             }
 
-            const content = await fs.readFile(safePath, 'utf-8');
+            const content = await storage.read(safePath);
             const lines = content.split('\n');
 
             if (body.fromLine < 1 || body.fromLine > lines.length || body.toLine > lines.length + 1) {
@@ -240,11 +248,11 @@ export async function setupAPIRoutes(
             lines.splice(insertIndex, 0, ...sectionLines);
 
             const newContent = lines.join('\n');
-            await fs.writeFile(safePath, newContent, 'utf-8');
+            await storage.write(safePath, newContent);
 
             const newHash = crypto.createHash('md5').update(newContent).digest('hex');
 
-            if (scanner) scanner.invalidate(body.path);
+            if (taskScanner) taskScanner.invalidate(body.path);
 
             return { success: true, hash: newHash };
 
@@ -267,8 +275,8 @@ export async function setupAPIRoutes(
         }
 
         try {
-            const { safePath } = await resolveContentPath(contentDir, urlPath, getConfig(), false);
-            const content = await fs.readFile(safePath, 'utf-8');
+            const { path: safePath } = await resolveStoragePath(storage, urlPath, getConfig());
+            const content = await storage.read(safePath);
             const hash = crypto.createHash('md5').update(content).digest('hex');
             return { content, hash, path: urlPath };
         } catch (err: unknown) {
@@ -309,25 +317,47 @@ export async function setupAPIRoutes(
                 return;
             }
 
-            const { safePath: resolvedArticlePath } = await resolveContentPath(contentDir, articlePath, getConfig());
+            const { path: resolvedArticlePath } = await resolveStoragePath(storage, articlePath, getConfig());
 
             const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
-            const assetsDir = path.join(path.dirname(resolvedArticlePath), assetsDirName);
+            const assetsDir = path.posix.join(path.dirname(resolvedArticlePath), assetsDirName);
 
-            await fs.mkdir(assetsDir, { recursive: true });
+            // Storage write automatically handles parent directories in Local, and doesn't need it in Git
+            // But we might want to ensure it's treated as a directory? No, just write the file.
 
             const ext = path.extname(filename) || '.png';
             const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex').substring(0, 8);
             const newFilename = `${hash}${ext}`;
-            const destPath = path.join(assetsDir, newFilename);
+            const destPath = path.posix.join(assetsDir, newFilename);
 
-            await fs.writeFile(destPath, fileBuffer);
+            await storage.writeBuffer(destPath, fileBuffer);
 
-            const relativeAssetsDir = path.relative(contentDir, assetsDir);
-            const assetSubPath = path.join(relativeAssetsDir, newFilename);
+            // Calculate relative path for the markdown source
+            // We need relative path from contentDir to assetsDir, but destPath IS that if using storage root
+            // Wait, resolvedArticlePath is from storage root.
+            // destPath is from storage root.
+            // If the user is editing "folder/doc.md", assetsDir is "folder/doc.md.assets"
+            // The image path is "folder/doc.md.assets/img.png"
+            // The link in markdown should be "doc.md.assets/img.png" (relative to doc)
+            // Or "/folder/doc.md.assets/img.png" (absolute)
+            // Glint usually uses relative paths if possible, or absolute.
+            // The previous code calculated relative path from contentDir.
 
-            // Return relative path for the markdown source
-            return { url: assetSubPath };
+            // Previous code:
+            // const relativeAssetsDir = path.relative(contentDir, assetsDir);
+            // const assetSubPath = path.join(relativeAssetsDir, newFilename);
+
+            // In storage, destPath IS the path relative to root (if we assume standard mount).
+            // But we want the path to insert into Markdown.
+
+            // If we return `destPath`, it's "folder/doc.md.assets/img.png".
+            // If we want it relative to the document "folder/doc.md":
+            // path.relative("folder", "folder/doc.md.assets/img.png") -> "doc.md.assets/img.png"
+
+            // Let's rely on standard absolute path behavior for now: "/folder/doc.md.assets/img.png"
+            // This is safer.
+
+            return { url: '/' + destPath };
 
         } catch (err: unknown) {
             if (isForbiddenError(err)) return reply.code(403).send({ error: 'Forbidden' });

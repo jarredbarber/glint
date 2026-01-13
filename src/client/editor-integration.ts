@@ -48,20 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupLineTracker() {
         if (!canComment() && !canEdit()) return;
-        if (document.querySelector('.glint-line-tracker')) return;
 
         const content = document.querySelector('.content-wrapper') as HTMLElement;
         if (!content) return;
 
-        const tracker = document.createElement('div');
-        tracker.className = 'glint-line-tracker';
-        tracker.innerHTML = `
-            <div class="glint-line-visual"></div>
-            <div class="line-tracker-hint"></div>
-        `;
+        let tracker = document.querySelector('.glint-line-tracker') as HTMLElement;
+        if (!tracker) {
+            tracker = document.createElement('div');
+            tracker.className = 'glint-line-tracker';
+            tracker.innerHTML = `
+                <div class="glint-line-visual"></div>
+                <div class="line-tracker-hint"></div>
+            `;
+            document.body.appendChild(tracker);
+        }
+
         const visual = tracker.querySelector('.glint-line-visual') as HTMLElement;
         const hint = tracker.querySelector('.line-tracker-hint') as HTMLElement;
-        document.body.appendChild(tracker);
 
         let isVisible = false;
         let lastX = 0;
@@ -166,16 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
         content.addEventListener('scroll', () => {
              updateTracker(lastX, lastY, false);
         }, { passive: true });
-
-        const observer = new MutationObserver(() => {
-            if (window.__glintEditingActive) {
-                tracker.style.display = 'none';
-            } else {
-                tracker.style.display = '';
-            }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
     }
+
+    let observer: MutationObserver | null = null;
 
     function init() {
         injectEditIcons();
@@ -183,6 +179,20 @@ document.addEventListener('DOMContentLoaded', () => {
         injectCommentInteractions();
         setupKeyboardShortcuts();
         setupLineTracker();
+
+        if (!observer) {
+            observer = new MutationObserver(() => {
+                const tracker = document.querySelector('.glint-line-tracker') as HTMLElement;
+                if (tracker) {
+                    if (window.__glintEditingActive) {
+                        tracker.style.display = 'none';
+                    } else {
+                        tracker.style.display = '';
+                    }
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
 
         // Initialize drag-to-reorder (if available)
         if (typeof (window as any).initDragReorder === 'function') {
