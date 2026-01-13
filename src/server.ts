@@ -2,7 +2,6 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import formbody from '@fastify/formbody';
 import path from 'node:path';
-import { LRUCache } from 'lru-cache';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkMath from 'remark-math';
@@ -138,9 +137,6 @@ export async function createServer(contentDir: string) {
     // Setup Git Routes
     await setupGitRoutes(fastify, contentDir, getConfig, storageManager);
 
-    // LRU cache for rendered HTML
-    const cache = new LRUCache<string, CacheEntry>({ max: 100 });
-
     const updateKnownPaths = (nodes: FileNode[]) => {
         for (const node of nodes) {
             if (node.isDir) {
@@ -173,7 +169,7 @@ export async function createServer(contentDir: string) {
 
                 if (filename.endsWith('.md')) {
                     await updateTitleCache(filename);
-                    cache.clear();
+                    storageManager.invalidateCache(filename);
                     broadcast('reload');
                 }
 
@@ -192,7 +188,7 @@ export async function createServer(contentDir: string) {
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for write
                         config = await loadConfig(contentDir);
                         processor = createProcessor(config, (p) => knownPaths.has(p));
-                        cache.clear();
+                        storageManager.clearCache();
                         broadcast('reload');
                         fastify.log.info('Config reloaded successfully');
                     } catch (err) {
@@ -260,11 +256,9 @@ export async function createServer(contentDir: string) {
 
             // Check if share is already cached
             const cacheKey = `share:${shareId}:${resolvedPath}`;
-            if (cache.has(cacheKey)) {
-                const entry = cache.get(cacheKey)!;
-                if (entry.mtime >= stat.mtime.getTime()) {
-                    return reply.type('text/html').send(entry.html);
-                }
+            const cached = storageManager.getCachedHtml(cacheKey);
+            if (cached && cached.mtime >= stat.mtime.getTime()) {
+                return reply.type('text/html').send(cached.html);
             }
 
             // Read and Process
@@ -297,7 +291,7 @@ export async function createServer(contentDir: string) {
                 shareId: shareId
             });
 
-            cache.set(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
+            storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
             return reply.type('text/html').send(fullHtml);
 
         } catch (err) {
@@ -334,11 +328,9 @@ export async function createServer(contentDir: string) {
 
             // Check cache
             const cacheKey = filePath;
-            if (cache.has(cacheKey)) {
-                const entry = cache.get(cacheKey)!;
-                if (entry.mtime >= stat.mtime.getTime()) {
-                    return reply.type('text/html').send(entry.html);
-                }
+            const cached = storageManager.getCachedHtml(cacheKey);
+            if (cached && cached.mtime >= stat.mtime.getTime()) {
+                return reply.type('text/html').send(cached.html);
             }
 
             // Read and Process
@@ -374,7 +366,7 @@ export async function createServer(contentDir: string) {
             });
 
             // Cache it
-            cache.set(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
+            storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
 
             return reply.type('text/html').send(fullHtml);
 

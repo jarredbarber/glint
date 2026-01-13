@@ -18,7 +18,7 @@ const AuthSchema = z.object({
 const StorageProviderSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('local'),
-        basePath: z.string(),
+        basePath: z.string().default('.'),
     }),
     z.object({
         type: z.literal('github'),

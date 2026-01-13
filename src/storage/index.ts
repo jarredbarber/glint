@@ -210,6 +210,10 @@ export class StorageManager {
         this.cache?.invalidate(path);
     }
 
+    clearCache(): void {
+        this.cache?.clear();
+    }
+
     invalidateByRepo(owner: string, repo: string, files: string[]): void {
         if (!this.cache) return;
 
