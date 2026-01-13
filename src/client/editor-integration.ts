@@ -64,15 +64,32 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(tracker);
 
         let isVisible = false;
+        let lastX = 0;
+        let lastY = 0;
 
-        content.addEventListener('mousemove', (e) => {
-            const target = e.target as HTMLElement;
+        function updateTracker(x: number, y: number, show: boolean) {
+            // Check if element at point is valid
+            // We need to temporarily hide the tracker/visual to peek 'under' it if it's in the way
+            // But usually pointer-events: none handles that on the tracker container?
+            // The tracker CSS has pointer-events: none for the container, but auto for the hint/toast.
+            // visual is just a div.
+
+            const target = document.elementFromPoint(x, y) as HTMLElement;
+            if (!target) return;
+
             const focusedSection = target.closest('.content-wrapper > [data-source-line]') as HTMLElement;
 
             if (focusedSection) {
                 const rect = focusedSection.getBoundingClientRect();
                 const contentRect = content.getBoundingClientRect();
                 const sourceLine = focusedSection.getAttribute('data-source-line');
+
+                // Store line in dataset for robust access by shortcuts
+                if (sourceLine) {
+                    hint.dataset.line = sourceLine;
+                } else {
+                    delete hint.dataset.line;
+                }
 
                 let hintHtml = `<span class="hint-item"><span class="hint-key">L${sourceLine || '?'}</span></span>`;
                 if (canComment()) {
@@ -119,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 hint.style.left = `${hintLeft}px`;
 
-                if (!isVisible) {
+                if (show && !isVisible) {
                     tracker.classList.add('visible');
                     isVisible = true;
                 }
@@ -128,7 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     tracker.classList.remove('visible');
                     isVisible = false;
                 }
+                // Clear dataset if nothing focused
+                delete hint.dataset.line;
             }
+        }
+
+        content.addEventListener('mousemove', (e) => {
+            lastX = e.clientX;
+            lastY = e.clientY;
+            updateTracker(lastX, lastY, true);
         });
 
         content.addEventListener('mouseleave', () => {
@@ -136,12 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
             isVisible = false;
         });
 
-        // Hide on scroll to prevent "ghost" lines over large widgets
+        // Update state on scroll but keep hidden until mouse moves
+        // This ensures shortcuts (e/c) work after scroll even if visual is hidden
         content.addEventListener('scroll', () => {
-            if (isVisible) {
-                tracker.classList.remove('visible');
-                isVisible = false;
-            }
+             updateTracker(lastX, lastY, false);
         }, { passive: true });
 
         const observer = new MutationObserver(() => {

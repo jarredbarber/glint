@@ -1352,18 +1352,18 @@ tr:nth-child(even) {
     opacity: 0;
     cursor: pointer;
     position: absolute;
-    left: -42px;
+    left: -56px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 1.2rem;
+    font-size: 0.9rem;
     transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     user-select: none;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: var(--bg-highlight);
     border: 1px solid var(--border-color);
@@ -1395,18 +1395,18 @@ h6:hover .heading-edit-icon,
     opacity: 0;
     cursor: pointer;
     position: absolute;
-    left: -42px;
+    left: -56px;
     top: 20px;
     /* Fixed offset from top of code block */
-    font-size: 1.2rem;
+    font-size: 0.9rem;
     transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     user-select: none;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: var(--bg-highlight);
     border: 1px solid var(--border-color);
@@ -2428,7 +2428,7 @@ h6:hover .heading-edit-icon,
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-dim);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
 }
@@ -2440,12 +2440,12 @@ h6:hover .heading-edit-icon,
 }
 
 .right-outline-item {
-    margin: 0.25rem 0;
+    margin: 0.1rem 0;
 }
 
 .right-outline-link {
     display: block;
-    padding: 0.4rem 0.6rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 4px;
     color: var(--text-dim);
     text-decoration: none;
@@ -2475,21 +2475,18 @@ h6:hover .heading-edit-icon,
     box-shadow: 0 2px 8px rgba(167, 192, 128, 0.15);
 }
 
-/* Depth-based indentation */
+/* Depth-based styles - Font sizes only */
 .right-outline-item[data-depth="1"] .right-outline-link {
     font-size: 0.9rem;
     font-weight: 600;
-    padding-left: 0.6rem;
 }
 
 .right-outline-item[data-depth="2"] .right-outline-link {
     font-size: 0.85rem;
-    padding-left: 1.2rem;
 }
 
 .right-outline-item[data-depth="3"] .right-outline-link {
     font-size: 0.8rem;
-    padding-left: 1.8rem;
     opacity: 0.9;
 }
 
@@ -2497,51 +2494,14 @@ h6:hover .heading-edit-icon,
 .right-outline-item[data-depth="5"] .right-outline-link,
 .right-outline-item[data-depth="6"] .right-outline-link {
     font-size: 0.75rem;
-    padding-left: 2.4rem;
     opacity: 0.8;
 }
 
-/* Collapsible sections */
-.right-outline-section {
-    position: relative;
-}
-
-.right-outline-section-header {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-}
-
-.outline-toggle {
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--text-dim);
-    font-size: 0.7rem;
-    transition: all 0.2s ease;
-    border-radius: 3px;
-    user-select: none;
-}
-
-.outline-toggle:hover {
-    background: var(--bg-highlight);
-    color: var(--text-color);
-}
-
-.outline-toggle::before {
-    content: '\25BE';
-    transition: transform 0.2s ease;
-}
-
-.right-outline-section.collapsed .outline-toggle::before {
-    transform: rotate(-90deg);
-}
-
+/* Indent Guides (replacing manual padding) */
 .right-outline-section-children {
+    margin-left: 0.75rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--border-color);
     overflow: hidden;
     max-height: 2000px;
     transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;

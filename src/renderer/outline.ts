@@ -25,7 +25,7 @@ export const renderRightOutline = (headings: HeadingNode[]) => {
                         <div class="right-outline-section" data-section-id="${heading.id}">
                             <div class="right-outline-section-header">
                                 <span class="outline-toggle" data-section-id="${heading.id}" aria-label="Toggle section"></span>
-                                <a href="#${heading.id}" class="right-outline-link">${heading.text}</a>
+                                <a href="#${heading.id}" class="right-outline-link" title="${heading.text}">${heading.text}</a>
                             </div>
                             <ul class="right-outline-section-children">
                                 ${buildHierarchy(children)}
@@ -38,7 +38,7 @@ export const renderRightOutline = (headings: HeadingNode[]) => {
             } else {
                 result.push(`
                     <li class="right-outline-item" data-depth="${heading.depth}">
-                        <a href="#${heading.id}" class="right-outline-link">${heading.text}</a>
+                        <a href="#${heading.id}" class="right-outline-link" title="${heading.text}">${heading.text}</a>
                     </li>
                 `);
                 i++;

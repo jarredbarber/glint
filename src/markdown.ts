@@ -64,16 +64,31 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
     let contentStartLine = 1;
 
     // 1. Handle frontmatter
+    let processedRaw = raw;
     if (raw.startsWith('---')) {
         const endOfFrontmatter = raw.indexOf('\n---', 3);
         if (endOfFrontmatter !== -1) {
             const frontmatterText = raw.substring(0, endOfFrontmatter + 4);
             contentStartLine = frontmatterText.split('\n').length + 1;
+
+            // Fix unquoted colons in values (common user error)
+            // e.g. "title: Project: Zero" -> "title: "Project: Zero""
+            const fixedFrontmatter = frontmatterText.split('\n').map(line => {
+                // Match "key: value" where value contains a colon and isn't quoted
+                // Regex explanation:
+                // ^(\s*[\w-]+\s*:)  -> Group 1: Key (e.g. "title:")
+                // \s+               -> Whitespace separator
+                // (?!["'|>\-])      -> Negative lookahead: not starting with quote, block char, or list dash
+                // (.*:.*)           -> Group 2: Value containing a colon
+                return line.replace(/^(\s*[\w-]+\s*:)\s+(?!["'|>\-])(.*:.*)$/, '$1 "$2"');
+            }).join('\n');
+
+            processedRaw = fixedFrontmatter + raw.substring(endOfFrontmatter + 4);
         }
     }
 
     try {
-        const result = matter(raw);
+        const result = matter(processedRaw);
         frontmatter = result.data;
         content = result.content;
     } catch {

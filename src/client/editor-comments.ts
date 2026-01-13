@@ -159,9 +159,18 @@ export async function submitReply(commentNode: HTMLElement, message: string) {
 
     const lines = content.split('\n');
     const startLine = parseInt(sourceLine);
+
+    // Determine fence length from the opening line
+    const openingLine = lines[startLine - 1];
+    const fenceMatch = openingLine.match(/^(\s*)(`{3,})/);
+    const minFenceLength = fenceMatch ? fenceMatch[2].length : 3;
+
     let endLineIndex = -1;
     for (let i = startLine; i < lines.length; i++) {
-        if (lines[i].trim().startsWith('```')) {
+        const line = lines[i].trim();
+        // Closing fence must be just backticks and at least as long as opening fence
+        const match = line.match(/^(`{3,})$/);
+        if (match && match[1].length >= minFenceLength) {
             endLineIndex = i;
             break;
         }
@@ -187,9 +196,16 @@ export async function deleteCommentBlock(commentNode: HTMLElement) {
         const { content, hash } = await res.json();
         const lines = content.split('\n');
 
+        // Determine fence length from the opening line
+        const openingLine = lines[startLine - 1];
+        const fenceMatch = openingLine.match(/^(\s*)(`{3,})/);
+        const minFenceLength = fenceMatch ? fenceMatch[2].length : 3;
+
         let endLineIndex = -1;
         for (let i = startLine; i < lines.length; i++) {
-            if (lines[i] && lines[i].trim().startsWith('```')) {
+            const line = lines[i].trim();
+            const match = line.match(/^(`{3,})$/);
+            if (match && match[1].length >= minFenceLength) {
                 endLineIndex = i;
                 break;
             }
@@ -277,9 +293,15 @@ export async function insertCommentBlock(sourceLine?: string, nextLine?: string)
             insertAt = parseInt(nextLine) - 1;
         } else {
             const currentLineText = lines[startLine - 1]?.trim() || '';
-            if (currentLineText && currentLineText.startsWith('```')) {
+            const fenceMatch = currentLineText.match(/^(`{3,})/);
+
+            if (fenceMatch) {
+                // If we are on a fence line (code block or existing comment), insert AFTER the block
+                const minFenceLength = fenceMatch[1].length;
                 for (let i = startLine; i < lines.length; i++) {
-                    if (lines[i] && lines[i].trim().startsWith('```')) {
+                    const line = lines[i].trim();
+                    const match = line.match(/^(`{3,})$/);
+                    if (match && match[1].length >= minFenceLength) {
                         insertAt = i + 1;
                         break;
                     }
