@@ -52,7 +52,7 @@ interface CacheEntry {
 // Image extensions to serve directly
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
-function createProcessor(config: GlintConfig, contentDir: string) {
+export function createProcessor(config: GlintConfig, contentDir: string) {
     const macros = getProcessedMacros(config);
 
     return unified()
@@ -73,12 +73,12 @@ function createProcessor(config: GlintConfig, contentDir: string) {
         .use(rehypeHighlight, { detect: true })
         .use(rehypeGlintCodeBlocks)
         .use(rehypeSlug)
+        .use(rehypeExtractHeadings)
         .use(rehypeAutolinkHeadings, {
             behavior: 'prepend',
             properties: { className: ['heading-anchor'] },
             content: { type: 'text', value: '#' }
         })
-        .use(rehypeExtractHeadings)
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
