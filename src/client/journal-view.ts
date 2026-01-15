@@ -72,6 +72,15 @@ class JournalView {
     private renderSection(section: JournalSection) {
         const link = `/${section.file}#L${section.startLine}`;
 
+        // Use pre-rendered HTML if available, otherwise escape raw content
+        const contentHtml = section.renderedContent
+            ? section.renderedContent
+            : section.content
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+
         return `
             <div class="journal-section">
                 <div class="section-meta">
@@ -79,7 +88,7 @@ class JournalView {
                     <span class="line-meta">Line ${section.startLine}</span>
                 </div>
                 <div class="section-content">
-                    <div class="content-preview">${section.content.replace(/\n/g, '<br>')}</div>
+                    <div class="content-preview">${contentHtml}</div>
                 </div>
             </div>
         `;

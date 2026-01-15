@@ -2,6 +2,7 @@
 import { GlintConfig } from '../config.js';
 import { ContentCache } from './cache.js';
 import { GitHubStorageProvider } from './github.js';
+import { GitStorageProvider } from './git.js';
 import { LocalStorageProvider } from './local.js';
 import { FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } from './types.js';
 
@@ -10,6 +11,7 @@ export class StorageManager {
     private mounts: Array<{ prefix: string; provider: string }> = [];
     private defaultProvider: string;
     private cache?: ContentCache<{ html: string; mtime: number }>;
+    private gitProviders: GitStorageProvider[] = [];
 
     constructor(config: GlintConfig, contentDir: string) {
         const storageConfig = config.storage;
@@ -27,10 +29,6 @@ export class StorageManager {
         // Initialize providers
         for (const [name, providerConfig] of Object.entries(storageConfig.providers)) {
             if (providerConfig.type === 'local') {
-                // If basePath is relative, resolve it relative to contentDir
-                // But for safety, local provider logic handles resolving.
-                // We just pass it through, but we might want to default to contentDir if '.' is passed?
-                // The config schema default is '.', so let's treat that as contentDir.
                 let basePath = providerConfig.basePath;
                 if (basePath === '.') {
                     basePath = contentDir;
@@ -42,6 +40,20 @@ export class StorageManager {
                     ...providerConfig,
                     token
                 }));
+            } else if (providerConfig.type === 'git') {
+                let basePath = providerConfig.basePath;
+                if (basePath === '.') {
+                    basePath = contentDir;
+                }
+                const gitProvider = new GitStorageProvider(name, {
+                    basePath,
+                    autoCommit: providerConfig.autoCommit,
+                    autoSync: providerConfig.autoSync,
+                    syncInterval: providerConfig.syncInterval,
+                    commitMessage: providerConfig.commitMessage
+                });
+                this.providers.set(name, gitProvider);
+                this.gitProviders.push(gitProvider);
             }
         }
 
@@ -293,6 +305,26 @@ export class StorageManager {
             for (const file of files) {
                 this.cache.invalidate(file);
             }
+        }
+    }
+
+    /**
+     * Start auto-sync for all git providers.
+     * Should be called after server initialization.
+     */
+    async startGitSync(): Promise<void> {
+        for (const provider of this.gitProviders) {
+            await provider.startSync();
+        }
+    }
+
+    /**
+     * Stop all git provider sync loops.
+     * Should be called during server shutdown.
+     */
+    shutdown(): void {
+        for (const provider of this.gitProviders) {
+            provider.stopSync();
         }
     }
 }

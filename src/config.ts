@@ -28,6 +28,14 @@ const StorageProviderSchema = z.discriminatedUnion('type', [
         branch: z.string().optional(),
         token: z.string().optional(),
     }),
+    z.object({
+        type: z.literal('git'),
+        basePath: z.string(),
+        autoCommit: z.boolean().default(true),
+        autoSync: z.boolean().default(true),
+        syncInterval: z.number().default(60),
+        commitMessage: z.string().optional(),
+    }),
 ]);
 
 const MountSchema = z.object({

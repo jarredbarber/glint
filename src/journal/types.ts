@@ -3,6 +3,7 @@ export interface JournalSection {
     fileTitle: string;
     title: string;
     content: string;
+    renderedContent?: string;  // Pre-rendered HTML content
     startLine: number;
     endLine: number;
 }

@@ -123,7 +123,7 @@ export async function createServer(contentDir: string, configPath?: string) {
 
     // Setup Task Routes
     await setupTaskRoutes(fastify, getConfig, taskScanner, storageManager);
-    await setupJournalRoutes(fastify, getConfig, journalScanner, storageManager);
+    await setupJournalRoutes(fastify, getConfig, journalScanner, storageManager, processor);
 
     // Setup Document Routes
     await setupDocumentRoutes(fastify, storageManager, getConfig, processor);
@@ -299,25 +299,82 @@ export async function createServer(contentDir: string, configPath?: string) {
         }
     });
 
+    // Dashboard Route
+    fastify.get('/dashboard', async (request, reply) => {
+        const html = renderer.renderHtml({
+            title: 'Dashboard',
+            content: `
+                <div class="dashboard-container">
+                    <div class="dashboard-pane">
+                        <h2>Tasks</h2>
+                        <div id="task-view-root" class="pane-content">Loading tasks...</div>
+                    </div>
+                    <div class="dashboard-pane">
+                        <h2>Journal</h2>
+                        <div id="journal-view-root" class="pane-content">Loading journal...</div>
+                    </div>
+                </div>
+            `,
+            fileTree,
+            config,
+            scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
+            styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
+            currentPath: '/dashboard',
+            authEnabled: config.auth?.enabled ?? false,
+            authenticated: request.isAuthenticated()
+        });
+        reply.type('text/html').send(html);
+    });
+
     fastify.get('/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
 
         // Skip auth check for login page
         if (urlPath === 'login') {
-            // Login page will be handled by auth routes
             return reply.code(404).send('Not Found');
         }
 
-        // Check authentication if auth is enabled
+        // Check authentication
         const access = request.getAccess(urlPath);
         if (access === null) {
-            // Not authenticated and path is not public - redirect to login
             return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent('/' + urlPath)}`);
+        }
+
+        // Special handling for root path: Check if baseFile exists
+        let targetPath = urlPath;
+        if (urlPath === '') {
+            const baseExist = await storageManager.exists(config.baseFile);
+            if (!baseExist) {
+                // Render Dashboard
+                const html = renderer.renderHtml({
+                    title: 'Dashboard',
+                    content: `
+                        <div class="dashboard-container">
+                            <div class="dashboard-pane">
+                                <h2>Tasks</h2>
+                                <div id="task-view-root" class="pane-content">Loading tasks...</div>
+                            </div>
+                            <div class="dashboard-pane">
+                                <h2>Journal</h2>
+                                <div id="journal-view-root" class="pane-content">Loading journal...</div>
+                            </div>
+                        </div>
+                    `,
+                    fileTree,
+                    config,
+                    scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
+                    styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
+                    currentPath: '/',
+                    authEnabled: config.auth?.enabled ?? false,
+                    authenticated: request.isAuthenticated()
+                });
+                return reply.type('text/html').send(html);
+            }
         }
 
         try {
             // Resolve path using StorageManager
-            const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, urlPath, config);
+            const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, targetPath, config);
 
             if (!isMarkdown) {
                 return reply.code(404).send('Not Found');
@@ -332,8 +389,6 @@ export async function createServer(contentDir: string, configPath?: string) {
 
             // Read and Process
             const rawContent = await storageManager.read(filePath);
-
-            // Parse markdown (handles frontmatter and H1 stripping)
             const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
 
             // Run Unified Pipeline
@@ -347,7 +402,6 @@ export async function createServer(contentDir: string, configPath?: string) {
             // Combine into full HTML
             const pageTitle = frontmatterTitle || path.basename(filePath, '.md').replace(/-/g, ' ');
 
-            // Get headings from plugin
             const headings = (vfile.data.headings as HeadingNode[]) || [];
 
             const fullHtml = renderer.renderHtml({
@@ -375,6 +429,9 @@ export async function createServer(contentDir: string, configPath?: string) {
             return reply.code(500).send('Internal Server Error');
         }
     });
+
+    // Start git provider sync loops
+    await storageManager.startGitSync();
 
     return { fastify, config, storageManager };
 }

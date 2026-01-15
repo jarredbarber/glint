@@ -1,3 +1,7 @@
+/**
+ * Git-backed storage provider.
+ * Combines fast local filesystem access with automatic git synchronization.
+ */
 
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -13,23 +17,44 @@ import {
 } from './types.js';
 import * as gitUtils from './git-utils.js';
 
-export class LocalStorageProvider implements StorageProvider {
+export interface GitProviderConfig {
+    basePath: string;
+    autoCommit?: boolean;
+    autoSync?: boolean;
+    syncInterval?: number;
+    commitMessage?: string;
+}
+
+export class GitStorageProvider implements StorageProvider {
     name: string;
     private basePath: string;
+    private autoCommit: boolean;
+    private autoSync: boolean;
+    private syncInterval: number;
+    private commitMessage: string;
 
-    constructor(name: string, basePath: string) {
+    private syncTimer?: ReturnType<typeof setInterval>;
+    private commitTimer?: ReturnType<typeof setTimeout>;
+    private pendingCommit = false;
+
+    constructor(name: string, config: GitProviderConfig) {
         this.name = name;
-        this.basePath = path.resolve(basePath);
+        this.basePath = path.resolve(config.basePath);
+        this.autoCommit = config.autoCommit ?? true;
+        this.autoSync = config.autoSync ?? true;
+        this.syncInterval = (config.syncInterval ?? 60) * 1000; // Convert to ms
+        this.commitMessage = config.commitMessage ?? 'Glint auto-save';
     }
 
     private resolvePath(relativePath: string): string {
-        // Prevent directory traversal
         const resolved = path.resolve(this.basePath, relativePath);
         if (!resolved.startsWith(this.basePath)) {
             throw new Error('Access denied: Path outside base directory');
         }
         return resolved;
     }
+
+    // File operations (same as LocalStorageProvider)
 
     async read(filePath: string): Promise<string> {
         const fullPath = this.resolvePath(filePath);
@@ -45,19 +70,29 @@ export class LocalStorageProvider implements StorageProvider {
         const fullPath = this.resolvePath(filePath);
         await fs.mkdir(path.dirname(fullPath), { recursive: true });
         await fs.writeFile(fullPath, content, 'utf-8');
-        // Note: Local provider ignores message and author from options
-        // expectedHash checking not implemented for local provider
+
+        if (this.autoCommit) {
+            this.scheduleCommit();
+        }
     }
 
     async writeBuffer(filePath: string, content: Buffer, options?: WriteOptions): Promise<void> {
         const fullPath = this.resolvePath(filePath);
         await fs.mkdir(path.dirname(fullPath), { recursive: true });
         await fs.writeFile(fullPath, content);
+
+        if (this.autoCommit) {
+            this.scheduleCommit();
+        }
     }
 
     async delete(filePath: string): Promise<void> {
         const fullPath = this.resolvePath(filePath);
         await fs.unlink(fullPath);
+
+        if (this.autoCommit) {
+            this.scheduleCommit();
+        }
     }
 
     async exists(filePath: string): Promise<boolean> {
@@ -75,6 +110,10 @@ export class LocalStorageProvider implements StorageProvider {
         const fullNewPath = this.resolvePath(newPath);
         await fs.mkdir(path.dirname(fullNewPath), { recursive: true });
         await fs.rename(fullOldPath, fullNewPath);
+
+        if (this.autoCommit) {
+            this.scheduleCommit();
+        }
     }
 
     async stat(filePath: string): Promise<{ size: number; mtime: Date; isDirectory: boolean }> {
@@ -94,7 +133,6 @@ export class LocalStorageProvider implements StorageProvider {
         const results: FileEntry[] = [];
 
         for (const entry of entries) {
-            // Skip hidden files/dirs (starting with .)
             if (entry.name.startsWith('.')) continue;
 
             const entryPath = path.join(directory, entry.name);
@@ -113,14 +151,88 @@ export class LocalStorageProvider implements StorageProvider {
         return results;
     }
 
-    // Git Operations - delegated to git-utils
+    // Auto-commit logic
+
+    private scheduleCommit(): void {
+        if (this.pendingCommit) return;
+
+        this.pendingCommit = true;
+
+        // Clear existing timer if any
+        if (this.commitTimer) {
+            clearTimeout(this.commitTimer);
+        }
+
+        // Debounce commits by 2 seconds
+        this.commitTimer = setTimeout(async () => {
+            try {
+                await gitUtils.gitCommit(this.basePath, this.commitMessage);
+            } catch (err) {
+                console.error('[GitStorageProvider] Auto-commit failed:', err);
+            }
+            this.pendingCommit = false;
+        }, 2000);
+    }
+
+    // Sync loop management
+
+    async startSync(): Promise<void> {
+        // Check if repo has remote
+        const hasRemote = await gitUtils.hasRemote(this.basePath);
+
+        if (!this.autoSync || !hasRemote) {
+            console.log(`[GitStorageProvider] Auto-sync disabled (autoSync=${this.autoSync}, hasRemote=${hasRemote})`);
+            return;
+        }
+
+        console.log(`[GitStorageProvider] Starting auto-sync every ${this.syncInterval / 1000}s`);
+
+        // Initial sync
+        try {
+            await this.syncWithRemote();
+        } catch (err) {
+            console.error('[GitStorageProvider] Initial sync failed:', err);
+        }
+
+        // Periodic sync
+        this.syncTimer = setInterval(async () => {
+            try {
+                await this.syncWithRemote();
+            } catch (err) {
+                console.error('[GitStorageProvider] Periodic sync failed:', err);
+            }
+        }, this.syncInterval);
+    }
+
+    stopSync(): void {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+            this.syncTimer = undefined;
+        }
+        if (this.commitTimer) {
+            clearTimeout(this.commitTimer);
+            this.commitTimer = undefined;
+        }
+    }
+
+    private async syncWithRemote(): Promise<void> {
+        const result = await gitUtils.gitSync(this.basePath, this.commitMessage);
+
+        if (!result.success) {
+            console.error('[GitStorageProvider] Sync error:', result.error);
+        } else if (result.pulledChanges || result.pushedChanges) {
+            console.log('[GitStorageProvider] Sync:', result.messages.join(', '));
+        }
+    }
+
+    // Git operations - delegated to git-utils
 
     async getGitStatus(): Promise<GitStatus> {
         return gitUtils.getGitStatus(this.basePath);
     }
 
     async gitSync(): Promise<GitSyncResult> {
-        return gitUtils.gitSync(this.basePath);
+        return gitUtils.gitSync(this.basePath, this.commitMessage);
     }
 
     async gitPull(): Promise<GitPullResult> {
@@ -131,15 +243,10 @@ export class LocalStorageProvider implements StorageProvider {
         return gitUtils.gitPush(this.basePath);
     }
 
-
     watch(pathPattern: string, listener: (event: 'change' | 'rename', filename: string) => void): () => void {
         const fullPath = this.resolvePath(pathPattern);
-        // fs.watch is not recursive on Linux, but is on macOS/Windows.
-        // For now, we rely on native fs.watch.
-        // In a real production app, might want to use chokidar.
         const watcher = fsSync.watch(fullPath, { recursive: true }, (event, filename) => {
             if (filename) {
-                // Return relative path
                 listener(event, filename.toString());
             }
         });

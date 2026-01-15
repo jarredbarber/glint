@@ -61,29 +61,10 @@ class TaskView {
                 }
                 return false;
             });
-
-            // Sort: Active first, then Recently Completed (newest first)
-            filteredTasks.sort((a, b) => {
-                const isAActive = a.state !== 'done' && a.state !== 'cancelled';
-                const isBActive = b.state !== 'done' && b.state !== 'cancelled';
-                if (isAActive && !isBActive) return -1;
-                if (!isAActive && isBActive) return 1;
-
-                if (a.state === 'done' && b.state === 'done') {
-                    const da = new Date(a.metadata.completed || 0).getTime();
-                    const db = new Date(b.metadata.completed || 0).getTime();
-                    return db - da;
-                }
-                return 0;
-            });
         }
 
-        // Group by file
-        const groups: Record<string, TaskItem[]> = {};
-        for (const task of filteredTasks) {
-            if (!groups[task.sourcePath]) groups[task.sourcePath] = [];
-            groups[task.sourcePath].push(task);
-        }
+        // Apply natural sorting
+        const sortedTasks = this.sortTasksNaturally(filteredTasks);
 
         let html = `
             <div class="task-controls">
@@ -117,18 +98,11 @@ class TaskView {
                     </div>
                 </div>
             </div>
+            
+            <ul class="task-list flat-list">
+                ${sortedTasks.map(task => this.renderTask(task)).join('')}
+            </ul>
         `;
-
-        for (const [filePath, fileTasks] of Object.entries(groups)) {
-            html += `
-                <section class="task-file-group">
-                    <h2 class="file-header"><a href="/${filePath}">${filePath}</a></h2>
-                    <ul class="task-list">
-                        ${fileTasks.map(this.renderTask).join('')}
-                    </ul>
-                </section>
-            `;
-        }
 
         this.root.innerHTML = html;
 
@@ -139,6 +113,74 @@ class TaskView {
             // Callback after a task update - refresh the dashboard
             await this.fetchTasks();
             this.render();
+        });
+    }
+
+    sortTasksNaturally(tasks: TaskItem[]): TaskItem[] {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+        return [...tasks].sort((a, b) => {
+            // 1. Completion State (Completed/Cancelled go to bottom)
+            const aDone = a.state === 'done' || a.state === 'cancelled';
+            const bDone = b.state === 'done' || b.state === 'cancelled';
+            if (aDone && !bDone) return 1;
+            if (!aDone && bDone) return -1;
+
+            // If both done, sort by completion date (newest first)
+            if (aDone && bDone) {
+                const da = new Date(a.metadata.completed || 0).getTime();
+                const db = new Date(b.metadata.completed || 0).getTime();
+                return db - da;
+            }
+
+            // 2. Due Dates (Overdue & Today first)
+            const getDueDate = (t: TaskItem) => t.metadata.due ? new Date(t.metadata.due).getTime() : null;
+            const aDue = getDueDate(a);
+            const bDue = getDueDate(b);
+
+            if (aDue && bDue) {
+                // Both have due dates - Ascending Order (Earliest first)
+                if (aDue !== bDue) return aDue - bDue;
+            } else if (aDue) {
+                // A has due date
+                if (aDue <= today) return -1; // Overdue/Today -> Top
+            } else if (bDue) {
+                // B has due date
+                if (bDue <= today) return 1; // Overdue/Today -> Top
+            }
+
+            // 3. Priority
+            const getPriorityScore = (t: TaskItem) => {
+                const p = (t.metadata.priority || '').toLowerCase();
+                if (['urgent', 'p0', 'critical'].includes(p)) return 4;
+                if (['high', 'p1'].includes(p)) return 3;
+                if (['medium', 'p2'].includes(p)) return 2;
+                if (['low', 'p3'].includes(p)) return 1;
+                return 0;
+            };
+            const aScore = getPriorityScore(a);
+            const bScore = getPriorityScore(b);
+            if (aScore !== bScore) return bScore - aScore; // Highest priority first
+
+            // 4. Due Soon (Within 7 days)
+            // Already effectively handled by due date sort above if both have dates.
+            // But if one has a date (future) and other doesn't?
+            // Let's prefer items with due dates over those without.
+            if (aDue && !bDue) return -1;
+            if (!aDue && bDue) return 1;
+
+            // 5. Creation Date (Newest first)
+            const getCreated = (t: TaskItem) => t.metadata.created ? new Date(t.metadata.created).getTime() : 0;
+            const aCreated = getCreated(a);
+            const bCreated = getCreated(b);
+            if (aCreated !== bCreated) return bCreated - aCreated;
+
+            // 6. File Path (Group similar files potentially)
+            if (a.sourcePath !== b.sourcePath) return a.sourcePath.localeCompare(b.sourcePath);
+
+            // 7. Line Number
+            return a.lineNumber - b.lineNumber;
         });
     }
 
@@ -180,54 +222,34 @@ class TaskView {
     }
 
     async copyAsMarkdown() {
-        // Logic to export current filtered view as MD
+        // Updated copy logic to respect new sorting
         let md = `# Status Report (${new Date().toLocaleDateString()})\n\n`;
 
         let filteredTasks = this.tasks;
+        // ... (Filter logic matches render) ...
         if (this.filter === 'active') {
             filteredTasks = this.tasks.filter(t => t.state !== 'done' && t.state !== 'cancelled');
         } else if (this.filter === 'recently-completed') {
             const threshold = new Date(Date.now() - (this.recencyDays * 24 * 60 * 60 * 1000));
             filteredTasks = this.tasks.filter(t => {
                 if (t.state !== 'done' && t.state !== 'cancelled') return true;
-                if (t.state === 'done') {
-                    return new Date(t.metadata.completed || 0) >= threshold;
-                }
+                if (t.state === 'done') return new Date(t.metadata.completed || 0) >= threshold;
                 return false;
             });
-            // Sort: Active first, then Recent
-            filteredTasks.sort((a, b) => {
-                const isAActive = a.state !== 'done' && a.state !== 'cancelled';
-                const isBActive = b.state !== 'done' && b.state !== 'cancelled';
-                if (isAActive && !isBActive) return -1;
-                if (!isAActive && isBActive) return 1;
-                if (a.state === 'done' && b.state === 'done') {
-                    const da = new Date(a.metadata.completed || 0).getTime();
-                    const db = new Date(b.metadata.completed || 0).getTime();
-                    return db - da;
-                }
-                return 0;
-            });
         }
 
-        const groups: Record<string, TaskItem[]> = {};
-        for (const task of filteredTasks) {
-            if (!groups[task.sourcePath]) groups[task.sourcePath] = [];
-            groups[task.sourcePath].push(task);
-        }
+        const sortedTasks = this.sortTasksNaturally(filteredTasks);
 
-        for (const [file, tasks] of Object.entries(groups)) {
-            md += `## ${file}\n`;
-            for (const t of tasks) {
-                const stateChar = t.state === 'done' ? 'x' : t.state === 'open' ? ' ' : t.state === 'progress' ? '/' : t.state === 'waiting' ? 'w' : t.state === 'blocked' ? 'b' : 'c';
-                md += `- [${stateChar}] ${t.description}`;
-                const metaFields = Object.entries(t.metadata)
-                    .filter(([k, v]) => !!v && k !== 'completed')
-                    .map(([k, v]) => k === 'assignee' ? `@${v}` : k === 'priority' ? `#${v}` : `${k}:${v}`)
-                    .join(' ');
-                if (metaFields) md += ` (${metaFields})`;
-                md += `\n`;
-            }
+        for (const t of sortedTasks) {
+            const stateChar = t.state === 'done' ? 'x' : t.state === 'open' ? ' ' : t.state === 'progress' ? '/' : t.state === 'waiting' ? 'w' : t.state === 'blocked' ? 'b' : 'c';
+            md += `- [${stateChar}] ${t.description}`;
+            const metaFields = Object.entries(t.metadata)
+                .filter(([k, v]) => !!v && k !== 'completed')
+                .map(([k, v]) => k === 'assignee' ? `@${v}` : k === 'priority' ? `#${v}` : `${k}:${v}`)
+                .join(' ');
+            // Add source context
+            md += ` ([${t.sourcePath}](${t.sourcePath}))`;
+            if (metaFields) md += ` (${metaFields})`;
             md += `\n`;
         }
 
@@ -274,7 +296,7 @@ class TaskView {
                         <div class="task-info-column">
                             <a href="${link}" class="glint-task-content">${task.description}</a>
                             <div class="task-view-location">
-                                <a href="${link}">Line ${task.lineNumber}</a>
+                                <a href="${link}" class="file-badge">${task.sourcePath}:${task.lineNumber}</a>
                             </div>
                         </div>
                         <span class="glint-task-meta">${metaHtml}</span>

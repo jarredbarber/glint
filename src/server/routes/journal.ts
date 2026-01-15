@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import { VFile } from 'vfile';
 import { JournalScanner } from '../../journal/scanner.js';
+import type { DateGroup } from '../../journal/types.js';
 import * as renderer from '../../renderer.js';
 import { GlintConfig } from '../../config.js';
 import { buildFileTree } from '../../filetree.js';
@@ -9,7 +11,8 @@ export async function setupJournalRoutes(
     fastify: FastifyInstance,
     getConfig: () => GlintConfig,
     scanner: JournalScanner,
-    storage: StorageManager
+    storage: StorageManager,
+    processor: any // Unified processor
 ) {
 
     // API: Get aggregated journal entries
@@ -35,7 +38,27 @@ export async function setupJournalRoutes(
                 if (filteredSections.length === 0) return null;
 
                 return { ...group, sections: filteredSections };
-            }).filter((g): g is any => g !== null);
+            }).filter((g): g is DateGroup => g !== null);
+        }
+
+        // Render markdown content for each section
+        for (const group of groups) {
+            for (const section of group.sections) {
+                if (section.content) {
+                    try {
+                        const file = new VFile({ value: section.content });
+                        const result = await processor.process(file);
+                        section.renderedContent = String(result);
+                    } catch (err) {
+                        // Fallback to escaped content if rendering fails
+                        section.renderedContent = section.content
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/\n/g, '<br>');
+                    }
+                }
+            }
         }
 
         return groups;
