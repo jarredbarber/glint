@@ -193,6 +193,20 @@ export async function setupAPIRoutes(
         }
 
         try {
+            const normalizedPath = urlPath.replace(/^\/+/, '');
+
+            // If path is already exact (ends with .md), try direct access first.
+            // This is important for systems like TaskScanner that use exact storage paths.
+            if (normalizedPath.endsWith('.md')) {
+                try {
+                    const content = await storage.read(normalizedPath);
+                    const hash = crypto.createHash('md5').update(content).digest('hex');
+                    return { content, hash, path: urlPath };
+                } catch {
+                    // Fall through to resolveStoragePath if direct read fails
+                }
+            }
+
             const { path: safePath } = await resolveStoragePath(storage, urlPath, getConfig());
             const content = await storage.read(safePath);
             const hash = crypto.createHash('md5').update(content).digest('hex');
