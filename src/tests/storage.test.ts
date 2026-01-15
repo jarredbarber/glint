@@ -101,12 +101,15 @@ test('StorageManager integration', async (t) => {
         // Root list should see files in primaryDir
         await storage.write('a.md', 'a');
         const rootFiles = await storage.list('');
-        assert.ok(rootFiles.some(f => f.name === 'a.md'));
+        assert.ok(rootFiles.some(f => f.name === 'a.md'), 'rootFiles should contain a.md');
 
         // docs/ list should see files in secondaryDir
         await storage.write('docs/b.md', 'b');
         const docsFiles = await storage.list('docs/');
-        assert.ok(docsFiles.some(f => f.name === 'b.md'));
+        assert.ok(docsFiles.some(f => f.name === 'b.md'), 'docsFiles should contain b.md');
+
+        // BUG: rootFiles should also contain 'docs' as a directory if it's a mount
+        assert.ok(rootFiles.some(f => f.name === 'docs' && f.type === 'directory'), 'rootFiles should contain docs/ directory mount');
     });
 
     // Cleanup

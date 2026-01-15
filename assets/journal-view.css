@@ -1,0 +1,84 @@
+.journal-controls {
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.journal-timeline {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.journal-date-group {
+    margin-bottom: 3rem;
+}
+
+.date-header {
+    position: sticky;
+    top: 0;
+    background: var(--bg-color);
+    padding: 1rem 0;
+    margin: 0;
+    border-bottom: 2px solid var(--accent-color);
+    z-index: 10;
+    font-size: 1.5rem;
+    color: var(--accent-color);
+}
+
+.date-sections {
+    padding: 1rem 0;
+}
+
+.journal-section {
+    background: var(--sidebar-bg);
+    /* Use sidebar bg for a subtle card look */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.journal-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-color);
+    border-color: var(--accent-color);
+}
+
+.section-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.file-name {
+    font-weight: bold;
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+.file-name:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+.line-meta {
+    color: var(--muted-color);
+}
+
+.section-content {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.content-preview {
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

@@ -55,6 +55,7 @@ export class StorageManager {
         const sortedMounts = [...this.mounts].sort((a, b) => b.prefix.length - a.prefix.length);
 
         for (const mount of sortedMounts) {
+            // Check for prefix match or exact match (omitting trailing slash)
             if (path.startsWith(mount.prefix)) {
                 const providerName = mount.provider;
                 const provider = this.providers.get(providerName);
@@ -63,6 +64,16 @@ export class StorageManager {
                 }
                 const relativePath = path.slice(mount.prefix.length);
                 return { provider, relativePath };
+            }
+
+            // Handle exact match without trailing slash (e.g. path="docs" matches prefix="docs/")
+            if (mount.prefix.endsWith('/') && path === mount.prefix.slice(0, -1)) {
+                const providerName = mount.provider;
+                const provider = this.providers.get(providerName);
+                if (!provider) {
+                    throw new Error(`Provider '${providerName}' for mount '${mount.prefix}' not found`);
+                }
+                return { provider, relativePath: '' };
             }
         }
 
@@ -110,8 +121,17 @@ export class StorageManager {
     }
 
     async exists(path: string): Promise<boolean> {
-        const { provider, relativePath } = this.resolveProvider(path);
-        return await provider.exists(relativePath);
+        try {
+            const { provider, relativePath } = this.resolveProvider(path);
+            if (await provider.exists(relativePath)) return true;
+        } catch { }
+
+        // Check if it's a parent of any mount
+        const normalizedPath = path.endsWith('/') ? path : path + '/';
+        const isParentOfMount = this.mounts.some(m => m.prefix.startsWith(normalizedPath));
+        if (isParentOfMount) return true;
+
+        return false;
     }
 
     async move(oldPath: string, newPath: string): Promise<void> {
@@ -138,7 +158,32 @@ export class StorageManager {
 
     async list(path: string): Promise<FileEntry[]> {
         const { provider, relativePath } = this.resolveProvider(path);
-        return await provider.list(relativePath);
+        const results = await provider.list(relativePath);
+
+        // Add virtual direct sub-mounts
+        const normalizedPath = path === '' || path.endsWith('/') ? path : path + '/';
+        const seenNames = new Set(results.map(r => r.name));
+
+        for (const mount of this.mounts) {
+            if (mount.prefix.startsWith(normalizedPath) && mount.prefix !== normalizedPath) {
+                const remainder = mount.prefix.slice(normalizedPath.length);
+                const segments = remainder.split('/');
+                const subName = segments[0];
+
+                if (subName && !seenNames.has(subName)) {
+                    results.push({
+                        name: subName,
+                        path: normalizedPath + subName,
+                        type: 'directory',
+                        size: 0,
+                        mtime: new Date()
+                    });
+                    seenNames.add(subName);
+                }
+            }
+        }
+
+        return results;
     }
 
     async history(path: string): Promise<VersionEntry[]> {
@@ -150,8 +195,22 @@ export class StorageManager {
     }
 
     async stat(path: string): Promise<{ size: number; mtime: Date; isDirectory: boolean }> {
-        const { provider, relativePath } = this.resolveProvider(path);
-        return await provider.stat(relativePath);
+        try {
+            const { provider, relativePath } = this.resolveProvider(path);
+            return await provider.stat(relativePath);
+        } catch (err) {
+            // If provider stat fails, check if it's a virtual mount directory
+            const normalizedPath = path.endsWith('/') ? path : path + '/';
+            const isParentOfMount = this.mounts.some(m => m.prefix.startsWith(normalizedPath));
+            if (isParentOfMount) {
+                return {
+                    size: 0,
+                    mtime: new Date(),
+                    isDirectory: true
+                };
+            }
+            throw err;
+        }
     }
 
     watch(path: string, listener: (event: 'change' | 'rename', filename: string) => void): () => void {
@@ -159,7 +218,7 @@ export class StorageManager {
         if (provider.watch) {
             return provider.watch(relativePath, listener);
         }
-        return () => {};
+        return () => { };
     }
 
     // Git Operations (delegated to default provider for now)

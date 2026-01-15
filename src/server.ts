@@ -41,6 +41,8 @@ import { TaskScanner } from './tasks/scanner.js';
 import { StorageManager } from './storage/index.js';
 import { resolveStoragePath } from './storage/utils.js';
 import { setupTaskRoutes } from './server/routes/tasks.js';
+import { JournalScanner } from './journal/scanner.js';
+import { setupJournalRoutes } from './server/routes/journal.js';
 import { setupDocumentRoutes } from './server/routes/documents.js';
 import { setupWebhookRoutes } from './server/routes/webhooks.js';
 
@@ -113,6 +115,7 @@ export async function createServer(contentDir: string, configPath?: string) {
 
     // Initialize Task Scanner
     const taskScanner = new TaskScanner(storageManager);
+    const journalScanner = new JournalScanner(storageManager);
     await taskScanner.scanAll(); // Initial scan
 
     // Setup API Routes
@@ -120,6 +123,7 @@ export async function createServer(contentDir: string, configPath?: string) {
 
     // Setup Task Routes
     await setupTaskRoutes(fastify, getConfig, taskScanner, storageManager);
+    await setupJournalRoutes(fastify, getConfig, journalScanner, storageManager);
 
     // Setup Document Routes
     await setupDocumentRoutes(fastify, storageManager, getConfig, processor);
@@ -182,6 +186,8 @@ export async function createServer(contentDir: string, configPath?: string) {
                         config = await loadConfig(contentDir, configPath);
                         processor = createProcessor(config, (p) => knownPaths.has(p));
                         storageManager.clearCache();
+                        taskScanner.invalidate(filename);
+                        journalScanner.invalidate(filename);
                         broadcast('reload');
                         fastify.log.info('Config reloaded successfully');
                     } catch (err) {

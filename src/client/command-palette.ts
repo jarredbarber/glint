@@ -16,7 +16,8 @@
     // Define commands
     const getCommands = () => [
         { title: 'Go to Home', desc: 'Navigate to home page', action: () => window.location.href = '/' },
-        { title: 'Go to Task View', desc: 'Managed tracked tasks', action: () => window.location.href = '/task-dashboard' },
+        { title: 'Go to Task View', desc: 'Managed tracked tasks', action: () => window.location.href = '/tasks' },
+        { title: 'Go to Journal View', desc: 'See dated notes timeline', action: () => window.location.href = '/journal' },
         {
             title: 'Toggle Theme', desc: 'Switch light/dark mode', action: () => {
                 const themes = ['nord', 'everforest-dark', 'gruvbox-dark', 'dracula', 'one-dark', 'catppuccin-mocha', 'solarized-light', 'default'];

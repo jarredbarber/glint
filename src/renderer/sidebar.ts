@@ -33,6 +33,11 @@ export const renderSidebar = (options: SidebarOptions) => {
                             <span class="view-icon">✅</span> Task View
                         </a>
                     </li>
+                    <li class="${currentPath === '/journal' ? 'active' : ''}">
+                        <a href="/journal" data-router="false">
+                            <span class="view-icon">📅</span> Journal View
+                        </a>
+                    </li>
                 </ul>
             </nav>
         </details>
