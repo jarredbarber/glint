@@ -231,25 +231,37 @@ class GlintEditor {
         // 2. Vim Custom Commands
         if (this.options.vimMode) {
             // Define :w for Save
-            Vim.defineEx("write", "w", () => {
+            const saveFn = () => {
                 if (this.options.onSave) {
                     this.options.onSave(this.getValue());
                 }
-            });
+            };
+
+            Vim.defineEx("write", "w", saveFn);
+            Vim.defineEx("Write", "W", saveFn);
 
             // Define :q for Cancel/Quit
-            Vim.defineEx("quit", "q", () => {
+            const quitFn = () => {
                 if (this.options.onCancel) {
                     this.options.onCancel();
                 }
-            });
+            };
 
-            // Define :wq for Save and Quit
-            Vim.defineEx("wq", "wq", () => {
-                if (this.options.onSave) {
-                    this.options.onSave(this.getValue());
-                }
-            });
+            Vim.defineEx("quit", "q", quitFn);
+            Vim.defineEx("Quit", "Q", quitFn);
+
+            // Define :wq and :x for Save and Quit
+            const saveAndQuitFn = () => {
+                saveFn();
+                // Usually onSave reloads the page, but let's be safe and quit too if it doesn't
+                quitFn();
+            };
+
+            Vim.defineEx("wq", "wq", saveAndQuitFn);
+            Vim.defineEx("Wq", "Wq", saveAndQuitFn);
+            Vim.defineEx("WQ", "WQ", saveAndQuitFn);
+            Vim.defineEx("x", "x", saveAndQuitFn);
+            Vim.defineEx("X", "X", saveAndQuitFn);
 
             // Define <Space>a to insert align environment
             Vim.defineAction("insertAlign", (cm: any) => {
