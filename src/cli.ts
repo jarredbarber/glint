@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import readline from 'node:readline';
 import { createServer } from './server.js';
 import { hashPassword, generateServiceToken } from './server/auth.js';
-import { loadConfig, getConfigPath } from './config.js';
+import { loadConfig, getConfigPath, saveConfig } from './config.js';
 
 const program = new Command();
 
@@ -20,12 +20,21 @@ program
     .description('Start the Glint server')
     .argument('[path]', 'Path to content directory', process.cwd())
     .action(async (contentPath: string) => {
-        const contentDir = path.resolve(contentPath);
+        const resolvedPath = path.resolve(contentPath);
+        let contentDir = resolvedPath;
+        const stats = await fs.stat(resolvedPath);
+        let configPath: string | undefined;
 
-        console.log(`Starting Glint server...`);
-        console.log(`Content directory: ${contentDir}`);
+        if (stats.isFile()) {
+            contentDir = path.dirname(resolvedPath);
+            configPath = resolvedPath;
+            console.log(`Starting Glint server from config file: ${resolvedPath}`);
+        } else {
+            console.log(`Starting Glint server...`);
+            console.log(`Content directory: ${contentDir}`);
+        }
 
-        const { fastify, config } = await createServer(contentDir);
+        const { fastify, config } = await createServer(contentDir, configPath);
 
         try {
             await fastify.listen({ port: config.port, host: config.host });
@@ -42,19 +51,10 @@ program
     .argument('[path]', 'Path to content directory', process.cwd())
     .action(async (contentPath: string) => {
         const contentDir = path.resolve(contentPath);
-        const configPath = await getConfigPath(contentDir);
+        const config = await loadConfig(contentDir);
 
         console.log('Glint Authentication Setup');
         console.log('==========================\n');
-
-        // Load existing config
-        let config: Record<string, unknown>;
-        try {
-            const existing = await fs.readFile(configPath, 'utf-8');
-            config = JSON.parse(existing);
-        } catch {
-            config = {};
-        }
 
         // Prompt for password
         const password = await promptPassword('Enter admin password: ');
@@ -74,22 +74,23 @@ program
         const sessionSecret = crypto.randomBytes(32).toString('base64');
 
         // Update config
-        config.auth = {
+        const newAuth = {
             enabled: true,
             passwordHash,
             sessionSecret,
-            public: (config.auth as any)?.public || [],
+            public: config.auth?.public || [],
         };
 
-        // Write config
-        const dotGlintDir = path.dirname(configPath);
-        await fs.mkdir(dotGlintDir, { recursive: true });
-        await fs.writeFile(configPath, JSON.stringify(config, null, 4));
+        // Save config
+        await saveConfig(contentDir, { ...config, auth: newAuth });
 
-        console.log('\nAuthentication configured successfully!');
-        console.log('The glint.json file has been updated.');
-        console.log('\nTo make paths publicly accessible, add them to auth.public:');
-        console.log('  "public": [{ "path": "docs/*", "access": "view" }]');
+        const actualConfigPath = await getConfigPath(contentDir);
+        console.log(`\nAuthentication configured successfully!`);
+        console.log(`The configuration file (${path.basename(actualConfigPath)}) has been updated.`);
+        console.log(`\nTo make paths publicly accessible, add them to auth.public:`);
+        console.log(`  [[auth.public]]`);
+        console.log(`  path = "docs/*"`);
+        console.log(`  access = "view"`);
     });
 
 program
@@ -104,31 +105,18 @@ program
         }
 
         const contentDir = path.resolve(contentPath);
-        const configPath = await getConfigPath(contentDir);
+        const config = await loadConfig(contentDir);
 
         console.log('Glint Service Token Generation');
         console.log('=============================\n');
 
         const { token, hash } = await generateServiceToken();
 
-        // Load existing config
-        let config: any;
-        try {
-            const existing = await fs.readFile(configPath, 'utf-8');
-            config = JSON.parse(existing);
-        } catch {
-            config = {};
-        }
+        const auth = config.auth || { enabled: true, public: [] };
+        auth.serviceTokenHash = hash;
 
-        if (!config.auth) {
-            config.auth = { enabled: true };
-        }
-        config.auth.serviceTokenHash = hash;
-
-        // Write config
-        const dotGlintDir = path.dirname(configPath);
-        await fs.mkdir(dotGlintDir, { recursive: true });
-        await fs.writeFile(configPath, JSON.stringify(config, null, 4));
+        // Save config
+        await saveConfig(contentDir, { ...config, auth });
 
         console.log('New service token generated and stored in config.\n');
         console.log('IMPORTANT: Copy this token now. It will not be shown again.');

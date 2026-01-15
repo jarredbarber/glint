@@ -76,8 +76,8 @@ export function createProcessor(config: GlintConfig, linkValidator: (path: strin
         .use(rehypeStringify, { allowDangerousHtml: true });
 }
 
-export async function createServer(contentDir: string) {
-    let config = await loadConfig(contentDir);
+export async function createServer(contentDir: string, configPath?: string) {
+    let config = await loadConfig(contentDir, configPath);
     const assetsDir = path.join(import.meta.dirname, '..', 'assets');
 
     // State
@@ -171,15 +171,15 @@ export async function createServer(contentDir: string) {
                 knownPaths.clear();
                 updateKnownPaths(fileTree);
 
-                const isConfig = filename === 'glint.json' ||
-                    filename === '.glint/config.json' ||
-                    filename === path.join('.glint', 'config.json');
+                const isConfig = filename === 'glint.json' || filename === 'glint.toml' ||
+                    filename === '.glint/config.json' || filename === '.glint/config.toml' ||
+                    filename === path.join('.glint', 'config.json') || filename === path.join('.glint', 'config.toml');
 
                 if (isConfig) {
                     try {
                         fastify.log.info(`${filename} changed, reloading config...`);
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for write
-                        config = await loadConfig(contentDir);
+                        config = await loadConfig(contentDir, configPath);
                         processor = createProcessor(config, (p) => knownPaths.has(p));
                         storageManager.clearCache();
                         broadcast('reload');

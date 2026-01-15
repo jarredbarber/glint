@@ -48,8 +48,8 @@ npm link
 # Serve current directory
 glint serve
 
-# Serve specific directory
-glint serve /path/to/notes
+# Serving from a configuration file
+glint serve my-config.toml
 
 # Development mode (hot reload)
 npm run dev
@@ -57,15 +57,13 @@ npm run dev
 
 ## Configuration
 
-Create an optional `glint.json` in your content root:
+Create an optional `glint.toml` in your content root (Glint also supports `.glint/config.toml` and legacy JSON formats):
 
-```json
-{
-  "port": 3000,
-  "host": "0.0.0.0",
-  "theme": "everforest-dark",
-  "baseFile": "README.md"
-}
+```toml
+port = 3000
+host = "0.0.0.0"
+theme = "nord"
+baseFile = "README.md"
 ```
 
 | Option | Default | Description |
@@ -93,36 +91,37 @@ This will:
 - Generate a secure session secret
 - Update your `glint.json` with auth settings
 
-### Configuration
+### Auth Settings
 
-After setup, your `glint.json` will include:
+After setup, your `glint.toml` will include:
 
-```json
-{
-  "auth": {
-    "enabled": true,
-    "passwordHash": "<bcrypt hash>",
-    "sessionSecret": "<generated secret>",
-    "public": []
-  }
-}
+```toml
+[auth]
+enabled = true
+passwordHash = "<bcrypt hash>"
+sessionSecret = "<generated secret>"
+public = []
 ```
 
 ### Public Paths
 
 Make specific paths accessible without login by adding them to `auth.public`:
 
-```json
-{
-  "auth": {
-    "enabled": true,
-    "public": [
-      { "path": "docs/**", "access": "view" },
-      { "path": "README.md", "access": "view" },
-      { "path": "blog/*", "access": "comment" }
-    ]
-  }
-}
+```toml
+[auth]
+enabled = true
+
+[[auth.public]]
+path = "docs/**"
+access = "view"
+
+[[auth.public]]
+path = "README.md"
+access = "view"
+
+[[auth.public]]
+path = "blog/*"
+access = "comment"
 ```
 
 **Access levels:**
@@ -135,6 +134,58 @@ Make specific paths accessible without login by adding them to `auth.public`:
 
 - `*` — Matches a single path segment
 - `**` — Matches multiple path segments
+
+## Storage
+
+Glint supports multiple storage backends and can mount different folders from different providers.
+
+### Storage Settings
+
+Add a `storage` block to your `glint.toml`:
+
+```toml
+[storage]
+default = "local"
+
+[storage.providers.local]
+type = "local"
+basePath = "."
+
+[storage.providers.work]
+type = "github"
+owner = "org-name"
+repo = "docs"
+branch = "main"
+token = "ghp_..."
+
+[[storage.mounts]]
+prefix = "shared"
+provider = "work"
+
+[storage.cache]
+enabled = true
+ttl = 300000
+maxSize = 104857600
+```
+
+### Storage Providers
+
+| Provider | Type | Options |
+| --- | --- | --- |
+| **Local** | `local` | `basePath` (default: `.`) |
+| **GitHub** | `github` | `owner`, `repo`, `branch` (optional), `token` (optional) |
+
+### Mounts
+
+The `mounts` array allows you to map URL prefixes to specific storage providers. In the example above, any request to `/shared/*` will be served from the `work` provider (GitHub), while everything else uses the `default` provider.
+
+### Caching
+
+To improve performance, Glint caches rendered HTML in memory.
+
+- `enabled`: Toggle caching (default: `true`)
+- `ttl`: Time to live in milliseconds (default: `300000` / 5 minutes)
+- `maxSize`: Maximum cache size in bytes (default: `104857600` / 100MB)
 
 ## Themes
 
