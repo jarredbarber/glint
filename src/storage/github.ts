@@ -108,7 +108,8 @@ export class GitHubStorageProvider implements StorageProvider {
     }
 
     async read(path: string): Promise<string> {
-        const data = await this.request<GitHubContent>(`contents/${path}?ref=${this.branch}`);
+        const cleanPath = path.replace(/^\/+/, '');
+        const data = await this.request<GitHubContent>(`contents/${cleanPath}?ref=${this.branch}`);
         if (data.type !== 'file' || !data.content) {
             throw new Error('Not a file or empty content');
         }
@@ -132,12 +133,13 @@ export class GitHubStorageProvider implements StorageProvider {
     }
 
     private async _writeInternal(path: string, contentBase64: string, options?: WriteOptions): Promise<void> {
+        const cleanPath = path.replace(/^\/+/, '');
         const maxRetries = 3;
         const delays = [100, 200, 300];
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                const sha = await this.getFileSha(path);
+                const sha = await this.getFileSha(cleanPath);
 
                 // Check optimistic lock if expectedHash provided
                 if (options?.expectedHash && sha && sha !== options.expectedHash) {
@@ -159,7 +161,7 @@ export class GitHubStorageProvider implements StorageProvider {
                     body.sha = sha;
                 }
 
-                await this.request(`contents/${path}`, {
+                await this.request(`contents/${cleanPath}`, {
                     method: 'PUT',
                     body: JSON.stringify(body)
                 });
@@ -177,10 +179,11 @@ export class GitHubStorageProvider implements StorageProvider {
     }
 
     async delete(path: string): Promise<void> {
-        const sha = await this.getFileSha(path);
+        const cleanPath = path.replace(/^\/+/, '');
+        const sha = await this.getFileSha(cleanPath);
         if (!sha) return; // File doesn't exist, treat as success
 
-        await this.request(`contents/${path}`, {
+        await this.request(`contents/${cleanPath}`, {
             method: 'DELETE',
             body: JSON.stringify({
                 message: `Delete ${path}`,

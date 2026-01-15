@@ -62,7 +62,7 @@ export class StorageManager {
                 if (!provider) {
                     throw new Error(`Provider '${providerName}' for mount '${mount.prefix}' not found`);
                 }
-                const relativePath = path.slice(mount.prefix.length);
+                const relativePath = path.slice(mount.prefix.length).replace(/^\/+/, '');
                 return { provider, relativePath };
             }
 

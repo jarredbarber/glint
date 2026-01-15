@@ -55,6 +55,19 @@ test('StorageManager integration', async (t) => {
         await storage.write('docs/special/item.md', 'special content');
         const itemContent = await fs.readFile(path.join(primaryDir, 'item.md'), 'utf-8');
         assert.strictEqual(itemContent, 'special content');
+
+        // Mount prefix without trailing slash (prefix "docs" -> second)
+        // This used to return "/other.md" instead of "other.md"
+        const configNoSlash: GlintConfig = {
+            ...config,
+            storage: {
+                ...config.storage,
+                mounts: [{ prefix: 'docs', provider: 'second' }]
+            }
+        };
+        const storageNoSlash = new StorageManager(configNoSlash, primaryDir);
+        const { relativePath } = (storageNoSlash as any).resolveProvider('docs/other.md');
+        assert.strictEqual(relativePath, 'other.md', 'Relative path should not have leading slash even if prefix lacks it');
     });
 
     await t.test('handles cross-provider moves', async () => {
