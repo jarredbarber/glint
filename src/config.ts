@@ -50,7 +50,7 @@ const CacheConfigSchema = z.object({
 });
 
 const StorageConfigSchema = z.object({
-    default: z.string().default('local'),
+    default: z.string().optional(),
     providers: z.record(z.string(), StorageProviderSchema).default({
         local: { type: 'local', basePath: '.' }
     }),
@@ -161,8 +161,25 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
 
 /**
  * Save configuration to the content directory (prefers .glint/config.toml).
+ * If configPath is provided, saves to that specific file instead.
  */
-export async function saveConfig(contentDir: string, config: Partial<GlintConfig>): Promise<void> {
+export async function saveConfig(contentDir: string, config: Partial<GlintConfig>, configPath?: string): Promise<void> {
+    if (configPath) {
+        // Save to the specific config path
+        const fullConfig = { ...DEFAULTS, ...config };
+        const isToml = configPath.endsWith('.toml');
+        const content = isToml
+            ? toml.stringify(fullConfig)
+            : JSON.stringify(fullConfig, null, 4);
+
+        // Ensure parent directory exists
+        const dir = path.dirname(configPath);
+        await fs.mkdir(dir, { recursive: true });
+
+        await fs.writeFile(configPath, content, 'utf-8');
+        return;
+    }
+
     const dotGlintDir = path.join(contentDir, '.glint');
     const tomlPath = path.join(dotGlintDir, 'config.toml');
     const jsonPath = path.join(dotGlintDir, 'config.json');
