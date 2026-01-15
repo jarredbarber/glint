@@ -1,4 +1,5 @@
 import { StorageManager } from './storage/index.js';
+import { escapeHtml } from './utils/html.js';
 import path from 'path';
 
 export interface FileNode {
@@ -94,12 +95,4 @@ export function renderFileTree(nodes: FileNode[], currentPath: string = ''): str
     }).join('\n');
 
     return items;
-}
-
-function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }

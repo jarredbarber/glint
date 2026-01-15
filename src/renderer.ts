@@ -172,4 +172,5 @@ export { renderScripts } from './renderer/scripts.js';
 export { renderMetadata, formatDate } from './renderer/metadata.js';
 export { renderRightOutline } from './renderer/outline.js';
 export { renderBreadcrumbs } from './renderer/breadcrumbs.js';
-export { renderLoginPage, escapeHtml } from './renderer/login.js';
+export { renderLoginPage } from './renderer/login.js';
+export { escapeHtml } from './utils/html.js';

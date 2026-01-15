@@ -1,5 +1,6 @@
 import { GlintConfig } from '../config.js';
 import { renderHead } from './head.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const renderLoginPage = (config: GlintConfig, redirect: string = '/', error?: string) => `
 <!DOCTYPE html>
@@ -113,12 +114,3 @@ export const renderLoginPage = (config: GlintConfig, redirect: string = '/', err
     </body>
 </html>
 `;
-
-export function escapeHtml(str: string): string {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}

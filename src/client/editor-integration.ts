@@ -10,14 +10,7 @@ import { injectTaskInteractions } from './editor-tasks.js';
 import { injectCommentInteractions } from './editor-comments.js';
 import { setupKeyboardShortcuts } from './editor-shortcuts.js';
 import { canEdit, canComment } from './permissions.js';
-
-// Extend Window interface for global editing state (compatibility)
-declare global {
-    interface Window {
-        __glintEditingActive?: boolean;
-        __glintPendingReload?: boolean;
-    }
-}
+import './types.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 

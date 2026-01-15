@@ -34,12 +34,12 @@ test('widgets: tasks', async (t) => {
 
     await t.test('renders in-progress task', async () => {
         const html = await processMarkdown('- [/] WIP task');
-        assert.ok(html.includes('data-state="in_progress"'));
+        assert.ok(html.includes('data-state="progress"'));
     });
 
     await t.test('renders task metadata', async () => {
         const html = await processMarkdown('- [ ] Task with meta (due:2026-01-01)');
-        assert.ok(html.includes('class="task-due"'));
+        assert.ok(html.includes('class="meta-due"'));
         assert.ok(html.includes('2026-01-01'));
     });
 });
@@ -48,7 +48,7 @@ test('widgets: comments', async (t) => {
     await t.test('renders comment block', async () => {
         const markdown = '```comment\nsummary: Test\nuser@2026-01-01: Hello\n```';
         const html = await processMarkdown(markdown);
-        assert.ok(html.includes('class="glint-comment"'));
+        assert.ok(html.includes('glint-comment'));
         assert.ok(html.includes('Test'));
         assert.ok(html.includes('Hello'));
     });

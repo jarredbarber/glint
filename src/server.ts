@@ -45,13 +45,6 @@ import { setupDocumentRoutes } from './server/routes/documents.js';
 import { setupWebhookRoutes } from './server/routes/webhooks.js';
 
 
-interface CacheEntry {
-    html: string;
-    mtime: number;
-}
-
-// Image extensions to serve directly
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
 export function createProcessor(config: GlintConfig, linkValidator: (path: string) => boolean) {
     const macros = getProcessedMacros(config);
@@ -210,8 +203,6 @@ export async function createServer(contentDir: string) {
     });
 
     // Serve images from content directory
-    // REMOVED: Now handled by /api/asset/resolve
-
     // Build file tree once at startup
     const initialTree = await buildFileTree(storageManager);
     const scanTitles = async (nodes: FileNode[]) => {

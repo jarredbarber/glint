@@ -1,16 +1,10 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canEdit } from './permissions.js';
+import './types.js';
 
 declare const GlintEditor: any;
 const VIM_MODE_KEY = 'glint-vim-mode';
-
-declare global {
-    interface Window {
-        __glintEditingActive?: boolean;
-        __glintPendingReload?: boolean;
-    }
-}
 
 let activeEditor: any = null;
 let activeEditorContainer: HTMLElement | null = null;
