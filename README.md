@@ -21,6 +21,7 @@ $$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
   - **Keyboard Shortcuts**: Press `e` to edit any section or `c` to insert a comment block.
 - **Beautiful**: Dark mode by default (Everforest), syntax highlighting, and responsive layout.
 - **File Outliner**: Automatic table of contents for long documents.
+- **Journal View**: Aggregated stream of daily notes and entries across your entire folder.
 - **Zero config** — Just point at a directory and go
 - **Hot Reload** — Real-time updates via SSE.
 
@@ -174,6 +175,59 @@ maxSize = 104857600
 | --- | --- | --- |
 | **Local** | `local` | `basePath` (default: `.`) |
 | **GitHub** | `github` | `owner`, `repo`, `branch` (optional), `token` (optional) |
+| **Git** | `git` | `basePath`, `autoCommit`, `autoSync`, `syncInterval`, `commitMessage` |
+
+### Git Provider
+
+The `git` provider combines fast local filesystem access with automatic git synchronization. It's ideal for notes stored in a git repository.
+
+```toml
+[storage.providers.notes]
+type = "git"
+basePath = "/path/to/repo"
+autoCommit = true      # Auto-commit changes (default: true)
+autoSync = true        # Auto-sync with remote (default: true)
+syncInterval = 60      # Sync interval in seconds (default: 60)
+commitMessage = "Glint auto-save"  # Custom commit message
+```
+
+**Behavior:**
+
+- **Auto-commit**: Changes are debounced and committed 2 seconds after writing
+- **Auto-sync**: If the repo has a remote origin, Glint periodically pulls and pushes
+- **Local-only repos**: If no remote exists, changes are only committed locally
+- **Conflict handling**: Uses fast-forward only pulls; conflicts are logged (local changes preserved)
+
+**Comparison with other providers:**
+
+- `local`: Fast, no git integration
+- `git`: Fast + automatic git commits and sync (Best for local repos)
+- `github`: Uses GitHub API directly (slower, but works without local clone)
+
+## Journal View
+
+Glint includes a built-in **Journal View** that aggregates dated entries from across all your Markdown files into a single, chronological feed.
+
+### Entry Syntax
+
+To register a journal entry, simply use a second-level heading in the format `## YYYY-MM-DD`:
+
+```markdown
+# My Project Notes
+
+## 2026-01-15
+Finished implementing the git storage provider.
+
+## 2026-01-14
+Started working on the journal view improvements.
+```
+
+### Accessing the Journal
+
+- Click **Journal View** in the sidebar.
+- Navigate to `/journal`.
+
+The Journal View parses all `.md` files in your content directory to find these headings and presents the contents (with full Markdown/KaTeX rendering) in a unified stream, newest first.
 
 ### Mounts
 
