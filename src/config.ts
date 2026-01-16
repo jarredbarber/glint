@@ -109,10 +109,7 @@ const DEFAULTS: GlintConfig = {
 export async function loadConfig(contentDir: string, configPath?: string): Promise<GlintConfig> {
     const dotGlintDir = path.join(contentDir, '.glint');
     const paths = configPath ? [configPath] : [
-        path.join(dotGlintDir, 'config.toml'),
-        path.join(dotGlintDir, 'config.json'),
         path.join(contentDir, 'glint.toml'),
-        path.join(contentDir, 'glint.json'),
     ];
 
     let raw: string | undefined;
@@ -135,14 +132,6 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
     try {
         const isToml = actualConfigPath.endsWith('.toml');
         const parsed = isToml ? toml.parse(raw) : JSON.parse(raw);
-
-        // Automatic migration if it's an old glint.json/toml without .glint directory
-        if (!configPath && (actualConfigPath === path.join(contentDir, 'glint.json') || actualConfigPath === path.join(contentDir, 'glint.toml'))) {
-            const newExt = isToml ? '.toml' : '.json';
-            const newConfigPath = path.join(dotGlintDir, 'config' + newExt);
-            await fs.mkdir(dotGlintDir, { recursive: true });
-            await fs.writeFile(newConfigPath, raw, 'utf-8');
-        }
 
         return ConfigSchema.parse({ ...DEFAULTS, ...parsed });
     } catch (err) {
@@ -172,30 +161,47 @@ export async function saveConfig(contentDir: string, config: Partial<GlintConfig
     }
 
     const dotGlintDir = path.join(contentDir, '.glint');
-    const tomlPath = path.join(dotGlintDir, 'config.toml');
-    const jsonPath = path.join(dotGlintDir, 'config.json');
+    const tomlPath = path.join(contentDir, 'glint.toml');
+    const jsonPath = path.join(contentDir, 'glint.json');
+    const oldTomlPath = path.join(dotGlintDir, 'config.toml');
+    const oldJsonPath = path.join(dotGlintDir, 'config.json');
 
-    // If .glint isn't there, we'll create it
-    await fs.mkdir(dotGlintDir, { recursive: true });
-
-    // Check if JSON exists and we should stick with it, but prefer TOML for new/updates
+    // Check if any config exists already
+    let targetPath = tomlPath;
     let useJson = false;
+
+    // Check paths in order of preference
     try {
-        await fs.access(jsonPath);
-        // Only stay on JSON if TOML doesn't exist yet
+        await fs.access(tomlPath);
+        targetPath = tomlPath;
+    } catch {
         try {
-            await fs.access(tomlPath);
-        } catch {
+            await fs.access(jsonPath);
+            targetPath = jsonPath;
             useJson = true;
+        } catch {
+            try {
+                await fs.access(oldTomlPath);
+                targetPath = oldTomlPath;
+            } catch {
+                try {
+                    await fs.access(oldJsonPath);
+                    targetPath = oldJsonPath;
+                    useJson = true;
+                } catch {
+                    // None exist, use default (root glint.toml)
+                    targetPath = tomlPath;
+                }
+            }
         }
-    } catch { }
+    }
 
     const fullConfig = { ...DEFAULTS, ...config };
     const content = useJson
         ? JSON.stringify(fullConfig, null, 4)
         : toml.stringify(fullConfig);
 
-    await fs.writeFile(useJson ? jsonPath : tomlPath, content, 'utf-8');
+    await fs.writeFile(targetPath, content, 'utf-8');
 }
 
 /**
@@ -216,10 +222,10 @@ export function getProcessedMacros(config: GlintConfig): Record<string, string> 
  */
 export async function getConfigPath(contentDir: string): Promise<string> {
     const paths = [
-        path.join(contentDir, '.glint', 'config.toml'),
-        path.join(contentDir, '.glint', 'config.json'),
         path.join(contentDir, 'glint.toml'),
         path.join(contentDir, 'glint.json'),
+        path.join(contentDir, '.glint', 'config.toml'),
+        path.join(contentDir, '.glint', 'config.json'),
     ];
 
     for (const p of paths) {
