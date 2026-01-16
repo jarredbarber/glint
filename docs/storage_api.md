@@ -282,6 +282,7 @@ Manage time-limited access links.
 
 ```json
 {
+  "headless": false,
   "storage": {
     "default": "local",
     "providers": {
@@ -314,6 +315,7 @@ Manage time-limited access links.
 
 **Notes:**
 
+- `headless` (boolean, default: `false`) — When `true`, runs Glint in API-only mode. The web UI (static assets, share links, dashboard, and document rendering routes) are disabled. Only REST API endpoints are available. Useful for running Glint as a pure document storage backend for Hector.
 - `github.token` should come from `GITHUB_TOKEN` env var, not config
 - `webhookSecret` from GitHub repo settings
 - `cache.ttl` in milliseconds (300000 = 5 minutes)

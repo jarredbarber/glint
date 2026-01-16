@@ -200,110 +200,112 @@ export async function createServer(contentDir: string, configPath?: string) {
     };
     watchAll();
 
-    // Serve bundled assets
-    fastify.register(fastifyStatic, {
-        root: assetsDir,
-        prefix: '/assets/',
-        decorateReply: false,
-    });
+    // UI-related setup: only when not in headless mode
+    if (!config.headless) {
+        // Serve bundled assets
+        fastify.register(fastifyStatic, {
+            root: assetsDir,
+            prefix: '/assets/',
+            decorateReply: false,
+        });
 
-    // Serve images from content directory
-    // Build file tree once at startup
-    const initialTree = await buildFileTree(storageManager);
-    const scanTitles = async (nodes: FileNode[]) => {
-        for (const node of nodes) {
-            if (node.isDir) {
-                await scanTitles(node.children || []);
-            } else {
-                await updateTitleCache(node.path + '.md');
+        // Serve images from content directory
+        // Build file tree once at startup
+        const initialTree = await buildFileTree(storageManager);
+        const scanTitles = async (nodes: FileNode[]) => {
+            for (const node of nodes) {
+                if (node.isDir) {
+                    await scanTitles(node.children || []);
+                } else {
+                    await updateTitleCache(node.path + '.md');
+                }
             }
-        }
-    };
-    await scanTitles(initialTree);
-    fileTree = await buildFileTree(storageManager, '', titleCache);
-    updateKnownPaths(fileTree);
+        };
+        await scanTitles(initialTree);
+        fileTree = await buildFileTree(storageManager, '', titleCache);
+        updateKnownPaths(fileTree);
 
-    // Share Route
-    fastify.get('/s/:shareId', async (request, reply) => {
-        const { shareId } = request.params as { shareId: string };
-        const share = shareService.getShare(shareId);
+        // Share Route
+        fastify.get('/s/:shareId', async (request, reply) => {
+            const { shareId } = request.params as { shareId: string };
+            const share = shareService.getShare(shareId);
 
-        if (!share) {
-            return reply.code(404).send('Share link not found or expired');
-        }
-
-        try {
-            // Check existence and get stats
-            let stat;
-            let resolvedPath = share.filePath;
+            if (!share) {
+                return reply.code(404).send('Share link not found or expired');
+            }
 
             try {
-                const resolved = await resolveStoragePath(storageManager, share.filePath, config);
-                stat = resolved.stat;
-                resolvedPath = resolved.path;
+                // Check existence and get stats
+                let stat;
+                let resolvedPath = share.filePath;
 
-                if (!resolved.isMarkdown || stat.isDirectory) {
+                try {
+                    const resolved = await resolveStoragePath(storageManager, share.filePath, config);
+                    stat = resolved.stat;
+                    resolvedPath = resolved.path;
+
+                    if (!resolved.isMarkdown || stat.isDirectory) {
+                        return reply.code(404).send('Linked file not found');
+                    }
+
+                } catch {
                     return reply.code(404).send('Linked file not found');
                 }
 
-            } catch {
-                return reply.code(404).send('Linked file not found');
+                // Check if share is already cached
+                const cacheKey = `share:${shareId}:${resolvedPath}`;
+                const cached = storageManager.getCachedHtml(cacheKey);
+                if (cached && cached.mtime >= stat.mtime.getTime()) {
+                    return reply.type('text/html').send(cached.html);
+                }
+
+                // Read and Process
+                const rawContent = await storageManager.read(resolvedPath);
+                const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
+
+                // Run Unified Pipeline
+                const file = new VFile({ value: cleanContent });
+                file.data.contentStartLine = contentStartLine;
+                file.data.filePath = resolvedPath;
+                file.data.shareId = shareId;
+
+                const vfile = await processor.process(file);
+                let htmlContent = String(vfile);
+
+                const pageTitle = frontmatterTitle || path.basename(resolvedPath, '.md').replace(/-/g, ' ');
+                const headings = (vfile.data.headings as HeadingNode[]) || [];
+
+                const fullHtml = renderer.renderHtml({
+                    content: htmlContent,
+                    title: pageTitle,
+                    config,
+                    fileTree,
+                    currentPath: resolvedPath,
+                    headings,
+                    frontmatter,
+                    authEnabled: config.auth?.enabled ?? false,
+                    authenticated: request.isAuthenticated(),
+                    access: share.access,
+                    shareId: shareId
+                });
+
+                storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
+                return reply.type('text/html').send(fullHtml);
+
+            } catch (err) {
+                if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
+                if (isNotFoundError(err)) return reply.code(404).send('Not Found');
+                fastify.log.error(err as Error);
+                return reply.code(500).send('Internal Server Error');
             }
+        });
 
-            // Check if share is already cached
-            const cacheKey = `share:${shareId}:${resolvedPath}`;
-            const cached = storageManager.getCachedHtml(cacheKey);
-            if (cached && cached.mtime >= stat.mtime.getTime()) {
-                return reply.type('text/html').send(cached.html);
-            }
-
-            // Read and Process
-            const rawContent = await storageManager.read(resolvedPath);
-            const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
-
-            // Run Unified Pipeline
-            const file = new VFile({ value: cleanContent });
-            file.data.contentStartLine = contentStartLine;
-            file.data.filePath = resolvedPath;
-            file.data.shareId = shareId;
-
-            const vfile = await processor.process(file);
-            let htmlContent = String(vfile);
-
-            const pageTitle = frontmatterTitle || path.basename(resolvedPath, '.md').replace(/-/g, ' ');
-            const headings = (vfile.data.headings as HeadingNode[]) || [];
-
-            const fullHtml = renderer.renderHtml({
-                content: htmlContent,
-                title: pageTitle,
-                config,
-                fileTree,
-                currentPath: resolvedPath,
-                headings,
-                frontmatter,
-                authEnabled: config.auth?.enabled ?? false,
-                authenticated: request.isAuthenticated(),
-                access: share.access,
-                shareId: shareId
-            });
-
-            storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
-            return reply.type('text/html').send(fullHtml);
-
-        } catch (err) {
-            if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
-            if (isNotFoundError(err)) return reply.code(404).send('Not Found');
-            fastify.log.error(err as Error);
-            return reply.code(500).send('Internal Server Error');
-        }
-    });
-
-    // Dashboard Route
-    fastify.get('/dashboard', async (request, reply) => {
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        const html = renderer.renderHtml({
-            title: 'Dashboard',
-            content: `
+        // Dashboard Route
+        fastify.get('/dashboard', async (request, reply) => {
+            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+            const html = renderer.renderHtml({
+                title: 'Dashboard',
+                content: `
                 <div class="dashboard-container">
                     <div class="dashboard-pane">
                         <h2>Tasks</h2>
@@ -315,41 +317,41 @@ export async function createServer(contentDir: string, configPath?: string) {
                     </div>
                 </div>
             `,
-            fileTree,
-            config,
-            scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
-            styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
-            currentPath: '/dashboard',
-            authEnabled: config.auth?.enabled ?? false,
-            authenticated: request.isAuthenticated()
+                fileTree,
+                config,
+                scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
+                styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
+                currentPath: '/dashboard',
+                authEnabled: config.auth?.enabled ?? false,
+                authenticated: request.isAuthenticated()
+            });
+            reply.type('text/html').send(html);
         });
-        reply.type('text/html').send(html);
-    });
 
-    fastify.get('/*', async (request, reply) => {
-        const urlPath = (request.params as { '*': string })['*'] || '';
+        fastify.get('/*', async (request, reply) => {
+            const urlPath = (request.params as { '*': string })['*'] || '';
 
-        // Skip auth check for login page
-        if (urlPath === 'login') {
-            return reply.code(404).send('Not Found');
-        }
+            // Skip auth check for login page
+            if (urlPath === 'login') {
+                return reply.code(404).send('Not Found');
+            }
 
-        // Check authentication
-        const access = request.getAccess(urlPath);
-        if (access === null) {
-            return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent('/' + urlPath)}`);
-        }
+            // Check authentication
+            const access = request.getAccess(urlPath);
+            if (access === null) {
+                return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent('/' + urlPath)}`);
+            }
 
-        // Special handling for root path: Check if baseFile exists
-        let targetPath = urlPath;
-        if (urlPath === '') {
-            const baseExist = await storageManager.exists(config.baseFile);
-            if (!baseExist) {
-                // Render Dashboard
-                reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-                const html = renderer.renderHtml({
-                    title: 'Dashboard',
-                    content: `
+            // Special handling for root path: Check if baseFile exists
+            let targetPath = urlPath;
+            if (urlPath === '') {
+                const baseExist = await storageManager.exists(config.baseFile);
+                if (!baseExist) {
+                    // Render Dashboard
+                    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    const html = renderer.renderHtml({
+                        title: 'Dashboard',
+                        content: `
                         <div class="dashboard-container">
                             <div class="dashboard-pane">
                                 <h2>Tasks</h2>
@@ -361,76 +363,77 @@ export async function createServer(contentDir: string, configPath?: string) {
                             </div>
                         </div>
                     `,
-                    fileTree,
+                        fileTree,
+                        config,
+                        scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
+                        styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
+                        currentPath: '/',
+                        authEnabled: config.auth?.enabled ?? false,
+                        authenticated: request.isAuthenticated()
+                    });
+                    return reply.type('text/html').send(html);
+                }
+            }
+
+            try {
+                // Resolve path using StorageManager
+                const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, targetPath, config);
+
+                if (!isMarkdown) {
+                    return reply.code(404).send('Not Found');
+                }
+
+                // Check cache
+                const cacheKey = filePath;
+                const cached = storageManager.getCachedHtml(cacheKey);
+                if (cached && cached.mtime >= stat.mtime.getTime()) {
+                    return reply.type('text/html').send(cached.html);
+                }
+
+                // Read and Process
+                const rawContent = await storageManager.read(filePath);
+                const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
+
+                // Run Unified Pipeline
+                const file = new VFile({ value: cleanContent });
+                file.data.contentStartLine = contentStartLine;
+                file.data.filePath = filePath;
+
+                const vfile = await processor.process(file);
+                let htmlContent = String(vfile);
+
+                // Combine into full HTML
+                const pageTitle = frontmatterTitle || path.basename(filePath, '.md').replace(/-/g, ' ');
+
+                const headings = (vfile.data.headings as HeadingNode[]) || [];
+
+                const fullHtml = renderer.renderHtml({
+                    content: htmlContent,
+                    title: pageTitle,
                     config,
-                    scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
-                    styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
-                    currentPath: '/',
+                    fileTree,
+                    currentPath: filePath,
+                    headings,
+                    frontmatter,
                     authEnabled: config.auth?.enabled ?? false,
-                    authenticated: request.isAuthenticated()
+                    authenticated: request.isAuthenticated(),
                 });
-                return reply.type('text/html').send(html);
+
+                // Cache it
+                storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
+
+                reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+                return reply.type('text/html').send(fullHtml);
+
+            } catch (err: unknown) {
+                if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
+                if (isNotFoundError(err)) return reply.code(404).send('Not Found');
+
+                fastify.log.error(err as Error);
+                return reply.code(500).send('Internal Server Error');
             }
-        }
-
-        try {
-            // Resolve path using StorageManager
-            const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, targetPath, config);
-
-            if (!isMarkdown) {
-                return reply.code(404).send('Not Found');
-            }
-
-            // Check cache
-            const cacheKey = filePath;
-            const cached = storageManager.getCachedHtml(cacheKey);
-            if (cached && cached.mtime >= stat.mtime.getTime()) {
-                return reply.type('text/html').send(cached.html);
-            }
-
-            // Read and Process
-            const rawContent = await storageManager.read(filePath);
-            const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
-
-            // Run Unified Pipeline
-            const file = new VFile({ value: cleanContent });
-            file.data.contentStartLine = contentStartLine;
-            file.data.filePath = filePath;
-
-            const vfile = await processor.process(file);
-            let htmlContent = String(vfile);
-
-            // Combine into full HTML
-            const pageTitle = frontmatterTitle || path.basename(filePath, '.md').replace(/-/g, ' ');
-
-            const headings = (vfile.data.headings as HeadingNode[]) || [];
-
-            const fullHtml = renderer.renderHtml({
-                content: htmlContent,
-                title: pageTitle,
-                config,
-                fileTree,
-                currentPath: filePath,
-                headings,
-                frontmatter,
-                authEnabled: config.auth?.enabled ?? false,
-                authenticated: request.isAuthenticated(),
-            });
-
-            // Cache it
-            storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
-
-            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-            return reply.type('text/html').send(fullHtml);
-
-        } catch (err: unknown) {
-            if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
-            if (isNotFoundError(err)) return reply.code(404).send('Not Found');
-
-            fastify.log.error(err as Error);
-            return reply.code(500).send('Internal Server Error');
-        }
-    });
+        });
+    } // End of if (!config.headless)
 
     // Start git provider sync loops
     await storageManager.startGitSync();

@@ -60,6 +60,7 @@ const ConfigSchema = z.object({
     host: z.string().default('0.0.0.0'),
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),
+    headless: z.boolean().default(false),
     'latex-macros': z.record(z.string(), z.string()).optional(),
     auth: AuthSchema.optional(),
     storage: StorageConfigSchema.default(() => ({
@@ -90,6 +91,7 @@ const DEFAULTS: GlintConfig = {
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
+    headless: false,
     storage: {
         default: 'local',
         providers: {
