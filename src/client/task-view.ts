@@ -22,7 +22,7 @@ class TaskView {
 
     async fetchTasks() {
         try {
-            const response = await fetch('/api/tasks');
+            const response = await fetch('/api/tasks', { cache: 'no-store' });
             this.tasks = await response.json();
         } catch (error) {
             console.error('Failed to fetch tasks:', error);

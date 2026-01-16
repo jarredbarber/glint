@@ -22,13 +22,6 @@ const StorageProviderSchema = z.discriminatedUnion('type', [
         basePath: z.string().default('.'),
     }),
     z.object({
-        type: z.literal('github'),
-        owner: z.string(),
-        repo: z.string(),
-        branch: z.string().optional(),
-        token: z.string().optional(),
-    }),
-    z.object({
         type: z.literal('git'),
         basePath: z.string(),
         autoCommit: z.boolean().default(true),
@@ -50,7 +43,7 @@ const CacheConfigSchema = z.object({
 });
 
 const StorageConfigSchema = z.object({
-    default: z.string().default('local'),
+    default: z.string().optional(),
     providers: z.record(z.string(), StorageProviderSchema).default({
         local: { type: 'local', basePath: '.' }
     }),
@@ -67,6 +60,7 @@ const ConfigSchema = z.object({
     host: z.string().default('0.0.0.0'),
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),
+    headless: z.boolean().default(false),
     'latex-macros': z.record(z.string(), z.string()).optional(),
     auth: AuthSchema.optional(),
     storage: StorageConfigSchema.default(() => ({
@@ -81,10 +75,6 @@ const ConfigSchema = z.object({
             maxSize: 100 * 1024 * 1024
         }
     })),
-    github: z.object({
-        webhookSecret: z.string().optional(),
-        token: z.string().optional(),
-    }).optional(),
 });
 
 export type GlintConfig = z.infer<typeof ConfigSchema>;
@@ -101,6 +91,7 @@ const DEFAULTS: GlintConfig = {
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
+    headless: false,
     storage: {
         default: 'local',
         providers: {
@@ -161,8 +152,25 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
 
 /**
  * Save configuration to the content directory (prefers .glint/config.toml).
+ * If configPath is provided, saves to that specific file instead.
  */
-export async function saveConfig(contentDir: string, config: Partial<GlintConfig>): Promise<void> {
+export async function saveConfig(contentDir: string, config: Partial<GlintConfig>, configPath?: string): Promise<void> {
+    if (configPath) {
+        // Save to the specific config path
+        const fullConfig = { ...DEFAULTS, ...config };
+        const isToml = configPath.endsWith('.toml');
+        const content = isToml
+            ? toml.stringify(fullConfig)
+            : JSON.stringify(fullConfig, null, 4);
+
+        // Ensure parent directory exists
+        const dir = path.dirname(configPath);
+        await fs.mkdir(dir, { recursive: true });
+
+        await fs.writeFile(configPath, content, 'utf-8');
+        return;
+    }
+
     const dotGlintDir = path.join(contentDir, '.glint');
     const tomlPath = path.join(dotGlintDir, 'config.toml');
     const jsonPath = path.join(dotGlintDir, 'config.json');
