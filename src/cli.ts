@@ -48,20 +48,10 @@ program
 program
     .command('setup-auth')
     .description('Configure authentication for the Glint server')
-    .argument('[path]', 'Path to content directory or config file', process.cwd())
+    .argument('[path]', 'Path to content directory', process.cwd())
     .action(async (contentPath: string) => {
-        const resolvedPath = path.resolve(contentPath);
-        let contentDir = resolvedPath;
-        let configPath: string | undefined;
-
-        // Check if path is a file (like serve command does)
-        const stats = await fs.stat(resolvedPath);
-        if (stats.isFile()) {
-            contentDir = path.dirname(resolvedPath);
-            configPath = resolvedPath;
-        }
-
-        const config = await loadConfig(contentDir, configPath);
+        const contentDir = path.resolve(contentPath);
+        const config = await loadConfig(contentDir);
 
         console.log('Glint Authentication Setup');
         console.log('==========================\n');
@@ -92,9 +82,9 @@ program
         };
 
         // Save config
-        await saveConfig(contentDir, { ...config, auth: newAuth }, configPath);
+        await saveConfig(contentDir, { ...config, auth: newAuth });
 
-        const actualConfigPath = configPath || await getConfigPath(contentDir);
+        const actualConfigPath = await getConfigPath(contentDir);
         console.log(`\nAuthentication configured successfully!`);
         console.log(`The configuration file (${path.basename(actualConfigPath)}) has been updated.`);
         console.log(`\nTo make paths publicly accessible, add them to auth.public:`);

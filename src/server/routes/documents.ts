@@ -174,34 +174,4 @@ export async function setupDocumentRoutes(
             return reply.code(500).send({ error: 'Failed to render markdown' });
         }
     });
-
-    // POST /api/documents/batch - Batch write multiple files atomically
-    fastify.post('/api/documents/batch', async (request, reply) => {
-        const { writes, message } = request.body as {
-            writes: Array<{ path: string; content: string }>;
-            message?: string;
-        };
-
-        if (!Array.isArray(writes) || writes.length === 0) {
-            return reply.code(400).send({ error: 'Writes array is required and must not be empty' });
-        }
-
-        // Validate each write item
-        for (const item of writes) {
-            if (typeof item.path !== 'string' || typeof item.content !== 'string') {
-                return reply.code(400).send({ error: 'Each write must have path and content strings' });
-            }
-        }
-
-        // Batch writes require service token (Hector)
-        if (!await requireServiceToken(request, reply)) return;
-
-        try {
-            await storageManager.batchWrite(writes, { message });
-            return { success: true, filesWritten: writes.length };
-        } catch (err: any) {
-            request.log.error(err);
-            return reply.code(500).send({ error: 'Failed to batch write documents' });
-        }
-    });
 }
