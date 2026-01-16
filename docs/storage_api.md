@@ -278,39 +278,29 @@ Manage time-limited access links.
 
 ## Configuration
 
-### `.glint/config.json`
+### `glint.toml`
 
-```json
-{
-  "headless": false,
-  "storage": {
-    "default": "local",
-    "providers": {
-      "local": {
-        "type": "local",
-        "basePath": "./content"
-      }
-    },
-    "mounts": [
-      {
-        "prefix": "notes:",
-        "provider": "local"
-      }
-    ]
-  },
-  "auth": {
-    "serviceTokenHash": "$2b$10$..."
-  },
-  "github": {
-    "webhookSecret": "your-webhook-secret",
-    "token": "${GITHUB_TOKEN}"
-  },
-  "cache": {
-    "enabled": true,
-    "ttl": 300000,
-    "maxSize": 104857600
-  }
-}
+```toml
+headless = false
+
+[storage]
+default = "local"
+
+[storage.providers.local]
+type = "local"
+basePath = "./content"
+
+[[storage.mounts]]
+prefix = "notes:"
+provider = "local"
+
+[auth]
+serviceTokenHash = "$2b$10$..."
+
+[cache]
+enabled = true
+ttl = 300000
+maxSize = 104857600
 ```
 
 **Notes:**

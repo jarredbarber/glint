@@ -90,7 +90,7 @@ This will:
 
 - Prompt for a password (min 8 characters)
 - Generate a secure session secret
-- Update your `glint.json` with auth settings
+- Update your `glint.toml` with auth settings
 
 ### Auth Settings
 
@@ -251,7 +251,7 @@ Glint comes with several high-quality built-in themes:
 - `catppuccin-mocha` — Soft, modern pastel dark theme.
 - `solarized-light` — Classic, highly readable light theme.
 
-To use a theme, update your `glint.json`. Changes are picked up instantly via Hot Reloading!
+To use a theme, update your `glint.toml`. Changes are picked up instantly via Hot Reloading!
 
 ## Page Titles
 
