@@ -17,7 +17,7 @@ class JournalView {
 
     async fetchJournal() {
         try {
-            const response = await fetch('/api/journal', { cache: 'no-store' });
+            const response = await fetch('/api/journal');
             this.groups = await response.json();
         } catch (error) {
             console.error('Failed to fetch journal:', error);

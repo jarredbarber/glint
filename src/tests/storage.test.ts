@@ -20,7 +20,6 @@ test('StorageManager integration', async (t) => {
         host: '0.0.0.0',
         theme: 'nord',
         baseFile: 'README.md',
-        headless: false,
         storage: {
             default: 'local',
             providers: {

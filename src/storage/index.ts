@@ -1,14 +1,15 @@
 
 import { GlintConfig } from '../config.js';
 import { ContentCache } from './cache.js';
+import { GitHubStorageProvider } from './github.js';
 import { GitStorageProvider } from './git.js';
 import { LocalStorageProvider } from './local.js';
-import { BatchWriteItem, FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } from './types.js';
+import { FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } from './types.js';
 
 export class StorageManager {
     private providers = new Map<string, StorageProvider>();
     private mounts: Array<{ prefix: string; provider: string }> = [];
-    private defaultProvider?: string;
+    private defaultProvider: string;
     private cache?: ContentCache<{ html: string; mtime: number }>;
     private gitProviders: GitStorageProvider[] = [];
 
@@ -33,6 +34,12 @@ export class StorageManager {
                     basePath = contentDir;
                 }
                 this.providers.set(name, new LocalStorageProvider(name, basePath));
+            } else if (providerConfig.type === 'github') {
+                const token = providerConfig.token || config.github?.token || process.env.GITHUB_TOKEN;
+                this.providers.set(name, new GitHubStorageProvider(name, {
+                    ...providerConfig,
+                    token
+                }));
             } else if (providerConfig.type === 'git') {
                 let basePath = providerConfig.basePath;
                 if (basePath === '.') {
@@ -50,7 +57,7 @@ export class StorageManager {
             }
         }
 
-        if (this.defaultProvider && !this.providers.has(this.defaultProvider)) {
+        if (!this.providers.has(this.defaultProvider)) {
             throw new Error(`Default storage provider '${this.defaultProvider}' not configured`);
         }
     }
@@ -80,10 +87,6 @@ export class StorageManager {
                 }
                 return { provider, relativePath: '' };
             }
-        }
-
-        if (!this.defaultProvider) {
-            throw new Error(`No storage mount found for path '${path}' and no default storage provider configured`);
         }
 
         const provider = this.providers.get(this.defaultProvider);
@@ -120,42 +123,6 @@ export class StorageManager {
 
         if (this.cache) {
             this.cache.invalidate(path);
-        }
-    }
-
-    /**
-     * Batch write multiple files atomically.
-     * Files are grouped by provider and each provider commits all its files in a single operation.
-     */
-    async batchWrite(items: BatchWriteItem[], options?: WriteOptions): Promise<void> {
-        // Group items by provider
-        const grouped = new Map<StorageProvider, BatchWriteItem[]>();
-
-        for (const item of items) {
-            const { provider, relativePath } = this.resolveProvider(item.path);
-            if (!grouped.has(provider)) {
-                grouped.set(provider, []);
-            }
-            grouped.get(provider)!.push({ path: relativePath, content: item.content });
-        }
-
-        // Execute batch writes per provider
-        for (const [provider, providerItems] of grouped) {
-            if (provider.batchWrite) {
-                await provider.batchWrite(providerItems, options);
-            } else {
-                // Fallback: write individually
-                for (const item of providerItems) {
-                    await provider.write(item.path, item.content, options);
-                }
-            }
-        }
-
-        // Invalidate cache for all paths
-        if (this.cache) {
-            for (const item of items) {
-                this.cache.invalidate(item.path);
-            }
         }
     }
 
@@ -269,9 +236,6 @@ export class StorageManager {
     // Git Operations (delegated to default provider for now)
 
     async getGitStatus() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.getGitStatus) {
             return await provider.getGitStatus();
@@ -280,9 +244,6 @@ export class StorageManager {
     }
 
     async gitSync() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitSync) {
             return await provider.gitSync();
@@ -291,9 +252,6 @@ export class StorageManager {
     }
 
     async gitPull() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitPull) {
             return await provider.gitPull();
@@ -302,9 +260,6 @@ export class StorageManager {
     }
 
     async gitPush() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitPush) {
             return await provider.gitPush();
@@ -330,7 +285,28 @@ export class StorageManager {
         this.cache?.clear();
     }
 
+    invalidateByRepo(owner: string, repo: string, files: string[]): void {
+        if (!this.cache) return;
 
+        // Find all mounts that point to this repo
+        for (const mount of this.mounts) {
+            const provider = this.providers.get(mount.provider);
+            if (provider instanceof GitHubStorageProvider && provider.isFromRepo(owner, repo)) {
+                // Invalidate each changed file in the cache with the correct prefix
+                for (const file of files) {
+                    this.cache.invalidate(mount.prefix + file);
+                }
+            }
+        }
+
+        // Also check default provider if it's a GitHub provider
+        const defaultProvider = this.providers.get(this.defaultProvider);
+        if (defaultProvider instanceof GitHubStorageProvider && defaultProvider.isFromRepo(owner, repo)) {
+            for (const file of files) {
+                this.cache.invalidate(file);
+            }
+        }
+    }
 
     /**
      * Start auto-sync for all git providers.
