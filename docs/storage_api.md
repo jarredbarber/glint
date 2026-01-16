@@ -187,6 +187,13 @@ Designed for the Hector AI agent to read/write documents using a service token.
 - Render markdown to HTML without storage (preview)
 - Body: `{ markdown: string }`
 
+**POST `/api/documents/batch`**
+
+- Batch write multiple files atomically (requires service token)
+- Body: `{ writes: [{ path: string, content: string }, ...], message?: string }`
+- Returns: `{ success: true, filesWritten: number }`
+- Files are grouped by provider; each provider commits all its files in a single operation
+
 ### Editor Operations (Client)
 
 Endpoints used by the Glint web client for inline editing and asset management.

@@ -3,7 +3,7 @@ import { GlintConfig } from '../config.js';
 import { ContentCache } from './cache.js';
 import { GitStorageProvider } from './git.js';
 import { LocalStorageProvider } from './local.js';
-import { FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } from './types.js';
+import { BatchWriteItem, FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } from './types.js';
 
 export class StorageManager {
     private providers = new Map<string, StorageProvider>();
@@ -120,6 +120,42 @@ export class StorageManager {
 
         if (this.cache) {
             this.cache.invalidate(path);
+        }
+    }
+
+    /**
+     * Batch write multiple files atomically.
+     * Files are grouped by provider and each provider commits all its files in a single operation.
+     */
+    async batchWrite(items: BatchWriteItem[], options?: WriteOptions): Promise<void> {
+        // Group items by provider
+        const grouped = new Map<StorageProvider, BatchWriteItem[]>();
+
+        for (const item of items) {
+            const { provider, relativePath } = this.resolveProvider(item.path);
+            if (!grouped.has(provider)) {
+                grouped.set(provider, []);
+            }
+            grouped.get(provider)!.push({ path: relativePath, content: item.content });
+        }
+
+        // Execute batch writes per provider
+        for (const [provider, providerItems] of grouped) {
+            if (provider.batchWrite) {
+                await provider.batchWrite(providerItems, options);
+            } else {
+                // Fallback: write individually
+                for (const item of providerItems) {
+                    await provider.write(item.path, item.content, options);
+                }
+            }
+        }
+
+        // Invalidate cache for all paths
+        if (this.cache) {
+            for (const item of items) {
+                this.cache.invalidate(item.path);
+            }
         }
     }
 
