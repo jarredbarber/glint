@@ -1,0 +1,26 @@
+name = "glint"
+main = "dist/workers/index.js"
+compatibility_date = "2024-01-01"
+
+# R2 bucket for content storage
+[[r2_buckets]]
+binding = "CONTENT_BUCKET"
+bucket_name = "glint-content"
+
+# Optional: KV namespace for caching
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Build settings
+[build]
+command = "npm run build:workers"
+
+# Environment variables (set via wrangler secret or dashboard)
+# [vars]
+# GLINT_CONFIG = "{}"
+
+# Development settings
+[dev]
+port = 8787
+local_protocol = "http"

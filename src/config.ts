@@ -29,6 +29,12 @@ const StorageProviderSchema = z.discriminatedUnion('type', [
         syncInterval: z.number().default(60),
         commitMessage: z.string().optional(),
     }),
+    z.object({
+        type: z.literal('r2'),
+        bucketName: z.string(),
+        // R2 bucket binding name in wrangler.toml (e.g., "CONTENT_BUCKET")
+        bindingName: z.string().default('CONTENT_BUCKET'),
+    }),
 ]);
 
 const MountSchema = z.object({
