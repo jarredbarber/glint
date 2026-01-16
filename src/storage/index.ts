@@ -9,7 +9,7 @@ import { FileEntry, SearchResult, StorageProvider, VersionEntry, WriteOptions } 
 export class StorageManager {
     private providers = new Map<string, StorageProvider>();
     private mounts: Array<{ prefix: string; provider: string }> = [];
-    private defaultProvider?: string;
+    private defaultProvider: string;
     private cache?: ContentCache<{ html: string; mtime: number }>;
     private gitProviders: GitStorageProvider[] = [];
 
@@ -57,7 +57,7 @@ export class StorageManager {
             }
         }
 
-        if (this.defaultProvider && !this.providers.has(this.defaultProvider)) {
+        if (!this.providers.has(this.defaultProvider)) {
             throw new Error(`Default storage provider '${this.defaultProvider}' not configured`);
         }
     }
@@ -87,10 +87,6 @@ export class StorageManager {
                 }
                 return { provider, relativePath: '' };
             }
-        }
-
-        if (!this.defaultProvider) {
-            throw new Error(`No storage mount found for path '${path}' and no default storage provider configured`);
         }
 
         const provider = this.providers.get(this.defaultProvider);
@@ -240,9 +236,6 @@ export class StorageManager {
     // Git Operations (delegated to default provider for now)
 
     async getGitStatus() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.getGitStatus) {
             return await provider.getGitStatus();
@@ -251,9 +244,6 @@ export class StorageManager {
     }
 
     async gitSync() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitSync) {
             return await provider.gitSync();
@@ -262,9 +252,6 @@ export class StorageManager {
     }
 
     async gitPull() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitPull) {
             return await provider.gitPull();
@@ -273,9 +260,6 @@ export class StorageManager {
     }
 
     async gitPush() {
-        if (!this.defaultProvider) {
-            throw new Error('Git operations require a default storage provider');
-        }
         const provider = this.providers.get(this.defaultProvider);
         if (provider && provider.gitPush) {
             return await provider.gitPush();
@@ -316,12 +300,10 @@ export class StorageManager {
         }
 
         // Also check default provider if it's a GitHub provider
-        if (this.defaultProvider) {
-            const defaultProvider = this.providers.get(this.defaultProvider);
-            if (defaultProvider instanceof GitHubStorageProvider && defaultProvider.isFromRepo(owner, repo)) {
-                for (const file of files) {
-                    this.cache.invalidate(file);
-                }
+        const defaultProvider = this.providers.get(this.defaultProvider);
+        if (defaultProvider instanceof GitHubStorageProvider && defaultProvider.isFromRepo(owner, repo)) {
+            for (const file of files) {
+                this.cache.invalidate(file);
             }
         }
     }
