@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import readline from 'node:readline';
 import { createServer } from './server.js';
-import { hashPassword, generateServiceToken } from './server/auth.js';
+import { hashPassword } from './server/auth.js';
 import { loadConfig, getConfigPath, saveConfig } from './config.js';
 
 const program = new Command();
@@ -48,10 +48,20 @@ program
 program
     .command('setup-auth')
     .description('Configure authentication for the Glint server')
-    .argument('[path]', 'Path to content directory', process.cwd())
+    .argument('[path]', 'Path to content directory or config file', process.cwd())
     .action(async (contentPath: string) => {
-        const contentDir = path.resolve(contentPath);
-        const config = await loadConfig(contentDir);
+        const resolvedPath = path.resolve(contentPath);
+        let contentDir = resolvedPath;
+        let configPath: string | undefined;
+
+        // Check if path is a file (like serve command does)
+        const stats = await fs.stat(resolvedPath);
+        if (stats.isFile()) {
+            contentDir = path.dirname(resolvedPath);
+            configPath = resolvedPath;
+        }
+
+        const config = await loadConfig(contentDir, configPath);
 
         console.log('Glint Authentication Setup');
         console.log('==========================\n');
@@ -82,9 +92,9 @@ program
         };
 
         // Save config
-        await saveConfig(contentDir, { ...config, auth: newAuth });
+        await saveConfig(contentDir, { ...config, auth: newAuth }, configPath);
 
-        const actualConfigPath = await getConfigPath(contentDir);
+        const actualConfigPath = configPath || await getConfigPath(contentDir);
         console.log(`\nAuthentication configured successfully!`);
         console.log(`The configuration file (${path.basename(actualConfigPath)}) has been updated.`);
         console.log(`\nTo make paths publicly accessible, add them to auth.public:`);
@@ -93,36 +103,7 @@ program
         console.log(`  access = "view"`);
     });
 
-program
-    .command('auth-token')
-    .description('Manage service tokens for external agents (e.g. Hector AI)')
-    .argument('action', 'Action to perform: generate')
-    .argument('[path]', 'Path to content directory', process.cwd())
-    .action(async (action: string, contentPath: string) => {
-        if (action !== 'generate') {
-            console.error('Error: Unknown action. Supported actions: generate');
-            process.exit(1);
-        }
 
-        const contentDir = path.resolve(contentPath);
-        const config = await loadConfig(contentDir);
-
-        console.log('Glint Service Token Generation');
-        console.log('=============================\n');
-
-        const { token, hash } = await generateServiceToken();
-
-        const auth = config.auth || { enabled: true, public: [] };
-        auth.serviceTokenHash = hash;
-
-        // Save config
-        await saveConfig(contentDir, { ...config, auth });
-
-        console.log('New service token generated and stored in config.\n');
-        console.log('IMPORTANT: Copy this token now. It will not be shown again.');
-        console.log('TOKEN: ' + token + '\n');
-        console.log('Store this in Hector\'s GLINT_SERVICE_TOKEN environment variable.');
-    });
 
 program.parse();
 

@@ -3,23 +3,35 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { createServer } from '../server.js';
-import { generateServiceToken } from '../server/auth.js';
+import { hashPassword, createSessionCookie } from '../server/auth.js';
+import crypto from 'node:crypto';
 
 const testDir = path.resolve('./src/tests/document-fixtures');
+
+function generateTestSession(secret: string) {
+    const data = { authenticated: true, createdAt: Date.now() };
+    const payload = Buffer.from(JSON.stringify(data)).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+}
 
 test('server: document api', async (t) => {
     // Setup fixtures
     await fs.mkdir(testDir, { recursive: true });
     await fs.mkdir(path.join(testDir, '.glint'), { recursive: true });
 
-    const { token, hash } = await generateServiceToken();
+
+    // Create pre-hashed password for config
+    const password = 'password123';
+    const passwordHash = await hashPassword(password);
+    const sessionSecret = 'test-secret';
 
     await fs.writeFile(path.join(testDir, '.glint', 'config.json'), JSON.stringify({
         port: 3002,
         auth: {
             enabled: true,
-            serviceTokenHash: hash,
-            sessionSecret: 'test-secret'
+            passwordHash,
+            sessionSecret
         }
     }));
 
@@ -31,9 +43,7 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/hello.md',
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
         const data = JSON.parse(response.payload);
@@ -45,9 +55,7 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/hello.md?render=true',
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
         const data = JSON.parse(response.payload);
@@ -60,9 +68,7 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'PUT',
             url: '/api/documents/new.md',
-            headers: {
-                Authorization: `Bearer ${token}`
-            },
+            cookies: { glint_session: generateTestSession(sessionSecret) },
             payload: {
                 content: '# New File\n\nContent here',
                 message: 'Create new file'
@@ -78,9 +84,7 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'DELETE',
             url: '/api/documents/new.md',
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
 
@@ -96,9 +100,7 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'POST',
             url: '/api/documents/render',
-            headers: {
-                Authorization: `Bearer ${token}`
-            },
+            cookies: { glint_session: generateTestSession(sessionSecret) },
             payload: {
                 markdown: '# Preview\n\nSome preview content'
             }
@@ -113,8 +115,8 @@ test('server: document api', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/hello.md',
-            headers: {
-                Authorization: `Bearer invalid-token`
+            cookies: {
+                glint_session: 'invalid-token'
             }
         });
         assert.strictEqual(response.statusCode, 401);

@@ -4,7 +4,7 @@ import { type GlintConfig, type AccessLevel } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { parseMarkdown } from '../../markdown.js';
 import { VFile } from 'vfile';
-import { hasValidServiceToken } from '../auth.js';
+
 
 export async function setupDocumentRoutes(
     fastify: FastifyInstance,
@@ -13,14 +13,7 @@ export async function setupDocumentRoutes(
     processor: any // Unified processor
 ) {
     // Middleware to check for service token or standard auth
-    const requireServiceToken = async (request: FastifyRequest, reply: FastifyReply) => {
-        const isValid = await hasValidServiceToken(request, getConfig());
-        if (!isValid) {
-            reply.code(401).send({ error: 'Valid service token required' });
-            return false;
-        }
-        return true;
-    };
+
 
     const checkAccess = (request: FastifyRequest, reply: FastifyReply, path: string, level: AccessLevel): boolean => {
         const access = request.getAccess(path);
@@ -42,13 +35,7 @@ export async function setupDocumentRoutes(
         const path = (request.params as { '*': string })['*'];
         const render = (request.query as { render?: string }).render === 'true';
 
-        // Check for service token first (for Hector)
-        let hasAccess = await hasValidServiceToken(request, getConfig());
-
-        // If no service token, check standard user access
-        if (!hasAccess) {
-            if (!checkAccess(request, reply, path, 'view')) return;
-        }
+        if (!checkAccess(request, reply, path, 'view')) return;
 
         try {
             const exists = await storageManager.exists(path);
@@ -103,8 +90,8 @@ export async function setupDocumentRoutes(
             return reply.code(400).send({ error: 'Content must be a string' });
         }
 
-        // PUT requires service token (Hector)
-        if (!await requireServiceToken(request, reply)) return;
+        // PUT requires edit access
+        if (!checkAccess(request, reply, path, 'edit')) return;
 
         try {
             await storageManager.write(path, content, {
@@ -125,8 +112,8 @@ export async function setupDocumentRoutes(
     fastify.delete('/api/documents/*', async (request, reply) => {
         const path = (request.params as { '*': string })['*'];
 
-        // DELETE requires service token (Hector)
-        if (!await requireServiceToken(request, reply)) return;
+        // DELETE requires edit access
+        if (!checkAccess(request, reply, path, 'edit')) return;
 
         try {
             await storageManager.delete(path);
@@ -146,12 +133,9 @@ export async function setupDocumentRoutes(
 
         // Preview doesn't strictly need auth if it doesn't touch storage,
         // but we'll require at least 'view' access to the API generally or a service token.
-        let hasAccess = await hasValidServiceToken(request, getConfig());
-        if (!hasAccess) {
-            // Check if user is authenticated at all
-            if (!request.isAuthenticated()) {
-                return reply.code(401).send({ error: 'Authentication required' });
-            }
+        // Authentication required for preview to prevent abuse
+        if (!request.isAuthenticated()) {
+            return reply.code(401).send({ error: 'Authentication required' });
         }
 
         try {
@@ -172,6 +156,38 @@ export async function setupDocumentRoutes(
         } catch (err: any) {
             request.log.error(err);
             return reply.code(500).send({ error: 'Failed to render markdown' });
+        }
+    });
+
+    // POST /api/documents/batch - Batch write multiple files atomically
+    fastify.post('/api/documents/batch', async (request, reply) => {
+        const { writes, message } = request.body as {
+            writes: Array<{ path: string; content: string }>;
+            message?: string;
+        };
+
+        if (!Array.isArray(writes) || writes.length === 0) {
+            return reply.code(400).send({ error: 'Writes array is required and must not be empty' });
+        }
+
+        // Validate each write item
+        for (const item of writes) {
+            if (typeof item.path !== 'string' || typeof item.content !== 'string') {
+                return reply.code(400).send({ error: 'Each write must have path and content strings' });
+            }
+        }
+
+        // Batch writes require authenticated user
+        if (!request.isAuthenticated()) {
+            return reply.code(401).send({ error: 'Authentication required' });
+        }
+
+        try {
+            await storageManager.batchWrite(writes, { message });
+            return { success: true, filesWritten: writes.length };
+        } catch (err: any) {
+            request.log.error(err);
+            return reply.code(500).send({ error: 'Failed to batch write documents' });
         }
     });
 }

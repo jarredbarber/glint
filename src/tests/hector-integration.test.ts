@@ -3,9 +3,17 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { createServer } from '../server.js';
-import { generateServiceToken } from '../server/auth.js';
+import { hashPassword } from '../server/auth.js';
+import crypto from 'node:crypto';
 
 const testDir = path.resolve('./src/tests/hector-fixtures');
+
+function generateTestSession(secret: string) {
+    const data = { authenticated: true, createdAt: Date.now() };
+    const payload = Buffer.from(JSON.stringify(data)).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+}
 
 test('Hector integration (multi-provider API)', async (t) => {
     // Setup directories
@@ -15,15 +23,18 @@ test('Hector integration (multi-provider API)', async (t) => {
     await fs.mkdir(externalDir, { recursive: true });
     await fs.mkdir(path.join(primaryDir, '.glint'), { recursive: true });
 
-    const { token, hash } = await generateServiceToken();
+    // Create pre-hashed password for config
+    const password = 'password123';
+    const passwordHash = await hashPassword(password);
+    const sessionSecret = 'hector-secret';
 
     // Configure server with mounts
     const config = {
         port: 3005,
         auth: {
             enabled: true,
-            serviceTokenHash: hash,
-            sessionSecret: 'hector-secret'
+            passwordHash,
+            sessionSecret
         },
         storage: {
             default: 'local',
@@ -52,7 +63,7 @@ test('Hector integration (multi-provider API)', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/local-doc.md',
-            headers: { Authorization: `Bearer ${token}` }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
         const data = JSON.parse(response.payload);
@@ -63,7 +74,7 @@ test('Hector integration (multi-provider API)', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/external/remote-doc.md',
-            headers: { Authorization: `Bearer ${token}` }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
         const data = JSON.parse(response.payload);
@@ -74,7 +85,7 @@ test('Hector integration (multi-provider API)', async (t) => {
         const response = await fastify.inject({
             method: 'PUT',
             url: '/api/documents/external/new-remote.md',
-            headers: { Authorization: `Bearer ${token}` },
+            cookies: { glint_session: generateTestSession(sessionSecret) },
             payload: { content: 'New remote content' }
         });
         assert.strictEqual(response.statusCode, 200);
@@ -88,7 +99,7 @@ test('Hector integration (multi-provider API)', async (t) => {
         const response = await fastify.inject({
             method: 'DELETE',
             url: '/api/documents/external/remote-doc.md',
-            headers: { Authorization: `Bearer ${token}` }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
         assert.strictEqual(response.statusCode, 200);
 
@@ -106,7 +117,7 @@ test('Hector integration (multi-provider API)', async (t) => {
         const response = await fastify.inject({
             method: 'GET',
             url: '/api/documents/../../etc/passwd',
-            headers: { Authorization: `Bearer ${token}` }
+            cookies: { glint_session: generateTestSession(sessionSecret) }
         });
 
         // It should either be normalized away by Fastify/StorageManager or denied
