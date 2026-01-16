@@ -13,7 +13,6 @@ const mockConfig: GlintConfig = {
     host: 'localhost',
     theme: 'nord',
     baseFile: 'README.md',
-    headless: false,
     storage: {
         default: 'local',
         providers: {

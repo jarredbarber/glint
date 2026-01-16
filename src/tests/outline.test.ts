@@ -9,7 +9,6 @@ const mockConfig = {
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
-    headless: false,
     storage: {
         default: 'local',
         providers: { local: { type: 'local' as const, basePath: '.' } },
@@ -51,6 +50,6 @@ test('outline extraction', async (t) => {
 
         assert.equal(headings[0].text, 'Hello World!');
         // assert.equal(headings[0].id, 'hello-world');
-        assert.match(headings[0].id, /^L\d+$/);
+         assert.match(headings[0].id, /^L\d+$/);
     });
 });

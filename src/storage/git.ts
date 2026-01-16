@@ -10,7 +10,6 @@ import {
     StorageProvider,
     FileEntry,
     WriteOptions,
-    BatchWriteItem,
     GitStatus,
     GitSyncResult,
     GitPullResult,
@@ -150,21 +149,6 @@ export class GitStorageProvider implements StorageProvider {
         }
 
         return results;
-    }
-
-    // Batch operations
-
-    async batchWrite(items: BatchWriteItem[], options?: WriteOptions): Promise<void> {
-        // Write all files first (no individual commits)
-        for (const item of items) {
-            const fullPath = this.resolvePath(item.path);
-            await fs.mkdir(path.dirname(fullPath), { recursive: true });
-            await fs.writeFile(fullPath, item.content, 'utf-8');
-        }
-
-        // Single atomic commit for all changes
-        const message = options?.message || this.commitMessage;
-        await gitUtils.gitCommit(this.basePath, message);
     }
 
     // Auto-commit logic

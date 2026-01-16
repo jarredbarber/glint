@@ -86,11 +86,6 @@ export interface GitPushResult {
     message: string;
 }
 
-export interface BatchWriteItem {
-    path: string;
-    content: string;
-}
-
 export interface StorageProvider {
     readonly name: string;
 
@@ -102,9 +97,6 @@ export interface StorageProvider {
     delete(path: string): Promise<void>;
     exists(path: string): Promise<boolean>;
     move(oldPath: string, newPath: string): Promise<void>;
-
-    // Batch operations
-    batchWrite?(items: BatchWriteItem[], options?: WriteOptions): Promise<void>;
 
     // Directory operations
     list(directory: string): Promise<FileEntry[]>;
