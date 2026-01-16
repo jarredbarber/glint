@@ -44,7 +44,7 @@ import { setupTaskRoutes } from './server/routes/tasks.js';
 import { JournalScanner } from './journal/scanner.js';
 import { setupJournalRoutes } from './server/routes/journal.js';
 import { setupDocumentRoutes } from './server/routes/documents.js';
-
+import { setupWebhookRoutes } from './server/routes/webhooks.js';
 
 
 
@@ -128,7 +128,8 @@ export async function createServer(contentDir: string, configPath?: string) {
     // Setup Document Routes
     await setupDocumentRoutes(fastify, storageManager, getConfig, processor);
 
-
+    // Setup Webhook Routes
+    await setupWebhookRoutes(fastify, storageManager, getConfig);
 
     // Setup Git Routes
     await setupGitRoutes(fastify, contentDir, getConfig, storageManager);
@@ -300,7 +301,6 @@ export async function createServer(contentDir: string, configPath?: string) {
 
     // Dashboard Route
     fastify.get('/dashboard', async (request, reply) => {
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
         const html = renderer.renderHtml({
             title: 'Dashboard',
             content: `
@@ -346,7 +346,6 @@ export async function createServer(contentDir: string, configPath?: string) {
             const baseExist = await storageManager.exists(config.baseFile);
             if (!baseExist) {
                 // Render Dashboard
-                reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
                 const html = renderer.renderHtml({
                     title: 'Dashboard',
                     content: `
@@ -420,7 +419,6 @@ export async function createServer(contentDir: string, configPath?: string) {
             // Cache it
             storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
 
-            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
             return reply.type('text/html').send(fullHtml);
 
         } catch (err: unknown) {

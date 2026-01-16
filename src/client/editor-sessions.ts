@@ -128,8 +128,6 @@ export async function openPreambleEditor() {
     }
 }
 
-const EDITOR_LINE_BUFFER = 5;
-
 export async function openInlineEditor(el: HTMLElement, startLine: number, endLineIndexArg?: number, initialRelativeLine?: number) {
     if (!canEdit()) return;
     if (activeEditor) {
@@ -155,10 +153,6 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         }
     }
 
-    // Apply buffer to bounds
-    const effectiveStartLine = Math.max(1, startLine - EDITOR_LINE_BUFFER);
-    const effectiveEndLineIndex = endLineIndex === -1 ? -1 : endLineIndex + EDITOR_LINE_BUFFER;
-
     const contentWrapper = el.closest('.content-wrapper') || document.body;
     const allElements = Array.from(contentWrapper.querySelectorAll('[data-source-line]')) as HTMLElement[];
     const sectionElements: HTMLElement[] = [];
@@ -167,7 +161,7 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         const lineAttr = item.getAttribute('data-source-line');
         if (!lineAttr) continue;
         const line = parseInt(lineAttr);
-        if (line >= effectiveStartLine && (effectiveEndLineIndex === -1 || line < effectiveEndLineIndex)) {
+        if (line >= startLine && (endLineIndex === -1 || line < endLineIndex)) {
             sectionElements.push(item);
         }
     }
@@ -181,25 +175,14 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         const { content, hash } = await res.json();
 
         const lines = content.split('\n');
-
-        // Calculate slice indices based on effective bounds
-        // Slice end is exclusive 0-based index. 
-        // effectiveendLineIndex (1-based) - 1 converts to 0-based.
-        const sliceEnd = effectiveEndLineIndex === -1 ? undefined : effectiveEndLineIndex - 1;
-        const sectionLines = lines.slice(effectiveStartLine - 1, sliceEnd);
+        const sectionLines = lines.slice(startLine - 1, endLineIndex === -1 ? undefined : endLineIndex - 1);
         const sectionContent = sectionLines.join('\n');
 
         hiddenElements = sectionElements;
         activeEditorContainer = document.createElement('div');
         activeEditorContainer.className = 'glint-inline-editor-container';
 
-        // Insert before the first hidden element if possible, or fall back to 'el'
-        // This ensures the editor appears at the top of the buffered range
-        const insertTarget = (sectionElements.length > 0 && sectionElements[0].parentNode === el.parentNode)
-            ? sectionElements[0]
-            : el;
-
-        insertTarget.parentNode?.insertBefore(activeEditorContainer, insertTarget);
+        el.parentNode?.insertBefore(activeEditorContainer, el);
         hiddenElements.forEach(item => item.style.display = 'none');
 
         window.__glintEditingActive = true;
@@ -207,20 +190,12 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         if (typeof GlintEditor !== 'undefined') {
             activeEditor = new GlintEditor(activeEditorContainer, {
                 initialValue: sectionContent,
-                initialLine: initialRelativeLine ? initialRelativeLine + (originalStartLineOffset()) : undefined, // Adjust relative line if needed? 
-                // Wait, initialRelativeLine was relative to startLine. 
-                // Now we shifted startLine back by (startLine - effectiveStartLine).
-                // So the cursor should be visually shifted down by that amount.
-                // GlintEditor 'initialLine' is likely 0-indexed line number in the editor.
-                // If user clicked line 10, and we show 5..15. 10 is the 6th line (index 5).
-                // original relative line (0 based) + offset.
-
+                initialLine: initialRelativeLine,
                 vimMode: getVimModePreference(),
                 onSave: async (newSectionContent: string) => {
                     const newLines = [...lines];
-                    // We replace exactly the number of lines we extracted
-                    const deleteCount = sectionLines.length;
-                    newLines.splice(effectiveStartLine - 1, deleteCount, newSectionContent);
+                    const deleteCount = endLineIndex === -1 ? lines.length - startLine + 1 : endLineIndex - startLine;
+                    newLines.splice(startLine - 1, deleteCount, newSectionContent);
                     const newFullContent = newLines.join('\n');
 
                     try {
@@ -241,26 +216,12 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
                 },
                 onCancel: closeInlineEditor
             });
-
-            // Adjust cursor position if initialLine was provided
-            if (activeEditor.editor && typeof initialRelativeLine === 'number') {
-                const offset = startLine - effectiveStartLine;
-                const newRelativeLine = initialRelativeLine + offset;
-                // We'll set it in the editor if the constructor didn't handle it
-                // But wait, the constructor logic I wrote above passed 'initialLine'. 
-                // I need to check how to pass it correctly in the options object above.
-                // Re-doing the constructor call below to include this logic cleanly.
-            }
         }
     } catch (err: any) {
         console.error(err);
         alert(`Error: ${err.message}`);
     } finally {
         el.style.cursor = '';
-    }
-
-    function originalStartLineOffset() {
-        return startLine - effectiveStartLine;
     }
 }
 

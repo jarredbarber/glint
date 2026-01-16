@@ -14,7 +14,6 @@ export async function setupTaskRoutes(
 
     // API: Get all tasks
     fastify.get('/api/tasks', async (request, reply) => {
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
         const tasks = scanner.getAllTasks();
         return tasks;
     });
