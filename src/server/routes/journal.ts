@@ -17,6 +17,7 @@ export async function setupJournalRoutes(
 
     // API: Get aggregated journal entries
     fastify.get('/api/journal', async (request, reply) => {
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
         const { before, after, file } = request.query as {
             before?: string;
             after?: string;
