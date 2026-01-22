@@ -76,6 +76,17 @@ jarred@2026-01-11:15:07 sup
   - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
 - [x] Review PR #42 (@jarred)
 
+### Mermaid Diagrams
+
+Here is a flow chart:
+
+```mermaid
+graph TD;
+    A[Start] --> B{Is it working?};
+    B -- Yes --> C[Great!];
+    B -- No --> D[Debug];
+    D --> B;
+```
 ### Code blocks
 
 ```python
