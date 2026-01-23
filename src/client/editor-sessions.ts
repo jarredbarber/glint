@@ -10,6 +10,18 @@ let activeEditor: any = null;
 let activeEditorContainer: HTMLElement | null = null;
 let hiddenElements: HTMLElement[] = [];
 
+/**
+ * Extract the file path from the current URL, handling both /f/ prefixed and legacy paths
+ */
+function getFilePath(): string {
+    let path = window.location.pathname.substring(1) || 'README.md';
+    // Strip /f/ prefix if present (new URL schema)
+    if (path.startsWith('f/')) {
+        path = path.substring(2);
+    }
+    return path || 'README.md';
+}
+
 export function getIsEditingActive(): boolean {
     return !!activeEditor;
 }
@@ -47,7 +59,7 @@ export async function openPreambleEditor() {
         closeInlineEditor();
     }
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
 
     try {
         const res = await fetch(`/api/source/${path}`);
@@ -174,7 +186,7 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         }
     }
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
 
     try {
         el.style.cursor = 'wait';
@@ -276,7 +288,7 @@ export async function openCodeBlockEditor(pre: HTMLElement, startLine: number, l
         closeInlineEditor();
     }
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
 
     try {
         pre.style.cursor = 'wait';
