@@ -79,6 +79,11 @@ export async function openPreambleEditor() {
 
         const articleHeader = document.querySelector('.article-header') as HTMLElement;
 
+        // Check if GlintEditor is available before hiding content
+        if (typeof GlintEditor === 'undefined') {
+            throw new Error('Editor not loaded. Please refresh the page.');
+        }
+
         hiddenElements = sectionElements;
         activeEditorContainer = document.createElement('div');
         activeEditorContainer.className = 'glint-inline-editor-container';
@@ -93,8 +98,7 @@ export async function openPreambleEditor() {
         hiddenElements.forEach(el => el.style.display = 'none');
         if (articleHeader) articleHeader.style.display = 'none';
 
-        if (typeof GlintEditor !== 'undefined') {
-            activeEditor = new GlintEditor(activeEditorContainer, {
+        activeEditor = new GlintEditor(activeEditorContainer, {
                 initialValue: preambleContent,
                 vimMode: getVimModePreference(),
                 onSave: async (newContent: string) => {
@@ -124,10 +128,12 @@ export async function openPreambleEditor() {
                     if (articleHeader) articleHeader.style.display = '';
                 }
             });
-        }
     } catch (err: any) {
         console.error(err);
         alert(`Error: ${err.message}`);
+        // Restore hidden elements if editor creation failed
+        closeInlineEditor();
+        if (articleHeader) articleHeader.style.display = '';
     }
 }
 
@@ -192,6 +198,11 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         const sectionLines = lines.slice(effectiveStartLine - 1, sliceEnd);
         const sectionContent = sectionLines.join('\n');
 
+        // Check if GlintEditor is available before hiding content
+        if (typeof GlintEditor === 'undefined') {
+            throw new Error('Editor not loaded. Please refresh the page.');
+        }
+
         hiddenElements = sectionElements;
         activeEditorContainer = document.createElement('div');
         activeEditorContainer.className = 'glint-inline-editor-container';
@@ -207,8 +218,7 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
 
         window.__glintEditingActive = true;
 
-        if (typeof GlintEditor !== 'undefined') {
-            activeEditor = new GlintEditor(activeEditorContainer, {
+        activeEditor = new GlintEditor(activeEditorContainer, {
                 initialValue: sectionContent,
                 initialLine: initialRelativeLine ? initialRelativeLine + (originalStartLineOffset()) : undefined,
                 vimMode: getVimModePreference(),
@@ -253,14 +263,15 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
                 const offset = startLine - effectiveStartLine;
                 const newRelativeLine = initialRelativeLine + offset;
                 // We'll set it in the editor if the constructor didn't handle it
-                // But wait, the constructor logic I wrote above passed 'initialLine'. 
+                // But wait, the constructor logic I wrote above passed 'initialLine'.
                 // I need to check how to pass it correctly in the options object above.
                 // Re-doing the constructor call below to include this logic cleanly.
             }
-        }
     } catch (err: any) {
         console.error(err);
         alert(`Error: ${err.message}`);
+        // Restore hidden elements if editor creation failed
+        closeInlineEditor();
     } finally {
         el.style.cursor = '';
     }
@@ -302,6 +313,11 @@ export async function openCodeBlockEditor(pre: HTMLElement, startLine: number, l
         const innerLines = lines.slice(startLine, endLineIndex - 1);
         const innerContent = innerLines.join('\n');
 
+        // Check if GlintEditor is available before hiding content
+        if (typeof GlintEditor === 'undefined') {
+            throw new Error('Editor not loaded. Please refresh the page.');
+        }
+
         hiddenElements = [pre];
         activeEditorContainer = document.createElement('div');
         activeEditorContainer.className = 'glint-inline-editor-container';
@@ -309,8 +325,7 @@ export async function openCodeBlockEditor(pre: HTMLElement, startLine: number, l
         pre.parentNode?.insertBefore(activeEditorContainer, pre);
         pre.style.display = 'none';
 
-        if (typeof GlintEditor !== 'undefined') {
-            activeEditor = new GlintEditor(activeEditorContainer, {
+        activeEditor = new GlintEditor(activeEditorContainer, {
                 initialValue: innerContent,
                 vimMode: getVimModePreference(),
                 language: language,
@@ -343,11 +358,12 @@ export async function openCodeBlockEditor(pre: HTMLElement, startLine: number, l
                 },
                 onCancel: closeInlineEditor
             });
-        }
 
     } catch (err: any) {
         console.error(err);
         alert(`Error: ${err.message}`);
+        // Restore hidden elements if editor creation failed
+        closeInlineEditor();
     } finally {
         pre.style.cursor = '';
     }
