@@ -97,6 +97,24 @@ export async function createServer(contentDir: string, configPath?: string) {
     // Parse form submissions (needed for login form)
     await fastify.register(formbody);
 
+    // DEBUG LOGGING HOOKS
+    fastify.addHook('onRequest', async (request, reply) => {
+        const url = request.raw.url;
+        const method = request.raw.method;
+        const cookie = request.headers.cookie;
+        const auth = request.headers.authorization;
+        const isAuth = request.isAuthenticated ? request.isAuthenticated() : 'unknown';
+        console.log(`[REQ] ${method} ${url} | Auth: ${isAuth} | Cookie: ${!!cookie} | Token: ${!!auth}`);
+    });
+
+    fastify.addHook('onResponse', async (request, reply) => {
+        const url = request.raw.url;
+        const method = request.raw.method;
+        const status = reply.statusCode;
+        const time = reply.elapsedTime;
+        console.log(`[RES] ${method} ${url} | Status: ${status} | Time: ${time}ms`);
+    });
+
     // Initialize Storage Manager
     const storageManager = new StorageManager(config, contentDir);
 

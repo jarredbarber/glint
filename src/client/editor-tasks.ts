@@ -120,11 +120,13 @@ export async function updateTaskState(taskNode: HTMLElement, newMarker: string, 
         lines[lineNum - 1] = newLineContent;
         const newFullContent = lines.join('\n');
 
+        console.log(`[Tasks] Updating task in ${path}...`);
         const saveRes = await fetch('/api/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ path, content: newFullContent, hash })
         });
+        console.log(`[Tasks] Update response: ${saveRes.status}`);
 
         if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 

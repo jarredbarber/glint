@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function navigate(path: string) {
         if (path === window.location.pathname) return;
+        console.log(`[Router] Navigating to: ${path}`);
 
         history.pushState({ path }, '', path);
         await loadPage(path);
@@ -70,7 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 signal: currentController.signal
             });
 
-            if (!response.ok) throw new Error(`Status ${response.status}`);
+            if (!response.ok) {
+                console.error(`[Router] Fetch failed: ${path} Status: ${response.status}`);
+                throw new Error(`Status ${response.status}`);
+            }
+            console.log(`[Router] Fetched ${path} Status: ${response.status}`);
 
             const html = await response.text();
 

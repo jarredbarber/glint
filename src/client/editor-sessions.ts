@@ -102,11 +102,13 @@ export async function openPreambleEditor() {
                     const newFullContent = newLines.join('\n');
 
                     try {
+                        console.log(`[Editor] Saving (preamble) ${path}...`);
                         const saveRes = await fetch('/api/save', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path, content: newFullContent, hash })
                         });
+                        console.log(`[Editor] Save response (preamble): ${saveRes.status}`);
                         if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
                         saveScrollPosition();
@@ -224,11 +226,13 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
                     const newFullContent = newLines.join('\n');
 
                     try {
+                        console.log(`[Editor] Saving (inline) ${path}...`);
                         const saveRes = await fetch('/api/save', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path, content: newFullContent, hash })
                         });
+                        console.log(`[Editor] Save response (inline): ${saveRes.status}`);
 
                         if (!saveRes.ok) throw new Error((await saveRes.json()).error || 'Save failed');
 
