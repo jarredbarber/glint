@@ -24,7 +24,10 @@ interface CodeNode extends Node {
     type: 'code';
     lang?: string;
     value: string;
-    data?: any;
+    data?: {
+        sourceLineOffset?: number;
+        [key: string]: unknown;
+    };
 }
 
 export const commentHandler: WidgetHandler = {
@@ -79,7 +82,7 @@ export const commentHandler: WidgetHandler = {
 
         // Build HTML string
         // Apply offset to get original file line (codeNode.position is relative to processed content)
-        const offset = (codeNode.data as any)?.sourceLineOffset || 0;
+        const offset = codeNode.data?.sourceLineOffset || 0;
         const processedLine = codeNode.position?.start.line || 1;
         const sourceLine = processedLine + offset;
         const dataAttrs = `data-resolved="${isResolved}" data-important="${isImportant}" data-source-line="${sourceLine}" data-collapsed="${isResolved}"`;

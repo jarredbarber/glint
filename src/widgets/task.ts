@@ -1,7 +1,7 @@
 import type { Node, Parent } from 'unist';
 import type { ListItem, Paragraph, Text } from 'mdast';
 import { CONTINUE } from 'unist-util-visit';
-import type { WidgetHandler } from './types.js';
+import type { WidgetHandler, CustomTextNode, CustomParagraphNode, HASTElement, HASTText } from './types.js';
 
 export const taskHandler: WidgetHandler = {
     match: (node: Node) => node.type === 'listItem',
@@ -95,7 +95,7 @@ export const taskHandler: WidgetHandler = {
         };
 
         // 1. Checkbox node
-        const checkboxNode: any = {
+        const checkboxNode: CustomTextNode = {
             type: 'text',
             data: {
                 hName: 'span',
@@ -107,44 +107,44 @@ export const taskHandler: WidgetHandler = {
 
         // 2. Metadata Pills (if any)
         const hasMeta = (attrs.due || attrs.assignee || attrs.priority || attrs.created || attrs.completed || attrs.scheduled);
-        const metaNode: any = hasMeta ? {
+        const metaNode: CustomTextNode | null = hasMeta ? {
             type: 'text',
             data: {
                 hName: 'span',
                 hProperties: { className: ['glint-task-meta'] },
                 hChildren: [
                     attrs.priority ? {
-                        type: 'element',
+                        type: 'element' as const,
                         tagName: 'span',
                         properties: { className: ['meta-priority'], dataPriority: attrs.priority },
-                        children: [{ type: 'text', value: `#${attrs.priority}` }]
+                        children: [{ type: 'text' as const, value: `#${attrs.priority}` }]
                     } : null,
                     attrs.assignee ? {
-                        type: 'element',
+                        type: 'element' as const,
                         tagName: 'span',
                         properties: { className: ['meta-assignee'] },
-                        children: [{ type: 'text', value: `@${attrs.assignee}` }]
+                        children: [{ type: 'text' as const, value: `@${attrs.assignee}` }]
                     } : null,
                     attrs.due ? {
-                        type: 'element',
+                        type: 'element' as const,
                         tagName: 'span',
                         properties: { className: ['meta-due'] },
-                        children: [{ type: 'text', value: `due:${attrs.due}` }]
+                        children: [{ type: 'text' as const, value: `due:${attrs.due}` }]
                     } : null,
                     attrs.scheduled ? {
-                        type: 'element',
+                        type: 'element' as const,
                         tagName: 'span',
                         properties: { className: ['meta-scheduled'] },
-                        children: [{ type: 'text', value: `plan:${attrs.scheduled}` }]
+                        children: [{ type: 'text' as const, value: `plan:${attrs.scheduled}` }]
                     } : null
                     // created and completed are hidden from view
-                ].filter(Boolean)
+                ].filter((item): item is HASTElement => item !== null)
             },
             value: ''
         } : null;
 
         // 3. Content Row (Task Description + Meta)
-        const contentRow: any = {
+        const contentRow: CustomParagraphNode = {
             type: 'paragraph',
             data: {
                 hName: 'div',
@@ -160,13 +160,13 @@ export const taskHandler: WidgetHandler = {
                         if (c.type === 'html' && (c as any).value.includes('<input')) return false;
                         return true;
                     })
-                },
+                } as CustomParagraphNode,
                 metaNode
-            ].filter(Boolean)
+            ].filter((item): item is Node => item !== null)
         };
 
         // 4. Header Container (Checkbox + Content Row) -> The styled "Task Box"
-        const headerNode: any = {
+        const headerNode: CustomParagraphNode = {
             type: 'paragraph',
             data: {
                 hName: 'div',

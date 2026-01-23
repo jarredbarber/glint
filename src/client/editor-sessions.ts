@@ -2,12 +2,12 @@
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canEdit } from './permissions.js';
 import { getFilePath } from './path-utils.js';
+import type { GlintEditorInstance } from './types.js';
 import './types.js';
 
-declare const GlintEditor: any;
 const VIM_MODE_KEY = 'glint-vim-mode';
 
-let activeEditor: any = null;
+let activeEditor: GlintEditorInstance | null = null;
 let activeEditorContainer: HTMLElement | null = null;
 let hiddenElements: HTMLElement[] = [];
 
