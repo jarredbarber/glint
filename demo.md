@@ -1,5 +1,5 @@
 ---
-title:Glint Markdown Demo
+title: Glint Markdown Demo
 eqn-numbers: true
 author: Jarred
 date: 2026-01-08
