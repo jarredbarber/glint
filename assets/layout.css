@@ -2561,6 +2561,46 @@ h6:hover .heading-edit-icon,
     background: var(--text-dim);
 }
 
+/* Outline visibility toggle button */
+.outline-visibility-toggle {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    background: var(--bg-highlight);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.outline-visibility-toggle:hover {
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    border-color: var(--aqua);
+    transform: scale(1.1);
+}
+
+/* Hidden state */
+.right-outline.outline-hidden {
+    transform: translateX(calc(100% + 2rem));
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Smooth transition for hide/show */
+.right-outline {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
 /* Hide on narrow viewports */
 @media (max-width: 1400px) {
     .right-outline {

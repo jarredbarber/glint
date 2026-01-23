@@ -5,20 +5,24 @@
 interface OutlineState {
     activeId: string | null;
     collapsedSections: Set<string>;
+    hidden: boolean;
 }
 
 class OutlineManager {
     private state: OutlineState = {
         activeId: null,
-        collapsedSections: new Set()
+        collapsedSections: new Set(),
+        hidden: false
     };
     private observer: IntersectionObserver | null = null;
     private headingElements: HTMLElement[] = [];
     private outlineContainer: HTMLElement | null = null;
     private storageKey = 'glint-outline-collapsed';
+    private visibilityKey = 'glint-outline-hidden';
 
     constructor() {
         this.loadCollapsedState();
+        this.loadVisibilityState();
     }
 
     init(): void {
@@ -36,7 +40,10 @@ class OutlineManager {
 
         this.setupIntersectionObserver();
         this.setupCollapseHandlers();
+        this.setupToggleButton();
+        this.setupKeyboardShortcut();
         this.applyCollapsedStates();
+        this.applyVisibilityState();
     }
 
     private setupIntersectionObserver(): void {
@@ -154,6 +161,77 @@ class OutlineManager {
         } catch (e) {
             console.warn('Failed to save outline collapsed state:', e);
         }
+    }
+
+    private loadVisibilityState(): void {
+        try {
+            const stored = localStorage.getItem(this.visibilityKey);
+            if (stored !== null) {
+                this.state.hidden = stored === 'true';
+            }
+        } catch (e) {
+            console.warn('Failed to load outline visibility state:', e);
+        }
+    }
+
+    private saveVisibilityState(): void {
+        try {
+            localStorage.setItem(this.visibilityKey, String(this.state.hidden));
+        } catch (e) {
+            console.warn('Failed to save outline visibility state:', e);
+        }
+    }
+
+    private applyVisibilityState(): void {
+        if (!this.outlineContainer) return;
+        if (this.state.hidden) {
+            this.outlineContainer.classList.add('outline-hidden');
+        } else {
+            this.outlineContainer.classList.remove('outline-hidden');
+        }
+    }
+
+    private toggleVisibility(): void {
+        this.state.hidden = !this.state.hidden;
+        this.applyVisibilityState();
+        this.saveVisibilityState();
+    }
+
+    private setupToggleButton(): void {
+        if (!this.outlineContainer) return;
+
+        // Create toggle button
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'outline-visibility-toggle';
+        toggleBtn.innerHTML = '‹';
+        toggleBtn.title = 'Toggle outline (O)';
+        toggleBtn.setAttribute('aria-label', 'Toggle outline visibility');
+        toggleBtn.onclick = () => this.toggleVisibility();
+
+        // Insert at the top of the outline
+        const header = this.outlineContainer.querySelector('.right-outline-header');
+        if (header) {
+            header.appendChild(toggleBtn);
+        } else {
+            this.outlineContainer.insertBefore(toggleBtn, this.outlineContainer.firstChild);
+        }
+    }
+
+    private setupKeyboardShortcut(): void {
+        document.addEventListener('keydown', (e) => {
+            // Only trigger if not in an input/textarea/editor
+            if (e.target instanceof HTMLInputElement ||
+                e.target instanceof HTMLTextAreaElement ||
+                (window as any).__glintEditingActive) {
+                return;
+            }
+
+            // Press 'o' to toggle outline
+            if (e.key === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+                e.preventDefault();
+                this.toggleVisibility();
+            }
+        });
     }
 
     destroy(): void {
