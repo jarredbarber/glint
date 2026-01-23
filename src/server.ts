@@ -455,34 +455,6 @@ ${widgetInstructions}
             return handleDocument(urlPath, request, reply, `/f/${urlPath}`);
         });
 
-        // Dashboard Route
-        fastify.get('/d/tasks', async (request, reply) => {
-            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-            const html = renderer.renderHtml({
-                title: 'Dashboard',
-                content: `
-                <div class="dashboard-container">
-                    <div class="dashboard-pane">
-                        <h2>Tasks</h2>
-                        <div id="task-view-root" class="pane-content">Loading tasks...</div>
-                    </div>
-                    <div class="dashboard-pane">
-                        <h2>Journal</h2>
-                        <div id="journal-view-root" class="pane-content">Loading journal...</div>
-                    </div>
-                </div>
-            `,
-                fileTree,
-                config,
-                scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
-                styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
-                currentPath: '/d/tasks',
-                authEnabled: config.auth?.enabled ?? false,
-                authenticated: request.isAuthenticated()
-            });
-            reply.type('text/html').send(html);
-        });
-
         // Redirect old dashboard route
         fastify.get('/dashboard', async (request, reply) => {
             return reply.redirect('/d/tasks');
