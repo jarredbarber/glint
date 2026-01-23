@@ -20,7 +20,7 @@ export async function setupTaskRoutes(
     });
 
     // Page: Task View Dashboard
-    fastify.get('/tasks', async (request, reply) => {
+    fastify.get('/d/tasks', async (request, reply) => {
         const config = getConfig();
         const fileTree = await buildFileTree(storage);
 
@@ -37,13 +37,18 @@ export async function setupTaskRoutes(
             config,
             scripts: ['/assets/task-view.bundle.js'],
             styles: ['/assets/task-view.css'],
-            currentPath: '/tasks',
+            currentPath: '/d/tasks',
             authEnabled: config.auth?.enabled ?? false,
             authenticated: request.isAuthenticated()
         });
 
 
         reply.type('text/html').send(html);
+    });
+
+    // Redirect old task route
+    fastify.get('/tasks', async (request, reply) => {
+        return reply.redirect('/d/tasks');
     });
 
     // API: Toggle task state

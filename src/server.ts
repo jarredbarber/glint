@@ -383,79 +383,11 @@ ${widgetInstructions}
             reply.type('text/plain; charset=utf-8').send(llmTxt);
         });
 
-        // Dashboard Route
-        fastify.get('/dashboard', async (request, reply) => {
-            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-            const html = renderer.renderHtml({
-                title: 'Dashboard',
-                content: `
-                <div class="dashboard-container">
-                    <div class="dashboard-pane">
-                        <h2>Tasks</h2>
-                        <div id="task-view-root" class="pane-content">Loading tasks...</div>
-                    </div>
-                    <div class="dashboard-pane">
-                        <h2>Journal</h2>
-                        <div id="journal-view-root" class="pane-content">Loading journal...</div>
-                    </div>
-                </div>
-            `,
-                fileTree,
-                config,
-                scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
-                styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
-                currentPath: '/dashboard',
-                authEnabled: config.auth?.enabled ?? false,
-                authenticated: request.isAuthenticated()
-            });
-            reply.type('text/html').send(html);
-        });
-
-        fastify.get('/*', async (request, reply) => {
-            const urlPath = (request.params as { '*': string })['*'] || '';
-
-            // Skip auth check for login page
-            if (urlPath === 'login') {
-                return reply.code(404).send('Not Found');
-            }
-
+        const handleDocument = async (targetPath: string, request: any, reply: any, currentUrl: string) => {
             // Check authentication
-            const access = request.getAccess(urlPath);
+            const access = request.getAccess(targetPath);
             if (access === null) {
-                return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent('/' + urlPath)}`);
-            }
-
-            // Special handling for root path: Check if baseFile exists
-            let targetPath = urlPath;
-            if (urlPath === '') {
-                const baseExist = await storageManager.exists(config.baseFile);
-                if (!baseExist) {
-                    // Render Dashboard
-                    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-                    const html = renderer.renderHtml({
-                        title: 'Dashboard',
-                        content: `
-                        <div class="dashboard-container">
-                            <div class="dashboard-pane">
-                                <h2>Tasks</h2>
-                                <div id="task-view-root" class="pane-content">Loading tasks...</div>
-                            </div>
-                            <div class="dashboard-pane">
-                                <h2>Journal</h2>
-                                <div id="journal-view-root" class="pane-content">Loading journal...</div>
-                            </div>
-                        </div>
-                    `,
-                        fileTree,
-                        config,
-                        scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
-                        styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
-                        currentPath: '/',
-                        authEnabled: config.auth?.enabled ?? false,
-                        authenticated: request.isAuthenticated()
-                    });
-                    return reply.type('text/html').send(html);
-                }
+                return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent(currentUrl)}`);
             }
 
             try {
@@ -515,6 +447,66 @@ ${widgetInstructions}
                 fastify.log.error(err as Error);
                 return reply.code(500).send('Internal Server Error');
             }
+        };
+
+        // File Route
+        fastify.get('/f/*', async (request, reply) => {
+            const urlPath = (request.params as { '*': string })['*'] || '';
+            return handleDocument(urlPath, request, reply, `/f/${urlPath}`);
+        });
+
+        // Dashboard Route
+        fastify.get('/d/tasks', async (request, reply) => {
+            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+            const html = renderer.renderHtml({
+                title: 'Dashboard',
+                content: `
+                <div class="dashboard-container">
+                    <div class="dashboard-pane">
+                        <h2>Tasks</h2>
+                        <div id="task-view-root" class="pane-content">Loading tasks...</div>
+                    </div>
+                    <div class="dashboard-pane">
+                        <h2>Journal</h2>
+                        <div id="journal-view-root" class="pane-content">Loading journal...</div>
+                    </div>
+                </div>
+            `,
+                fileTree,
+                config,
+                scripts: ['/assets/task-view.bundle.js', '/assets/journal-view.bundle.js'],
+                styles: ['/assets/task-view.css', '/assets/journal-view.css', '/assets/dashboard.css'],
+                currentPath: '/d/tasks',
+                authEnabled: config.auth?.enabled ?? false,
+                authenticated: request.isAuthenticated()
+            });
+            reply.type('text/html').send(html);
+        });
+
+        // Redirect old dashboard route
+        fastify.get('/dashboard', async (request, reply) => {
+            return reply.redirect('/d/tasks');
+        });
+
+        fastify.get('/*', async (request, reply) => {
+            const urlPath = (request.params as { '*': string })['*'] || '';
+
+            // Skip auth check for login page or favicon
+            if (urlPath === 'login' || urlPath === 'favicon.ico') {
+                return reply.code(404).send('Not Found');
+            }
+
+            // Special handling for root path: Check if baseFile exists
+            if (urlPath === '') {
+                const baseExist = await storageManager.exists(config.baseFile);
+                if (!baseExist) {
+                    return reply.redirect('/d/tasks');
+                }
+            }
+
+            // Legacy support: redirect to /f/ path if not a dashboard or special path
+            // But for now, we just handle it here to keep existing links active as requested
+            return handleDocument(urlPath, request, reply, `/${urlPath}`);
         });
     } // End of if (!config.headless)
 

@@ -66,7 +66,7 @@ export async function setupJournalRoutes(
     });
 
     // Page: Journal View
-    fastify.get('/journal', async (request, reply) => {
+    fastify.get('/d/journal', async (request, reply) => {
         const config = getConfig();
         const fileTree = await buildFileTree(storage);
 
@@ -77,11 +77,16 @@ export async function setupJournalRoutes(
             config,
             scripts: ['/assets/journal-view.bundle.js'],
             styles: ['/assets/journal-view.css'],
-            currentPath: '/journal',
+            currentPath: '/d/journal',
             authEnabled: config.auth?.enabled ?? false,
             authenticated: request.isAuthenticated()
         });
 
         reply.type('text/html').send(html);
+    });
+
+    // Redirect old journal route
+    fastify.get('/journal', async (request, reply) => {
+        return reply.redirect('/d/journal');
     });
 }

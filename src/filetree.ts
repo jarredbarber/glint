@@ -90,7 +90,7 @@ export function renderFileTree(nodes: FileNode[], currentPath: string = ''): str
           </details>
         </li>`;
         } else {
-            return `<li${activeClass}><a href="/${node.path}">${escapeHtml(node.displayName)}</a></li>`;
+            return `<li${activeClass}><a href="/f/${node.path}">${escapeHtml(node.displayName)}</a></li>`;
         }
     }).join('\n');
 

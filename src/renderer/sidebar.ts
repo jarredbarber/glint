@@ -28,13 +28,13 @@ export const renderSidebar = (options: SidebarOptions) => {
             <summary class="sidebar-header">Views</summary>
             <nav class="views-list">
                 <ul>
-                    <li class="${currentPath === '/tasks' ? 'active' : ''}">
-                        <a href="/tasks" data-router="false">
+                    <li class="${currentPath === '/d/tasks' ? 'active' : ''}">
+                        <a href="/d/tasks" data-router="false">
                             <span class="view-icon">✅</span> Task View
                         </a>
                     </li>
-                    <li class="${currentPath === '/journal' ? 'active' : ''}">
-                        <a href="/journal" data-router="false">
+                    <li class="${currentPath === '/d/journal' ? 'active' : ''}">
+                        <a href="/d/journal" data-router="false">
                             <span class="view-icon">📅</span> Journal View
                         </a>
                     </li>
