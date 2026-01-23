@@ -1,6 +1,7 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canComment } from './permissions.js';
+import { getFilePath } from './path-utils.js';
 
 /**
  * Finds the index of the closing fence for a block starting at startLineIndex.
@@ -188,7 +189,7 @@ export async function submitReply(commentNode: HTMLElement, message: string) {
     const sourceLine = commentNode.getAttribute('data-source-line');
     if (!sourceLine) throw new Error('No source mapping');
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().substring(0, 5);
@@ -214,7 +215,7 @@ export async function deleteCommentBlock(commentNode: HTMLElement) {
     const sourceLine = commentNode.getAttribute('data-source-line');
     if (!sourceLine) return;
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
     const startLine = parseInt(sourceLine);
 
     try {
@@ -252,7 +253,7 @@ export async function resolveThread(commentNode: HTMLElement) {
 
     if (!confirm('Resolve this thread?')) return;
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
     const startLine = parseInt(sourceLine);
 
     try {
@@ -278,7 +279,7 @@ export async function insertCommentBlock(sourceLine?: string, nextLine?: string)
     if (!canComment()) return;
     if (isInsertingComment) return;
 
-    const path = window.location.pathname.substring(1) || 'README.md';
+    const path = getFilePath();
 
     let startLine = 0;
     // ... rest of logic

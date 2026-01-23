@@ -1,6 +1,7 @@
 
 import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 import { canEdit } from './permissions.js';
+import { getFilePath } from './path-utils.js';
 
 export function injectTaskInteractions(root: HTMLElement | Document = document, onUpdate?: (path: string) => void) {
     if (!canEdit()) return;
@@ -70,7 +71,7 @@ export async function updateTaskState(taskNode: HTMLElement, newMarker: string, 
     if (!sourceLine) return;
 
     // Use customPath if provided, otherwise fallback to current URL path
-    const path = customPath || (window.location.pathname.substring(1) || 'README.md');
+    const path = customPath || getFilePath();
     const lineNum = parseInt(sourceLine);
 
     try {
