@@ -1,6 +1,7 @@
 import { GlintConfig } from './config.js';
 import { FileNode } from './filetree.js';
 import { HeadingNode } from './rehype-extract-headings.js';
+import { escapeHtml } from './utils/html.js';
 
 import { renderHead } from './renderer/head.js';
 import { renderSidebar } from './renderer/sidebar.js';
@@ -96,7 +97,7 @@ export const renderHtml = (options: RenderOptions) => {
         <div class="content-wrapper">
             ${!isShared ? renderBreadcrumbs(currentPath) : ''}
             <header class="article-header">
-                <h1>${title}</h1>
+                <h1>${escapeHtml(title)}</h1>
                 ${renderMetadata(frontmatter)}
                 <div class="title-accent"></div>
             </header>
