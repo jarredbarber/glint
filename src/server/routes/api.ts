@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel } from '../../config.js';
+import { type GlintConfig, type AccessLevel, getConfigPath } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
@@ -117,16 +117,14 @@ export async function setupAPIRoutes(
             const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
             if (themes.includes(theme)) {
-                // We assume config is at .glint/config.json or glint.json
-                // Storage abstraction might not map exactly to where config is if it's outside mounts?
-                // But typically config is in the root or .glint/ in the root.
-                // Let's try writing to .glint/config.json using storage.
-
                 const currentConfig = getConfig();
                 const newConfig = { ...currentConfig, theme };
 
-                // Try writing to standard location
-                await storage.write('.glint/config.json', JSON.stringify(newConfig, null, 4));
+                // Get actual config path and convert to relative path for storage
+                const absoluteConfigPath = await getConfigPath(contentDir);
+                const relativeConfigPath = path.relative(contentDir, absoluteConfigPath);
+
+                await storage.write(relativeConfigPath, JSON.stringify(newConfig, null, 4));
 
                 // Config is auto-reloaded via server.ts file watcher
                 return { success: true };

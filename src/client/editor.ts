@@ -131,6 +131,8 @@ interface GlintEditorOptions {
  * Decouples the editor implementation from the main application.
  */
 class GlintEditor {
+    private static vimCommandsRegistered = false;
+
     private container: HTMLElement;
     private options: GlintEditorOptions;
     private view: EditorView | null = null;
@@ -249,12 +251,18 @@ class GlintEditor {
             });
         }
 
-        // 2. Vim Custom Commands
-        if (this.options.vimMode) {
+        // 2. Vim Custom Commands - Register globally only once to prevent memory leaks
+        if (this.options.vimMode && !GlintEditor.vimCommandsRegistered) {
+            GlintEditor.vimCommandsRegistered = true;
+
+            // Helper to get current editor instance
+            const getCurrentEditor = (): GlintEditor | null => (window as any).__glintCurrentEditor;
+
             // Define :w for Save
             const saveFn = () => {
-                if (this.options.onSave) {
-                    this.options.onSave(this.getValue());
+                const editor = getCurrentEditor();
+                if (editor?.options.onSave) {
+                    editor.options.onSave(editor.getValue());
                 }
             };
 
@@ -263,8 +271,9 @@ class GlintEditor {
 
             // Define :q for Cancel/Quit
             const quitFn = () => {
-                if (this.options.onCancel) {
-                    this.options.onCancel();
+                const editor = getCurrentEditor();
+                if (editor?.options.onCancel) {
+                    editor.options.onCancel();
                 }
             };
 
@@ -310,6 +319,13 @@ class GlintEditor {
                 cm.setCursor({ line: cursor.line, ch: cursor.ch + 1 });
             });
             Vim.mapCommand("<Space>m", "action", "insertInlineMath", {}, { context: "normal" });
+        }
+
+        // Track this editor as the current one for Vim commands when focused
+        if (this.options.vimMode) {
+            this.view.dom.addEventListener('focusin', () => {
+                (window as any).__glintCurrentEditor = this;
+            });
         }
     }
 
@@ -461,6 +477,11 @@ class GlintEditor {
     }
 
     public destroy() {
+        // Clear global reference if this was the current editor
+        if ((window as any).__glintCurrentEditor === this) {
+            (window as any).__glintCurrentEditor = null;
+        }
+
         if (this.view) {
             this.view.destroy();
             this.view = null;

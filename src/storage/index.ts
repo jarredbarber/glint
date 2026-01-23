@@ -176,7 +176,12 @@ export class StorageManager {
         try {
             const { provider, relativePath } = this.resolveProvider(path);
             if (await provider.exists(relativePath)) return true;
-        } catch { }
+        } catch (err) {
+            // Only suppress expected errors (provider not found), log others
+            if (err instanceof Error && !err.message.includes('not found') && !err.message.includes('not configured')) {
+                console.error(`[StorageManager] Unexpected error in exists(${path}):`, err);
+            }
+        }
 
         // Check if it's a parent of any mount
         const normalizedPath = path.endsWith('/') ? path : path + '/';
