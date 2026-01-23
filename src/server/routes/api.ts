@@ -8,11 +8,13 @@ import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
 import { TaskScanner } from '../../tasks/scanner.js';
 
+import { ShareService } from '../share.js';
+
 export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
     getConfig: () => GlintConfig,
-    shareService: any,
+    shareService: ShareService,
     taskScanner: TaskScanner,
     storage: StorageManager
 ) {

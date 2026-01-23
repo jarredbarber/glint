@@ -257,15 +257,6 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
                 onCancel: closeInlineEditor
             });
 
-            // Adjust cursor position if initialLine was provided
-            if (activeEditor.editor && typeof initialRelativeLine === 'number') {
-                const offset = startLine - effectiveStartLine;
-                const newRelativeLine = initialRelativeLine + offset;
-                // We'll set it in the editor if the constructor didn't handle it
-                // But wait, the constructor logic I wrote above passed 'initialLine'.
-                // I need to check how to pass it correctly in the options object above.
-                // Re-doing the constructor call below to include this logic cleanly.
-            }
     } catch (err: any) {
         console.error(err);
         alert(`Error: ${err.message}`);

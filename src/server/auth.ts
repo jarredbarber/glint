@@ -117,13 +117,15 @@ export function getRequestAccess(
     return null;
 }
 
+import { ShareService } from './share.js';
+
 /**
  * Setup auth middleware and cookie plugin for Fastify.
  */
 export async function setupAuth(
     fastify: FastifyInstance,
     getConfig: () => GlintConfig,
-    shareService?: any // Using any to avoid circular dependency if needed, will typed in final
+    shareService?: ShareService
 ) {
     // Register cookie plugin
     await fastify.register(cookie, {

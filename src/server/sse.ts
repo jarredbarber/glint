@@ -16,8 +16,11 @@ export function setupSSERoutes(fastify: FastifyInstance) {
         });
     });
 
-    const broadcast = (data: string) => {
+    const broadcast = (data: string, event?: string) => {
         for (const client of clients) {
+            if (event) {
+                client.raw.write(`event: ${event}\n`);
+            }
             client.raw.write(`data: ${data}\n\n`);
         }
     };

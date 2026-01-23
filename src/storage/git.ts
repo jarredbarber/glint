@@ -37,14 +37,16 @@ export class GitStorageProvider implements StorageProvider {
     private syncTimer?: ReturnType<typeof setInterval>;
     private commitTimer?: ReturnType<typeof setTimeout>;
     private pendingCommit = false;
+    private onError?: (error: Error) => void;
 
-    constructor(name: string, config: GitProviderConfig) {
+    constructor(name: string, config: GitProviderConfig, onError?: (error: Error) => void) {
         this.name = name;
         this.basePath = path.resolve(config.basePath);
         this.autoCommit = config.autoCommit ?? true;
         this.autoSync = config.autoSync ?? true;
         this.syncInterval = (config.syncInterval ?? 60) * 1000; // Convert to ms
         this.commitMessage = config.commitMessage ?? 'Glint auto-save';
+        this.onError = onError;
     }
 
     private resolvePath(relativePath: string): string {
@@ -185,6 +187,7 @@ export class GitStorageProvider implements StorageProvider {
                 await gitUtils.gitCommit(this.basePath, this.commitMessage);
             } catch (err) {
                 console.error('[GitStorageProvider] Auto-commit failed:', err);
+                if (this.onError) this.onError(err as Error);
             }
             this.pendingCommit = false;
         }, 2000);
@@ -208,6 +211,7 @@ export class GitStorageProvider implements StorageProvider {
             await this.syncWithRemote();
         } catch (err) {
             console.error('[GitStorageProvider] Initial sync failed:', err);
+            if (this.onError) this.onError(err as Error);
         }
 
         // Periodic sync
@@ -216,6 +220,7 @@ export class GitStorageProvider implements StorageProvider {
                 await this.syncWithRemote();
             } catch (err) {
                 console.error('[GitStorageProvider] Periodic sync failed:', err);
+                if (this.onError) this.onError(err as Error);
             }
         }, this.syncInterval);
     }
@@ -236,6 +241,7 @@ export class GitStorageProvider implements StorageProvider {
 
         if (!result.success) {
             console.error('[GitStorageProvider] Sync error:', result.error);
+            if (this.onError && result.error) this.onError(new Error(result.error));
         } else if (result.pulledChanges || result.pushedChanges) {
             console.log('[GitStorageProvider] Sync:', result.messages.join(', '));
         }

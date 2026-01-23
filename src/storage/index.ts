@@ -11,6 +11,7 @@ export class StorageManager {
     private defaultProvider?: string;
     private cache?: ContentCache<{ html: string; mtime: number }>;
     private gitProviders: GitStorageProvider[] = [];
+    private errorHandler?: (error: Error) => void;
 
     constructor(config: GlintConfig, contentDir: string) {
         const storageConfig = config.storage;
@@ -44,6 +45,12 @@ export class StorageManager {
                     autoSync: providerConfig.autoSync,
                     syncInterval: providerConfig.syncInterval,
                     commitMessage: providerConfig.commitMessage
+                }, (err) => {
+                    if (this.errorHandler) {
+                        this.errorHandler(err);
+                    } else {
+                        console.error(`[StorageManager] Unhandled git error from ${name}:`, err);
+                    }
                 });
                 this.providers.set(name, gitProvider);
                 this.gitProviders.push(gitProvider);
@@ -331,6 +338,13 @@ export class StorageManager {
     }
 
 
+
+    /**
+     * Register a callback for background errors (e.g. git sync/commit failures)
+     */
+    public onError(handler: (error: Error) => void) {
+        this.errorHandler = handler;
+    }
 
     /**
      * Start auto-sync for all git providers.

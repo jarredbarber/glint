@@ -45,6 +45,42 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
     const evtSource = new EventSource("/events");
     let isUnloading = false;
 
+    // Toast Helper (Shared with share.ts pattern but global here)
+    function showGlobalToast(message, type = 'error') {
+        let container = document.querySelector('.glint-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'glint-toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = \`glint-toast \${type}\`;
+        toast.innerHTML = \`
+            <span class="toast-icon">\${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span class="toast-message">\${message}</span>
+        \`;
+
+        container.appendChild(toast);
+
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.add('out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 5000);
+    }
+
+    evtSource.addEventListener('glint:error', (event) => {
+        if (event.data) {
+            try {
+                const data = JSON.parse(event.data);
+                showGlobalToast(data.message, 'error');
+            } catch (e) {
+                console.error('Failed to parse error event', e);
+            }
+        }
+    });
+
     window.addEventListener('beforeunload', () => {
         isUnloading = true;
         evtSource.close();
