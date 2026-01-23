@@ -208,3 +208,7 @@ $$ \frac{1}{2\kappa} \sqrt{-g} \left( R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} \rig
 Rearranging with $\kappa = 8\pi G/c^4$ gives:
 
 $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
+
+## References
+
+- 
