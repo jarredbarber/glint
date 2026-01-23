@@ -49,6 +49,7 @@ export async function openPreambleEditor() {
     }
 
     const path = getFilePath();
+    const articleHeader = document.querySelector('.article-header') as HTMLElement | null;
 
     try {
         const res = await fetch(`/api/source/${path}`);
@@ -76,8 +77,6 @@ export async function openPreambleEditor() {
                 sectionElements.push(el);
             }
         }
-
-        const articleHeader = document.querySelector('.article-header') as HTMLElement;
 
         // Check if GlintEditor is available before hiding content
         if (typeof GlintEditor === 'undefined') {

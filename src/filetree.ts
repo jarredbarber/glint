@@ -57,8 +57,8 @@ export async function buildFileTree(
             const nameWithoutExt = entry.name.replace('.md', '');
             const displayName = titleCache?.get(relativePath) || nameWithoutExt;
             nodes.push({
-                name: entry.name.replace('.md', ''),
-                path: relativePath.replace('.md', ''),
+                name: entry.name,
+                path: relativePath,  // Keep full path with .md extension
                 displayName,
                 isDir: false,
             });

@@ -53,11 +53,14 @@ export async function setupTaskRoutes(
 
     // API: Toggle task state
     fastify.post('/api/task/toggle', async (request, reply) => {
-        const { sourcePath, lineNumber, newState } = request.body as {
+        const { sourcePath: rawSourcePath, lineNumber, newState } = request.body as {
             sourcePath: string,
             lineNumber: number,
             newState?: string
         };
+
+        // Ensure sourcePath has .md extension (backwards compatibility with old cached paths)
+        const sourcePath = rawSourcePath.endsWith('.md') ? rawSourcePath : `${rawSourcePath}.md`;
 
         try {
             const content = await storage.read(sourcePath);
