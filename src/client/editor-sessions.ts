@@ -209,20 +209,21 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
         if (typeof GlintEditor !== 'undefined') {
             activeEditor = new GlintEditor(activeEditorContainer, {
                 initialValue: sectionContent,
-                initialLine: initialRelativeLine ? initialRelativeLine + (originalStartLineOffset()) : undefined, // Adjust relative line if needed? 
-                // Wait, initialRelativeLine was relative to startLine. 
-                // Now we shifted startLine back by (startLine - effectiveStartLine).
-                // So the cursor should be visually shifted down by that amount.
-                // GlintEditor 'initialLine' is likely 0-indexed line number in the editor.
-                // If user clicked line 10, and we show 5..15. 10 is the 6th line (index 5).
-                // original relative line (0 based) + offset.
-
+                initialLine: initialRelativeLine ? initialRelativeLine + (originalStartLineOffset()) : undefined,
                 vimMode: getVimModePreference(),
+                fullFileContent: content,
+                startLineInFile: effectiveStartLine,
+                endLineInFile: effectiveEndLineIndex === -1 ? lines.length : effectiveEndLineIndex,
+                totalLines: lines.length,
                 onSave: async (newSectionContent: string) => {
                     const newLines = [...lines];
-                    // We replace exactly the number of lines we extracted
-                    const deleteCount = sectionLines.length;
-                    newLines.splice(effectiveStartLine - 1, deleteCount, newSectionContent);
+                    // Calculate how many lines we're replacing based on current editor content
+                    const currentEditorLines = newSectionContent.split('\n').length;
+                    const currentStartInFile = activeEditor.currentStartLine || effectiveStartLine;
+                    const currentEndInFile = activeEditor.currentEndLine || (effectiveEndLineIndex === -1 ? lines.length : effectiveEndLineIndex);
+                    const deleteCount = currentEndInFile - currentStartInFile;
+
+                    newLines.splice(currentStartInFile - 1, deleteCount, newSectionContent);
                     const newFullContent = newLines.join('\n');
 
                     try {

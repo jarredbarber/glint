@@ -119,6 +119,11 @@ interface GlintEditorOptions {
     onCancel?: () => void;
     vimMode?: boolean;
     language?: string;
+    // Context expansion options
+    fullFileContent?: string; // Full file content for context expansion
+    startLineInFile?: number; // 1-indexed line number of first line in editor
+    endLineInFile?: number; // 1-indexed line number of last line in editor (exclusive)
+    totalLines?: number; // Total lines in file
 }
 
 /**
@@ -130,10 +135,16 @@ class GlintEditor {
     private options: GlintEditorOptions;
     private view: EditorView | null = null;
     private wrapper: HTMLElement | null = null;
+    private currentStartLine: number;
+    private currentEndLine: number;
+    private expandTopButton: HTMLElement | null = null;
+    private expandBottomButton: HTMLElement | null = null;
 
     constructor(container: HTMLElement, options: GlintEditorOptions = {}) {
         this.container = container;
         this.options = options;
+        this.currentStartLine = options.startLineInFile || 1;
+        this.currentEndLine = options.endLineInFile || (options.totalLines || 1);
         this.init();
     }
 
@@ -143,10 +154,20 @@ class GlintEditor {
         this.wrapper.className = "glint-editor-wrapper";
         this.container.appendChild(this.wrapper);
 
+        // Create expand top button if context expansion is enabled
+        if (this.options.fullFileContent) {
+            this.createExpandTopButton();
+        }
+
         // Create editor container
         const editorContainer = document.createElement("div");
         editorContainer.className = "glint-editor-content";
         this.wrapper.appendChild(editorContainer);
+
+        // Create expand bottom button if context expansion is enabled
+        if (this.options.fullFileContent) {
+            this.createExpandBottomButton();
+        }
 
         // Create toolbar if save/cancel handlers provided
         if (this.options.onSave || this.options.onCancel) {
@@ -290,6 +311,97 @@ class GlintEditor {
             });
             Vim.mapCommand("<Space>m", "action", "insertInlineMath", {}, { context: "normal" });
         }
+    }
+
+    private createExpandTopButton() {
+        if (!this.wrapper) return;
+
+        this.expandTopButton = document.createElement("button");
+        this.expandTopButton.className = "glint-editor-expand-btn glint-editor-expand-top";
+        this.expandTopButton.innerHTML = "↑ Show 10 more lines above";
+        this.expandTopButton.onclick = () => this.expandContextAbove();
+        this.wrapper.appendChild(this.expandTopButton);
+        this.updateExpandButtonVisibility();
+    }
+
+    private createExpandBottomButton() {
+        if (!this.wrapper) return;
+
+        this.expandBottomButton = document.createElement("button");
+        this.expandBottomButton.className = "glint-editor-expand-btn glint-editor-expand-bottom";
+        this.expandBottomButton.innerHTML = "↓ Show 10 more lines below";
+        this.expandBottomButton.onclick = () => this.expandContextBelow();
+        this.wrapper.appendChild(this.expandBottomButton);
+        this.updateExpandButtonVisibility();
+    }
+
+    private updateExpandButtonVisibility() {
+        if (this.expandTopButton) {
+            this.expandTopButton.style.display = this.currentStartLine > 1 ? 'block' : 'none';
+        }
+        if (this.expandBottomButton) {
+            const totalLines = this.options.totalLines || 1;
+            this.expandBottomButton.style.display = this.currentEndLine <= totalLines ? 'block' : 'none';
+        }
+    }
+
+    private expandContextAbove() {
+        if (!this.options.fullFileContent || !this.view) return;
+        if (this.currentStartLine <= 1) return;
+
+        const lines = this.options.fullFileContent.split('\n');
+        const linesToAdd = 10;
+        const newStartLine = Math.max(1, this.currentStartLine - linesToAdd);
+        const actualLinesToAdd = this.currentStartLine - newStartLine;
+
+        // Get the additional lines
+        const additionalLines = lines.slice(newStartLine - 1, this.currentStartLine - 1);
+        const currentContent = this.view.state.doc.toString();
+        const newContent = additionalLines.join('\n') + '\n' + currentContent;
+
+        // Get current cursor position
+        const cursorPos = this.view.state.selection.main.head;
+
+        // Calculate offset (number of characters added)
+        const offset = additionalLines.join('\n').length + 1; // +1 for newline
+
+        // Update the editor content
+        this.view.dispatch({
+            changes: { from: 0, to: this.view.state.doc.length, insert: newContent },
+            selection: { head: cursorPos + offset, anchor: cursorPos + offset }
+        });
+
+        // Update tracking
+        this.currentStartLine = newStartLine;
+        this.updateExpandButtonVisibility();
+    }
+
+    private expandContextBelow() {
+        if (!this.options.fullFileContent || !this.view) return;
+        const totalLines = this.options.totalLines || 1;
+        if (this.currentEndLine > totalLines) return;
+
+        const lines = this.options.fullFileContent.split('\n');
+        const linesToAdd = 10;
+        const newEndLine = Math.min(totalLines + 1, this.currentEndLine + linesToAdd);
+
+        // Get the additional lines (currentEndLine is exclusive, so we start from currentEndLine - 1)
+        const additionalLines = lines.slice(this.currentEndLine - 1, newEndLine - 1);
+        const currentContent = this.view.state.doc.toString();
+        const newContent = currentContent + '\n' + additionalLines.join('\n');
+
+        // Keep cursor position (it shouldn't move when adding below)
+        const cursorPos = this.view.state.selection.main.head;
+
+        // Update the editor content
+        this.view.dispatch({
+            changes: { from: 0, to: this.view.state.doc.length, insert: newContent },
+            selection: { head: cursorPos, anchor: cursorPos }
+        });
+
+        // Update tracking
+        this.currentEndLine = newEndLine;
+        this.updateExpandButtonVisibility();
     }
 
     private getLanguageExtension() {

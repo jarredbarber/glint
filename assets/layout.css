@@ -1342,6 +1342,35 @@ tr:nth-child(even) {
     color: var(--text-color);
 }
 
+/* Context Expansion Buttons */
+.glint-editor-expand-btn {
+    padding: 0.4rem 0.75rem;
+    background: var(--bg-highlight);
+    border: 1px solid var(--border-color);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    width: 100%;
+}
+
+.glint-editor-expand-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    border-color: var(--aqua);
+}
+
+.glint-editor-expand-top {
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+}
+
+.glint-editor-expand-bottom {
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+}
+
 /* Section Editing UI */
 .heading-container {
     position: relative;
