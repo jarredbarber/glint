@@ -1,17 +1,13 @@
 ---
-title: Classic derivations in math and physics
+title:Glint Markdown Demo
 eqn-numbers: true
-author: Jarred/Gemini/Claude
+author: Jarred
 date: 2026-01-08
-category: Math
-updated: 2026-01-08
+updated: 2026-01-22
 reading-time: 4 years
-description: A tour of the field
 ---
 
-## Glint widget demos
-
-### Comment blocks
+## Comment blocks
 
 ````comment
 jarred@2026-01-11:14:00 This is a test comment.
@@ -63,7 +59,7 @@ OPPOSING SIDES
 jarred@2026-01-11:15:07 sup
 ```
 
-### Task lists
+## Task lists
 
 - Not a task
 - Also not a task
@@ -76,7 +72,7 @@ jarred@2026-01-11:15:07 sup
   - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
 - [x] Review PR #42 (@jarred)
 
-### Mermaid Diagrams
+## Mermaid Diagrams
 
 Here is a flow chart:
 
@@ -87,7 +83,7 @@ graph TD;
     B -- No --> D[Debug];
     D --> B;
 ```
-### Code blocks
+## Code blocks
 
 ```python
 def fib(n):
@@ -97,7 +93,9 @@ def fib(n):
     return fib(n-1) + fib(n-2)
 ```
 
-## The Euler-Lagrange Equation [[#ref:euler]]
+## Equations and citations
+
+### The Euler-Lagrange Equation [[#ref:euler]]
 
 **Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
 
@@ -118,7 +116,7 @@ $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt
 By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
 $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
 
-## Einstein Field Equations [[#ref:einstein]]
+### Einstein Field Equations [[#ref:einstein]]
 
 **Goal:** To derive the EFE from the Einstein-Hilbert action $S = \int \left( \frac{1}{2\kappa} R + \mathcal{L}_M \right) \sqrt{-g} \, d^4x$.
 
