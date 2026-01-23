@@ -1,5 +1,6 @@
 import { FileNode, renderFileTree } from '../filetree.js';
 import { HeadingNode } from '../rehype-extract-headings.js';
+import { AVAILABLE_THEMES } from '../config.js';
 
 export interface SidebarOptions {
     fileTree: FileNode[];
@@ -13,7 +14,6 @@ export interface SidebarOptions {
 
 export const renderSidebar = (options: SidebarOptions) => {
     const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false, isShared = false } = options;
-    const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
     const logoutButton = authEnabled && authenticated ? `
         <button class="logout-button" onclick="
@@ -73,7 +73,7 @@ export const renderSidebar = (options: SidebarOptions) => {
             if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
             fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
         ">
-            ${themes.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
+            ${AVAILABLE_THEMES.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
         ${!isShared ? `
         <label class="vim-toggle">

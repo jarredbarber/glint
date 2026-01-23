@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel, getConfigPath } from '../../config.js';
+import { type GlintConfig, type AccessLevel, getConfigPath, AVAILABLE_THEMES } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
@@ -114,9 +114,8 @@ export async function setupAPIRoutes(
     fastify.post('/api/theme', async (request, reply) => {
         try {
             const { theme } = request.body as { theme: string };
-            const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
 
-            if (themes.includes(theme)) {
+            if (AVAILABLE_THEMES.includes(theme as any)) {
                 const currentConfig = getConfig();
                 const newConfig = { ...currentConfig, theme };
 

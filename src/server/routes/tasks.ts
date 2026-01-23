@@ -1,9 +1,17 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { TaskScanner } from '../../tasks/scanner.js';
 import * as renderer from '../../renderer.js';
 import { GlintConfig } from '../../config.js';
 import { buildFileTree } from '../../filetree.js';
 import { StorageManager } from '../../storage/index.js';
+
+// Valid task states
+const TaskToggleSchema = z.object({
+    sourcePath: z.string().min(1),
+    lineNumber: z.number().int().positive(),
+    newState: z.enum(['open', 'done', 'progress', 'waiting', 'blocked', 'cancelled']).optional()
+});
 
 export async function setupTaskRoutes(
     fastify: FastifyInstance,
@@ -53,11 +61,16 @@ export async function setupTaskRoutes(
 
     // API: Toggle task state
     fastify.post('/api/task/toggle', async (request, reply) => {
-        const { sourcePath: rawSourcePath, lineNumber, newState } = request.body as {
-            sourcePath: string,
-            lineNumber: number,
-            newState?: string
-        };
+        // Validate request body
+        const validationResult = TaskToggleSchema.safeParse(request.body);
+        if (!validationResult.success) {
+            return reply.code(400).send({
+                error: 'Invalid request',
+                details: validationResult.error.errors
+            });
+        }
+
+        const { sourcePath: rawSourcePath, lineNumber, newState } = validationResult.data;
 
         // Ensure sourcePath has .md extension (backwards compatibility with old cached paths)
         const sourcePath = rawSourcePath.endsWith('.md') ? rawSourcePath : `${rawSourcePath}.md`;

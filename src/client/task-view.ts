@@ -17,7 +17,6 @@ class TaskView {
     async init() {
         await this.fetchTasks();
         this.render();
-        this.setupEventListeners();
     }
 
     async fetchTasks() {
@@ -28,11 +27,6 @@ class TaskView {
             console.error('Failed to fetch tasks:', error);
             this.root.innerHTML = '<div class="error">Failed to load tasks.</div>';
         }
-    }
-
-    setupEventListeners() {
-        // We handle general clicks like presets here
-        // Task-specific clicks are handled by injectTaskInteractions
     }
 
     render() {

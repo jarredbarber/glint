@@ -3,6 +3,19 @@ import fs from 'fs/promises';
 import path from 'path';
 import * as toml from 'smol-toml';
 
+/**
+ * Available theme names for Glint.
+ * Centralized to avoid duplication across API routes and UI.
+ */
+export const AVAILABLE_THEMES = [
+    'default',
+    'everforest-dark',
+    'nord',
+    'gruvbox-dark',
+    'catppuccin-mocha',
+    'solarized-light'
+] as const;
+
 const PublicPathSchema = z.object({
     path: z.string(),
     access: z.enum(['view', 'comment', 'edit']).default('view'),
