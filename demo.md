@@ -185,7 +185,7 @@ $$j^\mu = \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \Delta \phi -
 
 ---
 
-## 4. Einstein Field Equations
+## 4. Einstein Field Equations [[#ref:einstein]]
 
 **Goal:** To derive the EFE from the Einstein-Hilbert action $S = \int \left( \frac{1}{2\kappa} R + \mathcal{L}_M \right) \sqrt{-g} \, d^4x$.
 
@@ -211,4 +211,4 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
 
 ## References
 
-- 
+- [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation> 
