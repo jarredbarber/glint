@@ -97,7 +97,7 @@ def fib(n):
     return fib(n-1) + fib(n-2)
 ```
 
-## The Euler-Lagrange Equation
+## The Euler-Lagrange Equation [[#ref:euler]]
 
 **Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
 
@@ -145,3 +145,4 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
 ## References
 
 - [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation> 
+- [ref:euler] "Methodus Inveniendi Lineas Curvas Maximi Minive Proprietate Gaudentes" Euler, L. (1744)
