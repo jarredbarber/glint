@@ -166,6 +166,7 @@ export async function createServer(contentDir: string, configPath?: string) {
     };
 
     // Unified Watcher
+    let fileTreeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
     const watchAll = () => {
         try {
             storageManager.watch('', async (event, filename) => {
@@ -177,10 +178,19 @@ export async function createServer(contentDir: string, configPath?: string) {
                     broadcast('reload');
                 }
 
-                // Re-build file tree on any FS change
-                fileTree = await buildFileTree(storageManager, '', titleCache);
-                knownPaths.clear();
-                updateKnownPaths(fileTree);
+                // Debounce file tree rebuild to prevent race conditions during rapid changes (e.g., git operations)
+                if (fileTreeRebuildTimer) {
+                    clearTimeout(fileTreeRebuildTimer);
+                }
+                fileTreeRebuildTimer = setTimeout(async () => {
+                    try {
+                        fileTree = await buildFileTree(storageManager, '', titleCache);
+                        knownPaths.clear();
+                        updateKnownPaths(fileTree);
+                    } catch (err) {
+                        fastify.log.error(err as any, 'Failed to rebuild file tree');
+                    }
+                }, 300);
 
                 const isConfig = filename === 'glint.json' || filename === 'glint.toml' ||
                     filename === '.glint/config.json' || filename === '.glint/config.toml' ||
