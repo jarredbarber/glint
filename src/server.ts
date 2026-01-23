@@ -21,6 +21,7 @@ import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headin
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
+import { widgets } from './widgets/index.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
 import { rehypeGlintSections } from './rehype-glint-sections.js';
 import { rehypeGlintImage } from './rehype-glint-image.js';
@@ -316,6 +317,70 @@ export async function createServer(contentDir: string, configPath?: string) {
                 fastify.log.error(err as Error);
                 return reply.code(500).send('Internal Server Error');
             }
+        });
+
+        // LLM.txt - Machine-readable documentation for AI agents
+        fastify.get('/llm.txt', async (request, reply) => {
+            const widgetInstructions = widgets
+                .filter(w => w.getLLMInstructions)
+                .map(w => w.getLLMInstructions!())
+                .join('\n');
+
+            const llmTxt = `# Glint Markdown Documentation
+
+This document describes the Glint-flavored markdown syntax for AI agents.
+
+## Standard Markdown
+Glint supports GitHub Flavored Markdown (GFM) including:
+- Headers, paragraphs, lists, blockquotes
+- Bold, italic, strikethrough, code spans
+- Fenced code blocks with syntax highlighting
+- Tables, footnotes, autolinks
+
+## Glint Extensions
+
+### Wiki Links
+- Syntax: \`[[Page Name]]\` or \`[[Page Name|Display Text]]\`
+- Links to internal pages (spaces become URL-encoded)
+- Broken links are styled differently
+
+### Math (LaTeX)
+- Inline: \`$equation$\`
+- Block: \`$$equation$$\`
+- Uses KaTeX for rendering
+
+### Mermaid Diagrams
+\`\`\`mermaid
+graph TD
+    A --> B
+\`\`\`
+
+### Citations
+- Define in ## References section: \`[ref:id] "Title" Author (Year) URL\`
+- Cite inline: \`[[#ref:id]]\`
+- Auto-numbered in order of appearance
+
+${widgetInstructions}
+
+## API Endpoints
+
+### Reading Documents
+- GET /api/documents/:path - Get document content and metadata
+- GET /api/documents/:path/raw - Get raw markdown
+
+### Writing Documents
+- PUT /api/documents/:path - Update document content
+- POST /api/documents/batch - Batch update multiple documents
+
+### Tasks
+- GET /api/tasks - List all tasks across documents
+- PUT /api/tasks/:id - Update task state
+
+### Rendering
+- POST /api/render - Render markdown to HTML
+`;
+
+            reply.type('text/plain; charset=utf-8').send(llmTxt);
         });
 
         // Dashboard Route
