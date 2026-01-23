@@ -97,43 +97,7 @@ def fib(n):
     return fib(n-1) + fib(n-2)
 ```
 
-
-## 1. The Gaussian Integral
-
-**Goal:** To evaluate the integral $I = \int_{-\infty}^{\infty} e^{-x^2} dx$ using a polar coordinate transformation.
-
-We consider the square of the integral:
-
-$$ I^2 = \left( \int_{-\infty}^{\infty} e^{-x^2} dx \right) \left( \int_{-\infty}^{\infty} e^{-y^2} dy \right) $$
-
-Combining them into a double integral over the $xy$-plane:
-
-$$ I^2 = \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} e^{-(x^2 + y^2)} dx \, dy $$
-
-
-Changing to polar coordinates where $x^2 + y^2 = r^2$ and the Jacobian $dx \, dy = r \, dr \, d\theta$:
-
-$$
-\begin{align*}
-I^2 &= \int_{0}^{2\pi} d\theta \int_{0}^{\infty} e^{-r^2} r \, dr \\
-&= 2\pi \int_{0}^{\infty} e^{-r^2} r \, dr
-\end{align*}
-$$
-
-Using $u$-substitution with $u = r^2, du = 2r \, dr$:
-$$
-\begin{align*}
-I^2 &= 2\pi \left[ -\frac{1}{2} e^{-r^2} \right]_{0}^{\infty} \\
-&= \pi (0 - (-1)) \\&= \pi
-\end{align*}
-$$
-
-Therefore:
-$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
-
----
-
-## 2. The Euler-Lagrange Equation
+## The Euler-Lagrange Equation
 
 **Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
 
@@ -154,38 +118,7 @@ $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt
 By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
 $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
 
----
-
-## 3. Noether's Theorem (Field Theory)
-
-
-Assume the Lagrangian $\mathcal{L}(\phi, \partial_\mu \phi)$ is invariant under $\phi \to \phi + \epsilon \Delta \phi$. The change in $\mathcal{L}$ is:
-$$ * \delta \mathcal{L} = \frac{\partial \mathcal{L}}{\partial \phi} \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta(\partial_\mu \phi) $$
-
-Substituting the Euler-Lagrange equation $\frac{\partial \mathcal{L}}{\partial \phi} = \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)}$:
-$$
-\begin{align*}
-\delta \mathcal{L} &= \left( \partial_\mu \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \right) \delta \phi + \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \partial_\mu(\delta \phi) \\
-&= \partial_\mu \left( \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \delta \phi \right)
-
-```comment
-```
-
-\end{align*}
-$$
-
-If the transformation is a symmetry, then $\delta \mathcal{L} = \epsilon \partial_\mu K^\mu$ for some vector $K^\mu$. Setting these equal:
-$$ \epsilon \partial_\mu \left( \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \Delta \phi \right) = \epsilon \partial_\mu K^\mu $$
-
-Rearranging gives the divergence-free current:
-$$ \partial_\mu \left( \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \Delta \phi - K^\mu \right) = 0 $$
-
-The Noether current is thus:
-$$j^\mu = \frac{\partial \mathcal{L}}{\partial(\partial_\mu \phi)} \Delta \phi - K^\mu$$
-
----
-
-## 4. Einstein Field Equations [[#ref:einstein]]
+## Einstein Field Equations [[#ref:einstein]]
 
 **Goal:** To derive the EFE from the Einstein-Hilbert action $S = \int \left( \frac{1}{2\kappa} R + \mathcal{L}_M \right) \sqrt{-g} \, d^4x$.
 
