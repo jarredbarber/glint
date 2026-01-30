@@ -11,7 +11,7 @@ const expirySelect = document.getElementById('share-expiry') as HTMLSelectElemen
 const labelInput = document.getElementById('share-label') as HTMLInputElement;
 
 // Get current page path from URL
-const currentPath = window.location.pathname.startsWith('/') ? window.location.pathname.substring(1) : window.location.pathname;
+const currentPath = document.body.getAttribute('data-path') || (window.location.pathname.startsWith('/') ? window.location.pathname.substring(1) : window.location.pathname);
 
 // Toast Helper
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {

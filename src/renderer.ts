@@ -34,7 +34,7 @@ export const renderHtml = (options: RenderOptions) => {
 <!DOCTYPE html>
 <html lang="en">
     ${renderHead(title, config.theme, styles)}
-    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}">
+    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}" data-path="${escapeHtml(currentPath)}">
         <div class="mobile-toggle">☰</div>
         <div class="mobile-overlay"></div>
         <div id="command-palette-overlay" class="command-palette-overlay" style="display: none;">
