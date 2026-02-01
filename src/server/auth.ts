@@ -83,6 +83,15 @@ export function isAuthenticated(request: FastifyRequest, config: GlintConfig): b
         return true; // No auth = always authenticated
     }
 
+    // Check for service token (Bearer auth) - for programmatic API access (Hector)
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        if (config.auth.serviceToken && token === config.auth.serviceToken) {
+            return true;
+        }
+    }
+
     const sessionSecret = config.auth.sessionSecret;
     if (!sessionSecret) {
         return false; // No secret configured = can't authenticate

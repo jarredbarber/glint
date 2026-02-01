@@ -25,6 +25,7 @@ const AuthSchema = z.object({
     enabled: z.boolean().default(false),
     passwordHash: z.string().optional(),
     sessionSecret: z.string().optional(),
+    serviceToken: z.string().optional(),  // For programmatic API access (Hector)
     public: z.array(PublicPathSchema).default([]),
 });
 

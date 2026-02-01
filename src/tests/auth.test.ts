@@ -36,14 +36,26 @@ test('auth: state check', async (t) => {
     };
 
     await t.test('returns false when no cookie', () => {
-        const req = { cookies: {} } as any;
+        const req = { cookies: {}, headers: {} } as any;
         assert.equal(isAuthenticated(req, config), false);
     });
 
     await t.test('returns true when auth disabled', () => {
         const noAuthConfig = { ...config, auth: { ...config.auth!, enabled: false } };
-        const req = { cookies: {} } as any;
+        const req = { cookies: {}, headers: {} } as any;
         assert.equal(isAuthenticated(req, noAuthConfig), true);
+    });
+
+    await t.test('returns true with valid service token', () => {
+        const tokenConfig = { ...config, auth: { ...config.auth!, serviceToken: 'test-service-token' } };
+        const req = { cookies: {}, headers: { authorization: 'Bearer test-service-token' } } as any;
+        assert.equal(isAuthenticated(req, tokenConfig), true);
+    });
+
+    await t.test('returns false with invalid service token', () => {
+        const tokenConfig = { ...config, auth: { ...config.auth!, serviceToken: 'test-service-token' } };
+        const req = { cookies: {}, headers: { authorization: 'Bearer wrong-token' } } as any;
+        assert.equal(isAuthenticated(req, tokenConfig), false);
     });
 });
 
@@ -72,13 +84,13 @@ test('auth: access control', async (t) => {
     };
 
     await t.test('grants view access to public files', () => {
-        const req = { cookies: {} } as any;
+        const req = { cookies: {}, headers: {} } as any;
         assert.equal(getRequestAccess(req, config, 'README.md'), 'view');
         assert.equal(getRequestAccess(req, config, 'public/doc.md'), 'view');
     });
 
     await t.test('denies access to private files', () => {
-        const req = { cookies: {} } as any;
+        const req = { cookies: {}, headers: {} } as any;
         assert.equal(getRequestAccess(req, config, 'private.md'), null);
     });
 });
