@@ -145,7 +145,7 @@ export class GitStorageProvider implements StorageProvider {
             results.push({
                 name: entry.name,
                 path: entryPath,
-                type: entry.isDirectory() ? 'directory' : 'file',
+                type: stats.isDirectory() ? 'directory' : 'file',
                 mtime: stats.mtime,
                 size: stats.size
             });
