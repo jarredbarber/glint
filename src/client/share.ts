@@ -10,8 +10,10 @@ const accessSelect = document.getElementById('share-access') as HTMLSelectElemen
 const expirySelect = document.getElementById('share-expiry') as HTMLSelectElement;
 const labelInput = document.getElementById('share-label') as HTMLInputElement;
 
-// Get current page path from URL
-const currentPath = document.body.getAttribute('data-path') || (window.location.pathname.startsWith('/') ? window.location.pathname.substring(1) : window.location.pathname);
+// Get current page path dynamically (not cached) since client-side router updates data-path
+function getCurrentPath(): string {
+    return document.body.getAttribute('data-path') || (window.location.pathname.startsWith('/') ? window.location.pathname.substring(1) : window.location.pathname);
+}
 
 // Toast Helper
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
@@ -64,7 +66,7 @@ window.createShare = async function () {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                path: currentPath,
+                path: getCurrentPath(),
                 access: access,
                 expiresAt: expiresAt,
                 label: label || undefined
@@ -123,7 +125,7 @@ async function refreshShareList() {
     if (!shareList) return;
 
     try {
-        const res = await fetch(`/api/shares?path=${encodeURIComponent(currentPath)}`);
+        const res = await fetch(`/api/shares?path=${encodeURIComponent(getCurrentPath())}`);
         if (!res.ok) throw new Error('Failed to fetch shares');
 
         const shares = await res.json();
