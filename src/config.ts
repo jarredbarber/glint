@@ -123,9 +123,7 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
     const dotGlintDir = path.join(contentDir, '.glint');
     const paths = configPath ? [configPath] : [
         path.join(contentDir, 'glint.toml'),
-        path.join(contentDir, 'glint.json'),
         path.join(dotGlintDir, 'config.toml'),
-        path.join(dotGlintDir, 'config.json'),
     ];
 
     let raw: string | undefined;
@@ -146,9 +144,7 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
     }
 
     try {
-        const isToml = actualConfigPath.endsWith('.toml');
-        const parsed = isToml ? toml.parse(raw) : JSON.parse(raw);
-
+        const parsed = toml.parse(raw);
         return ConfigSchema.parse({ ...DEFAULTS, ...parsed });
     } catch (err) {
         throw err;
@@ -156,66 +152,35 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
 }
 
 /**
- * Save configuration to the content directory (prefers .glint/config.toml).
+ * Save configuration to the content directory.
  * If configPath is provided, saves to that specific file instead.
  */
 export async function saveConfig(contentDir: string, config: Partial<GlintConfig>, configPath?: string): Promise<void> {
-    if (configPath) {
-        // Save to the specific config path
-        const fullConfig = { ...DEFAULTS, ...config };
-        const isToml = configPath.endsWith('.toml');
-        const content = isToml
-            ? toml.stringify(fullConfig)
-            : JSON.stringify(fullConfig, null, 4);
+    const fullConfig = { ...DEFAULTS, ...config };
+    const content = toml.stringify(fullConfig);
 
-        // Ensure parent directory exists
+    if (configPath) {
         const dir = path.dirname(configPath);
         await fs.mkdir(dir, { recursive: true });
-
         await fs.writeFile(configPath, content, 'utf-8');
         return;
     }
 
     const dotGlintDir = path.join(contentDir, '.glint');
     const tomlPath = path.join(contentDir, 'glint.toml');
-    const jsonPath = path.join(contentDir, 'glint.json');
     const oldTomlPath = path.join(dotGlintDir, 'config.toml');
-    const oldJsonPath = path.join(dotGlintDir, 'config.json');
 
-    // Check if any config exists already
     let targetPath = tomlPath;
-    let useJson = false;
-
-    // Check paths in order of preference
     try {
         await fs.access(tomlPath);
-        targetPath = tomlPath;
     } catch {
         try {
-            await fs.access(jsonPath);
-            targetPath = jsonPath;
-            useJson = true;
+            await fs.access(oldTomlPath);
+            targetPath = oldTomlPath;
         } catch {
-            try {
-                await fs.access(oldTomlPath);
-                targetPath = oldTomlPath;
-            } catch {
-                try {
-                    await fs.access(oldJsonPath);
-                    targetPath = oldJsonPath;
-                    useJson = true;
-                } catch {
-                    // None exist, use default (root glint.toml)
-                    targetPath = tomlPath;
-                }
-            }
+            // None exist, use default
         }
     }
-
-    const fullConfig = { ...DEFAULTS, ...config };
-    const content = useJson
-        ? JSON.stringify(fullConfig, null, 4)
-        : toml.stringify(fullConfig);
 
     await fs.writeFile(targetPath, content, 'utf-8');
 }
@@ -234,14 +199,12 @@ export function getProcessedMacros(config: GlintConfig): Record<string, string> 
 }
 
 /**
- * Get the path to the current config file (prefers .glint/config.json).
+ * Get the path to the current config file.
  */
 export async function getConfigPath(contentDir: string): Promise<string> {
     const paths = [
         path.join(contentDir, 'glint.toml'),
-        path.join(contentDir, 'glint.json'),
         path.join(contentDir, '.glint', 'config.toml'),
-        path.join(contentDir, '.glint', 'config.json'),
     ];
 
     for (const p of paths) {
@@ -251,7 +214,7 @@ export async function getConfigPath(contentDir: string): Promise<string> {
         } catch { }
     }
 
-    return paths[0]; // Default to .glint/config.toml for creation
+    return paths[0]; // Default to glint.toml for creation
 }
 
 /**

@@ -25,12 +25,12 @@ export async function buildFileTree(
     const nodes: FileNode[] = [];
 
     for (const entry of entries) {
-        // Skip hidden files, node_modules, assets, dist, glint.json, and macOS protected dirs
+        // Skip hidden files, node_modules, assets, dist, glint.toml, and macOS protected dirs
         if (entry.name.startsWith('.') ||
             entry.name === 'node_modules' ||
             entry.name === 'assets' ||
             entry.name === 'dist' ||
-            entry.name === 'glint.json' ||
+            entry.name === 'glint.toml' ||
             entry.name === 'Library') {
             continue;
         }

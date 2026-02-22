@@ -197,9 +197,9 @@ export async function createServer(contentDir: string, configPath?: string) {
                     }
                 }, 300);
 
-                const isConfig = filename === 'glint.json' || filename === 'glint.toml' ||
-                    filename === '.glint/config.json' || filename === '.glint/config.toml' ||
-                    filename === path.join('.glint', 'config.json') || filename === path.join('.glint', 'config.toml');
+                const isConfig = filename === 'glint.toml' ||
+                    filename === '.glint/config.toml' ||
+                    filename === path.join('.glint', 'config.toml');
 
                 if (isConfig) {
                     try {
