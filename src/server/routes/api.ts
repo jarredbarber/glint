@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel, getConfigPath, AVAILABLE_THEMES } from '../../config.js';
+import { type GlintConfig, type AccessLevel, getConfigPath, saveConfig, AVAILABLE_THEMES } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
@@ -119,11 +119,9 @@ export async function setupAPIRoutes(
                 const currentConfig = getConfig();
                 const newConfig = { ...currentConfig, theme };
 
-                // Get actual config path and convert to relative path for storage
+                // Save via saveConfig which handles TOML vs JSON format correctly
                 const absoluteConfigPath = await getConfigPath(contentDir);
-                const relativeConfigPath = path.relative(contentDir, absoluteConfigPath);
-
-                await storage.write(relativeConfigPath, JSON.stringify(newConfig, null, 4));
+                await saveConfig(contentDir, newConfig, absoluteConfigPath);
 
                 // Config is auto-reloaded via server.ts file watcher
                 return { success: true };
