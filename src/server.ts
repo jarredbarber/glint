@@ -167,6 +167,7 @@ export async function createServer(contentDir: string, configPath?: string) {
 
     // Unified Watcher
     let fileTreeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingReload = false;
     const watchAll = () => {
         try {
             storageManager.watch('', async (event, filename) => {
@@ -175,7 +176,7 @@ export async function createServer(contentDir: string, configPath?: string) {
                 if (filename.endsWith('.md')) {
                     await updateTitleCache(filename);
                     storageManager.invalidateCache(filename);
-                    broadcast('reload');
+                    pendingReload = true;
                 }
 
                 // Debounce file tree rebuild to prevent race conditions during rapid changes (e.g., git operations)
@@ -189,6 +190,10 @@ export async function createServer(contentDir: string, configPath?: string) {
                         updateKnownPaths(fileTree);
                     } catch (err) {
                         fastify.log.error(err as any, 'Failed to rebuild file tree');
+                    }
+                    if (pendingReload) {
+                        pendingReload = false;
+                        broadcast('reload');
                     }
                 }, 300);
 
