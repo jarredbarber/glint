@@ -1,4 +1,5 @@
 import { HeadingNode } from '../rehype-extract-headings.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const renderRightOutline = (headings: HeadingNode[]) => {
     if (headings.length === 0) return '';
@@ -22,10 +23,10 @@ export const renderRightOutline = (headings: HeadingNode[]) => {
 
                 result.push(`
                     <li class="right-outline-item" data-depth="${heading.depth}">
-                        <div class="right-outline-section" data-section-id="${heading.id}">
+                        <div class="right-outline-section" data-section-id="${escapeHtml(heading.id)}">
                             <div class="right-outline-section-header">
-                                <span class="outline-toggle" data-section-id="${heading.id}" aria-label="Toggle section"></span>
-                                <a href="#${heading.id}" class="right-outline-link" title="${heading.text}">${heading.text}</a>
+                                <span class="outline-toggle" data-section-id="${escapeHtml(heading.id)}" aria-label="Toggle section"></span>
+                                <a href="#${escapeHtml(heading.id)}" class="right-outline-link" title="${escapeHtml(heading.text)}">${escapeHtml(heading.text)}</a>
                             </div>
                             <ul class="right-outline-section-children">
                                 ${buildHierarchy(children)}

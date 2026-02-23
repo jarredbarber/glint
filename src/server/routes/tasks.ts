@@ -45,9 +45,7 @@ export async function setupTaskRoutes(
             config,
             scripts: ['/assets/task-view.bundle.js'],
             styles: ['/assets/task-view.css'],
-            currentPath: '/d/tasks',
-            authEnabled: config.auth?.enabled ?? false,
-            authenticated: request.isAuthenticated()
+            currentPath: '/d/tasks'
         });
 
 

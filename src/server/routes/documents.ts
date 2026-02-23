@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel } from '../../config.js';
+import { type GlintConfig } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { parseMarkdown } from '../../markdown.js';
 import { VFile } from 'vfile';
@@ -12,30 +12,11 @@ export async function setupDocumentRoutes(
     getConfig: () => GlintConfig,
     processor: any // Unified processor
 ) {
-    // Middleware to check for service token or standard auth
-
-
-    const checkAccess = (request: FastifyRequest, reply: FastifyReply, path: string, level: AccessLevel): boolean => {
-        const access = request.getAccess(path);
-        if (access === null) {
-            reply.code(401).send({ error: 'Authentication required' });
-            return false;
-        }
-
-        const levelHierarchy: Record<AccessLevel, number> = { view: 1, comment: 2, edit: 3 };
-        if (levelHierarchy[access] < levelHierarchy[level]) {
-            reply.code(403).send({ error: 'Insufficient permissions' });
-            return false;
-        }
-        return true;
-    };
 
     // GET /api/documents/*
     fastify.get('/api/documents/*', async (request, reply) => {
         const path = (request.params as { '*': string })['*'];
         const render = (request.query as { render?: string }).render === 'true';
-
-        if (!checkAccess(request, reply, path, 'view')) return;
 
         try {
             const exists = await storageManager.exists(path);
@@ -90,9 +71,6 @@ export async function setupDocumentRoutes(
             return reply.code(400).send({ error: 'Content must be a string' });
         }
 
-        // PUT requires edit access
-        if (!checkAccess(request, reply, path, 'edit')) return;
-
         try {
             await storageManager.write(path, content, {
                 message,
@@ -112,9 +90,6 @@ export async function setupDocumentRoutes(
     fastify.delete('/api/documents/*', async (request, reply) => {
         const path = (request.params as { '*': string })['*'];
 
-        // DELETE requires edit access
-        if (!checkAccess(request, reply, path, 'edit')) return;
-
         try {
             await storageManager.delete(path);
             return { success: true };
@@ -129,13 +104,6 @@ export async function setupDocumentRoutes(
         const { markdown } = request.body as { markdown: string };
         if (typeof markdown !== 'string') {
             return reply.code(400).send({ error: 'Markdown must be a string' });
-        }
-
-        // Preview doesn't strictly need auth if it doesn't touch storage,
-        // but we'll require at least 'view' access to the API generally or a service token.
-        // Authentication required for preview to prevent abuse
-        if (!request.isAuthenticated()) {
-            return reply.code(401).send({ error: 'Authentication required' });
         }
 
         try {
@@ -175,11 +143,6 @@ export async function setupDocumentRoutes(
             if (typeof item.path !== 'string' || typeof item.content !== 'string') {
                 return reply.code(400).send({ error: 'Each write must have path and content strings' });
             }
-        }
-
-        // Batch writes require authenticated user
-        if (!request.isAuthenticated()) {
-            return reply.code(401).send({ error: 'Authentication required' });
         }
 
         try {

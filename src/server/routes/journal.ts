@@ -77,9 +77,7 @@ export async function setupJournalRoutes(
             config,
             scripts: ['/assets/journal-view.bundle.js'],
             styles: ['/assets/journal-view.css'],
-            currentPath: '/d/journal',
-            authEnabled: config.auth?.enabled ?? false,
-            authenticated: request.isAuthenticated()
+            currentPath: '/d/journal'
         });
 
         reply.type('text/html').send(html);

@@ -18,8 +18,6 @@ export interface RenderOptions {
     currentPath: string;
     headings?: HeadingNode[];
     frontmatter?: Record<string, unknown>;
-    authEnabled?: boolean;
-    authenticated?: boolean;
     access?: string;
     shareId?: string;
     scripts?: string[];
@@ -27,14 +25,14 @@ export interface RenderOptions {
 }
 
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, authEnabled = false, authenticated = false, access, shareId, scripts = [], styles = [] } = options;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [] } = options;
     const isShared = !!shareId;
 
     return `
 <!DOCTYPE html>
 <html lang="en">
     ${renderHead(title, config.theme, styles)}
-    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || (authenticated ? 'edit' : 'view')}" data-path="${escapeHtml(currentPath)}">
+    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || 'edit'}" data-path="${escapeHtml(currentPath)}">
         <div class="mobile-toggle">☰</div>
         <div class="mobile-overlay"></div>
         <div id="command-palette-overlay" class="command-palette-overlay" style="display: none;">
@@ -92,7 +90,7 @@ export const renderHtml = (options: RenderOptions) => {
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, authEnabled, authenticated, isShared })}
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared })}
     <main class="content">
         <div class="content-wrapper">
             ${!isShared ? renderBreadcrumbs(currentPath) : ''}
@@ -104,7 +102,7 @@ export const renderHtml = (options: RenderOptions) => {
             ${content}
         </div>
     </main>
-    ${!isShared ? renderRightOutline(headings) : ''}
+    ${renderRightOutline(headings)}
     ${!isShared ? `
     <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
         <div class="share-modal">
@@ -173,5 +171,4 @@ export { renderScripts } from './renderer/scripts.js';
 export { renderMetadata, formatDate } from './renderer/metadata.js';
 export { renderRightOutline } from './renderer/outline.js';
 export { renderBreadcrumbs } from './renderer/breadcrumbs.js';
-export { renderLoginPage } from './renderer/login.js';
 export { escapeHtml } from './utils/html.js';

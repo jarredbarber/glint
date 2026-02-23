@@ -22,15 +22,3 @@ export function saveScrollPosition(): void {
 export function suppressSSEReload(): void {
     sessionStorage.setItem('glint-suppress-reload', Date.now().toString());
 }
-
-/**
- * Handle a 401 response by redirecting to the login page.
- */
-export function handleAuthError(response: Response): boolean {
-    if (response.status === 401) {
-        const currentPath = window.location.pathname;
-        window.location.href = `/api/auth/login?redirect=${encodeURIComponent(currentPath)}`;
-        return true;
-    }
-    return false;
-}

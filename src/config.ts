@@ -22,19 +22,6 @@ export const AVAILABLE_THEMES = [
     'github-light'
 ] as const;
 
-const PublicPathSchema = z.object({
-    path: z.string(),
-    access: z.enum(['view', 'comment', 'edit']).default('view'),
-});
-
-const AuthSchema = z.object({
-    enabled: z.boolean().default(false),
-    passwordHash: z.string().optional(),
-    sessionSecret: z.string().optional(),
-    serviceToken: z.string().optional(),  // For programmatic API access (Hector)
-    public: z.array(PublicPathSchema).default([]),
-});
-
 const StorageProviderSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('local'),
@@ -81,7 +68,6 @@ const ConfigSchema = z.object({
     baseFile: z.string().default('README.md'),
     headless: z.boolean().default(false),
     'latex-macros': z.record(z.string(), z.string()).optional(),
-    auth: AuthSchema.optional(),
     storage: StorageConfigSchema.default(() => ({
         default: 'local',
         providers: {
@@ -97,8 +83,6 @@ const ConfigSchema = z.object({
 });
 
 export type GlintConfig = z.infer<typeof ConfigSchema>;
-export type AuthConfig = z.infer<typeof AuthSchema>;
-export type PublicPath = z.infer<typeof PublicPathSchema>;
 export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderSchema>;
 export type MountConfig = z.infer<typeof MountSchema>;
@@ -223,47 +207,3 @@ export async function getConfigPath(contentDir: string): Promise<string> {
     return paths[0]; // Default to glint.toml for creation
 }
 
-/**
- * Check if a URL path is publicly accessible and return its access level.
- * Returns null if the path is not public (requires authentication).
- */
-export function getPublicAccess(config: GlintConfig, urlPath: string): AccessLevel | null {
-    if (!config.auth?.enabled) {
-        return 'edit'; // No auth = full access
-    }
-
-    const publicPaths = config.auth.public || [];
-
-    for (const rule of publicPaths) {
-        if (matchesPattern(urlPath, rule.path)) {
-            return rule.access;
-        }
-    }
-
-    return null; // Not public
-}
-
-/**
- * Simple glob pattern matching for path rules.
- * Supports * (single segment) and ** (multiple segments).
- */
-function matchesPattern(urlPath: string, pattern: string): boolean {
-    // Normalize paths (remove leading/trailing slashes)
-    const normalizedPath = urlPath.replace(/^\/+|\/+$/g, '');
-    const normalizedPattern = pattern.replace(/^\/+|\/+$/g, '');
-
-    // Exact match
-    if (normalizedPattern === normalizedPath) {
-        return true;
-    }
-
-    // Convert glob pattern to regex
-    const regexPattern = normalizedPattern
-        .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
-        .replace(/\*\*/g, '<<GLOBSTAR>>') // Temporarily replace **
-        .replace(/\*/g, '[^/]*') // * matches anything except /
-        .replace(/<<GLOBSTAR>>/g, '.*'); // ** matches anything including /
-
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(normalizedPath);
-}

@@ -7,20 +7,11 @@ export interface SidebarOptions {
     currentPath: string;
     headings?: HeadingNode[];
     currentTheme?: string;
-    authEnabled?: boolean;
-    authenticated?: boolean;
     isShared?: boolean;
 }
 
 export const renderSidebar = (options: SidebarOptions) => {
-    const { fileTree, currentPath, headings = [], currentTheme = 'nord', authEnabled = false, authenticated = false, isShared = false } = options;
-
-    const logoutButton = authEnabled && authenticated ? `
-        <button class="logout-button" onclick="
-            fetch('/api/auth/logout', { method: 'POST' })
-                .then(() => window.location.reload());
-        ">Logout</button>
-    ` : '';
+    const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false } = options;
 
     // Views section (Task View)
     const viewsSection = !isShared ? `
@@ -73,7 +64,7 @@ export const renderSidebar = (options: SidebarOptions) => {
                 <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
             </a>
         </div>
-        
+
         ${viewsSection}
         ${filesSection}
     </div>
@@ -102,12 +93,11 @@ export const renderSidebar = (options: SidebarOptions) => {
             })();
         </script>
         ` : ''}
-        ${!isShared && authenticated ? `
+        ${!isShared ? `
         <button class="share-sidebar-button" onclick="window.openShareModal()">
             <span class="share-icon">🔗</span> Share
         </button>
         ` : ''}
-        ${logoutButton}
     </footer>
 </aside>
 `;

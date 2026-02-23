@@ -17,12 +17,13 @@ class OutlineManager {
     private observer: IntersectionObserver | null = null;
     private headingElements: HTMLElement[] = [];
     private outlineContainer: HTMLElement | null = null;
+    private reopenBtn: HTMLElement | null = null;
+    private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
     private storageKey = 'glint-outline-collapsed';
     private visibilityKey = 'glint-outline-hidden';
 
     constructor() {
         this.loadCollapsedState();
-        this.loadVisibilityState();
     }
 
     init(): void {
@@ -40,6 +41,7 @@ class OutlineManager {
 
         this.setupIntersectionObserver();
         this.setupCollapseHandlers();
+        this.setupLinkClicks(contentArea as HTMLElement);
         this.setupToggleButton();
         this.setupKeyboardShortcut();
         this.applyCollapsedStates();
@@ -95,6 +97,38 @@ class OutlineManager {
                     this.toggleSection(sectionId);
                 }
             });
+        });
+    }
+
+    private setupLinkClicks(contentArea: HTMLElement): void {
+        if (!this.outlineContainer) return;
+
+        this.outlineContainer.addEventListener('click', (e) => {
+            const link = (e.target as HTMLElement).closest('a.right-outline-link');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            if (!href || !href.startsWith('#')) return;
+
+            const targetId = href.slice(1);
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            e.preventDefault();
+            // Walk offsetParent chain to get the true document-flow position,
+            // since getBoundingClientRect() returns the sticky-pinned position
+            let top = 0;
+            let el: HTMLElement | null = target;
+            while (el && el !== contentArea) {
+                top += el.offsetTop;
+                el = el.offsetParent as HTMLElement | null;
+            }
+            const scrollMargin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+            contentArea.scrollTo({
+                top: top - scrollMargin,
+                behavior: 'smooth'
+            });
+            history.replaceState(null, '', href);
         });
     }
 
@@ -163,24 +197,7 @@ class OutlineManager {
         }
     }
 
-    private loadVisibilityState(): void {
-        try {
-            const stored = localStorage.getItem(this.visibilityKey);
-            if (stored !== null) {
-                this.state.hidden = stored === 'true';
-            }
-        } catch (e) {
-            console.warn('Failed to load outline visibility state:', e);
-        }
-    }
-
-    private saveVisibilityState(): void {
-        try {
-            localStorage.setItem(this.visibilityKey, String(this.state.hidden));
-        } catch (e) {
-            console.warn('Failed to save outline visibility state:', e);
-        }
-    }
+    // Visibility is session-only (not persisted) to avoid flash-on-load
 
     private applyVisibilityState(): void {
         if (!this.outlineContainer) return;
@@ -189,18 +206,22 @@ class OutlineManager {
         } else {
             this.outlineContainer.classList.remove('outline-hidden');
         }
+        if (this.reopenBtn) {
+            this.reopenBtn.style.display = this.state.hidden ? '' : 'none';
+        }
     }
 
     private toggleVisibility(): void {
+        if (!this.outlineContainer) return;
+        this.outlineContainer.classList.add('outline-transitioning');
         this.state.hidden = !this.state.hidden;
         this.applyVisibilityState();
-        this.saveVisibilityState();
     }
 
     private setupToggleButton(): void {
         if (!this.outlineContainer) return;
 
-        // Create toggle button
+        // Create toggle button inside outline
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'outline-visibility-toggle';
         toggleBtn.innerHTML = '‹';
@@ -208,17 +229,29 @@ class OutlineManager {
         toggleBtn.setAttribute('aria-label', 'Toggle outline visibility');
         toggleBtn.onclick = () => this.toggleVisibility();
 
-        // Insert at the top of the outline
         const header = this.outlineContainer.querySelector('.right-outline-header');
         if (header) {
             header.appendChild(toggleBtn);
         } else {
             this.outlineContainer.insertBefore(toggleBtn, this.outlineContainer.firstChild);
         }
+
+        // Create external reopen button (visible only when outline is hidden)
+        let existing = document.querySelector('.outline-reopen-toggle');
+        if (existing) existing.remove();
+
+        this.reopenBtn = document.createElement('button');
+        this.reopenBtn.className = 'outline-reopen-toggle';
+        this.reopenBtn.innerHTML = '☰';
+        this.reopenBtn.title = 'Show outline (O)';
+        this.reopenBtn.setAttribute('aria-label', 'Show outline');
+        this.reopenBtn.style.display = 'none';
+        this.reopenBtn.onclick = () => this.toggleVisibility();
+        document.body.appendChild(this.reopenBtn);
     }
 
     private setupKeyboardShortcut(): void {
-        document.addEventListener('keydown', (e) => {
+        this.keydownHandler = (e: KeyboardEvent) => {
             // Only trigger if not in an input/textarea/editor
             if (e.target instanceof HTMLInputElement ||
                 e.target instanceof HTMLTextAreaElement ||
@@ -231,13 +264,22 @@ class OutlineManager {
                 e.preventDefault();
                 this.toggleVisibility();
             }
-        });
+        };
+        document.addEventListener('keydown', this.keydownHandler);
     }
 
     destroy(): void {
         if (this.observer) {
             this.observer.disconnect();
             this.observer = null;
+        }
+        if (this.reopenBtn) {
+            this.reopenBtn.remove();
+            this.reopenBtn = null;
+        }
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = null;
         }
         this.headingElements = [];
         this.outlineContainer = null;

@@ -101,6 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+
+            // Swap the right-outline (TOC) so headings match new page
+            const newOutline = doc.querySelector('aside.right-outline');
+            const oldOutline = document.querySelector('aside.right-outline');
+            if (newOutline && oldOutline) {
+                oldOutline.replaceWith(newOutline);
+            } else if (newOutline && !oldOutline) {
+                document.body.appendChild(newOutline);
+            } else if (!newOutline && oldOutline) {
+                oldOutline.remove();
+            }
             if (newTitle) {
                 document.title = newTitle.innerText;
             }
@@ -121,7 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Re-initialize dynamic content
             const mermaid = (window as any).mermaid;
-            if (typeof mermaid !== 'undefined') {
+            if (typeof mermaid !== 'undefined' && typeof mermaid.run === 'function') {
+                mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+            } else if (typeof mermaid !== 'undefined' && typeof mermaid.init === 'function') {
                 mermaid.init(undefined, document.querySelectorAll('.mermaid'));
             }
 

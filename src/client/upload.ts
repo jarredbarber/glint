@@ -1,23 +1,4 @@
-import { saveScrollPosition, suppressSSEReload, handleAuthError } from './scroll-utils.js';
-
-// Intercept fetch calls to handle 401 responses globally
-const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-    const response = await originalFetch.apply(this, args);
-    if (response.status === 401) {
-        // Clone the response to read the body
-        const clone = response.clone();
-        try {
-            const data = await clone.json();
-            if (data.authRequired) {
-                handleAuthError(response);
-            }
-        } catch {
-            // Not JSON, just return the response
-        }
-    }
-    return response;
-};
+import { saveScrollPosition, suppressSSEReload } from './scroll-utils.js';
 
 /**
  * ============================================================================

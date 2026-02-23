@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+
 export const renderBreadcrumbs = (currentPath: string) => {
     // Clean path
     const path = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath;
@@ -24,7 +26,7 @@ export const renderBreadcrumbs = (currentPath: string) => {
 
         html += `
             <li class="breadcrumb-separator">/</li>
-            <li><a href="${currentUrl}">${label}</a></li>
+            <li><a href="${escapeHtml(currentUrl)}">${escapeHtml(label)}</a></li>
         `;
     }
 
@@ -35,7 +37,7 @@ export const renderBreadcrumbs = (currentPath: string) => {
 
     html += `
             <li class="breadcrumb-separator">/</li>
-            <li class="breadcrumb-current" aria-current="page">${label}</li>
+            <li class="breadcrumb-current" aria-current="page">${escapeHtml(label)}</li>
         </ol>
     </nav>
     `;

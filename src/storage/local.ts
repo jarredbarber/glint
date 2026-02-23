@@ -26,7 +26,7 @@ export class LocalStorageProvider implements StorageProvider {
     private resolvePath(relativePath: string): string {
         // Prevent directory traversal
         const resolved = path.resolve(this.basePath, relativePath);
-        if (!resolved.startsWith(this.basePath)) {
+        if (resolved !== this.basePath && !resolved.startsWith(this.basePath + path.sep)) {
             throw new Error('Access denied: Path outside base directory');
         }
         return resolved;

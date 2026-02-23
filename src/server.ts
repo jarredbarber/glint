@@ -1,6 +1,5 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import formbody from '@fastify/formbody';
 import path from 'node:path';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -34,9 +33,7 @@ import { isForbiddenError, isNotFoundError, NotFoundError } from './utils/errors
 
 import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
-import { setupAuthRoutes } from './server/routes/auth.js';
 import { setupGitRoutes } from './server/routes/git.js';
-import { setupAuth } from './server/auth.js';
 import { ShareService } from './server/share.js';
 import { TaskScanner } from './tasks/scanner.js';
 import { StorageManager } from './storage/index.js';
@@ -95,19 +92,12 @@ export async function createServer(contentDir: string, configPath?: string) {
     // Config getter for dynamic access
     const getConfig = () => config;
 
-    // Parse form submissions (needed for login form)
-    await fastify.register(formbody);
-
-
     // Initialize Storage Manager
     const storageManager = new StorageManager(config, contentDir);
 
     // Initialize Share Service
     const shareService = new ShareService(storageManager);
     await shareService.load();
-
-    // Setup Auth (must be before routes)
-    await setupAuth(fastify, getConfig, shareService);
 
     // Setup SSE
     const { broadcast } = setupSSERoutes(fastify);
@@ -117,9 +107,6 @@ export async function createServer(contentDir: string, configPath?: string) {
         fastify.log.error(error, 'Storage background error');
         broadcast(JSON.stringify({ message: error.message }), 'glint:error');
     });
-
-    // Setup Auth Routes
-    await setupAuthRoutes(fastify, getConfig);
 
     // Initialize Task Scanner
     const taskScanner = new TaskScanner(storageManager);
@@ -306,8 +293,6 @@ export async function createServer(contentDir: string, configPath?: string) {
                     currentPath: resolvedPath,
                     headings,
                     frontmatter,
-                    authEnabled: config.auth?.enabled ?? false,
-                    authenticated: request.isAuthenticated(),
                     access: share.access,
                     shareId: shareId
                 });
@@ -388,12 +373,6 @@ ${widgetInstructions}
         });
 
         const handleDocument = async (targetPath: string, request: any, reply: any, currentUrl: string) => {
-            // Check authentication
-            const access = request.getAccess(targetPath);
-            if (access === null) {
-                return reply.redirect(`/api/auth/login?redirect=${encodeURIComponent(currentUrl)}`);
-            }
-
             try {
                 // Resolve path using StorageManager
                 const { path: filePath, stat, isMarkdown } = await resolveStoragePath(storageManager, targetPath, config);
@@ -434,8 +413,6 @@ ${widgetInstructions}
                     currentPath: filePath,
                     headings,
                     frontmatter,
-                    authEnabled: config.auth?.enabled ?? false,
-                    authenticated: request.isAuthenticated(),
                 });
 
                 // Cache it
@@ -467,8 +444,7 @@ ${widgetInstructions}
         fastify.get('/*', async (request, reply) => {
             const urlPath = (request.params as { '*': string })['*'] || '';
 
-            // Skip auth check for login page or favicon
-            if (urlPath === 'login' || urlPath === 'favicon.ico') {
+            if (urlPath === 'favicon.ico') {
                 return reply.code(404).send('Not Found');
             }
 

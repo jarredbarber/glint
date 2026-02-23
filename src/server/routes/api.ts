@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { type GlintConfig, type AccessLevel, getConfigPath, saveConfig, AVAILABLE_THEMES } from '../../config.js';
+import { type GlintConfig, getConfigPath, saveConfig, AVAILABLE_THEMES } from '../../config.js';
 import { StorageManager } from '../../storage/index.js';
 import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
@@ -18,35 +18,6 @@ export async function setupAPIRoutes(
     taskScanner: TaskScanner,
     storage: StorageManager
 ) {
-
-
-    // Helper to check access level and return 401/403 if insufficient
-    const requireAccess = (
-        request: FastifyRequest,
-        reply: FastifyReply,
-        urlPath: string,
-        requiredLevel: AccessLevel
-    ): boolean => {
-        // Check share access first if sharedId is provided
-        const { shareId } = (request.query || {}) as { shareId?: string };
-        const bodyShareId = (request.body as any)?.shareId;
-        const effectiveShareId = shareId || bodyShareId;
-
-        const access = request.getAccess(urlPath) || (effectiveShareId ? request.getShareAccess(urlPath, effectiveShareId) : null);
-
-        if (access === null) {
-            reply.code(401).send({ error: 'Authentication required', authRequired: true });
-            return false;
-        }
-
-        const levelHierarchy: Record<AccessLevel, number> = { view: 1, comment: 2, edit: 3 };
-        if (levelHierarchy[access] < levelHierarchy[requiredLevel]) {
-            reply.code(403).send({ error: 'Insufficient permissions' });
-            return false;
-        }
-
-        return true;
-    };
 
     // Register multipart support
     await fastify.register(fastifyMultipart, {
@@ -82,12 +53,6 @@ export async function setupAPIRoutes(
                 // Handle ./ prefix explicitly or just join
                 const cleanAssetPath = assetPath.startsWith('./') ? assetPath.substring(2) : assetPath;
                 targetUrlPath = path.join(contextDir, cleanAssetPath);
-            }
-
-            // Check access for the resolved path
-            // Note: Currently we check 'view' access.
-            if (!requireAccess(request, reply, targetUrlPath, 'view')) {
-                return;
             }
 
             const { path: safePath, stat } = await resolveStoragePath(storage, targetUrlPath, getConfig());
@@ -141,11 +106,6 @@ export async function setupAPIRoutes(
                 return reply.code(400).send({ error: 'Missing path or content' });
             }
 
-            // Check edit access
-            if (!requireAccess(request, reply, body.path, 'edit')) {
-                return;
-            }
-
             const { path: safePath } = await resolveStoragePath(storage, body.path, getConfig());
 
             // Optimistic locking
@@ -183,11 +143,6 @@ export async function setupAPIRoutes(
     // Get Source
     fastify.get('/api/source/*', async (request, reply) => {
         const urlPath = (request.params as { '*': string })['*'] || '';
-
-        // Require at least view access to read source
-        if (!requireAccess(request, reply, urlPath, 'view')) {
-            return;
-        }
 
         try {
             const normalizedPath = urlPath.replace(/^\/+/, '');
@@ -241,18 +196,10 @@ export async function setupAPIRoutes(
                 return reply.code(400).send({ error: 'Missing file or articlePath' });
             }
 
-            // Check edit access for the article being modified
-            if (!requireAccess(request, reply, articlePath, 'edit')) {
-                return;
-            }
-
             const { path: resolvedArticlePath } = await resolveStoragePath(storage, articlePath, getConfig());
 
             const assetsDirName = path.basename(resolvedArticlePath) + '.assets';
             const assetsDir = path.posix.join(path.dirname(resolvedArticlePath), assetsDirName);
-
-            // Storage write automatically handles parent directories in Local, and doesn't need it in Git
-            // But we might want to ensure it's treated as a directory? No, just write the file.
 
             const ext = path.extname(filename) || '.png';
             const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex').substring(0, 8);
@@ -260,31 +207,6 @@ export async function setupAPIRoutes(
             const destPath = path.posix.join(assetsDir, newFilename);
 
             await storage.writeBuffer(destPath, fileBuffer);
-
-            // Calculate relative path for the markdown source
-            // We need relative path from contentDir to assetsDir, but destPath IS that if using storage root
-            // Wait, resolvedArticlePath is from storage root.
-            // destPath is from storage root.
-            // If the user is editing "folder/doc.md", assetsDir is "folder/doc.md.assets"
-            // The image path is "folder/doc.md.assets/img.png"
-            // The link in markdown should be "doc.md.assets/img.png" (relative to doc)
-            // Or "/folder/doc.md.assets/img.png" (absolute)
-            // Glint usually uses relative paths if possible, or absolute.
-            // The previous code calculated relative path from contentDir.
-
-            // Previous code:
-            // const relativeAssetsDir = path.relative(contentDir, assetsDir);
-            // const assetSubPath = path.join(relativeAssetsDir, newFilename);
-
-            // In storage, destPath IS the path relative to root (if we assume standard mount).
-            // But we want the path to insert into Markdown.
-
-            // If we return `destPath`, it's "folder/doc.md.assets/img.png".
-            // If we want it relative to the document "folder/doc.md":
-            // path.relative("folder", "folder/doc.md.assets/img.png") -> "doc.md.assets/img.png"
-
-            // Let's rely on standard absolute path behavior for now: "/folder/doc.md.assets/img.png"
-            // This is safer.
 
             return { url: '/' + destPath };
 
@@ -300,8 +222,6 @@ export async function setupAPIRoutes(
         const { path: filePath } = request.query as { path: string };
         if (!filePath) return reply.code(400).send({ error: 'Missing path' });
 
-        if (!requireAccess(request, reply, filePath, 'edit')) return;
-
         const shares = shareService.getSharesForFile(filePath);
         return reply.send(shares);
     });
@@ -316,8 +236,6 @@ export async function setupAPIRoutes(
         };
 
         if (!filePath || !access) return reply.code(400).send({ error: 'Missing required fields' });
-
-        if (!requireAccess(request, reply, filePath, 'edit')) return;
 
         const share = await shareService.createShare({
             filePath,
@@ -335,9 +253,6 @@ export async function setupAPIRoutes(
         const share = shareService.getShare(id);
 
         if (!share) return reply.code(404).send({ error: 'Share not found' });
-
-        // Must have edit access to the underlying file to revoke
-        if (!requireAccess(request, reply, share.filePath, 'edit')) return;
 
         await shareService.revokeShare(id);
         return reply.code(204).send();

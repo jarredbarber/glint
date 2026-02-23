@@ -2,11 +2,8 @@
 import { Command } from 'commander';
 import path from 'path';
 import fs from 'node:fs/promises';
-import crypto from 'node:crypto';
-import readline from 'node:readline';
 import { createServer } from './server.js';
-import { hashPassword } from './server/auth.js';
-import { loadConfig, getConfigPath, saveConfig } from './config.js';
+import { loadConfig } from './config.js';
 
 const program = new Command();
 
@@ -45,109 +42,4 @@ program
         }
     });
 
-program
-    .command('setup-auth')
-    .description('Configure authentication for the Glint server')
-    .argument('[path]', 'Path to content directory or config file', process.cwd())
-    .action(async (contentPath: string) => {
-        const resolvedPath = path.resolve(contentPath);
-        let contentDir = resolvedPath;
-        let configPath: string | undefined;
-
-        // Check if path is a file (like serve command does)
-        const stats = await fs.stat(resolvedPath);
-        if (stats.isFile()) {
-            contentDir = path.dirname(resolvedPath);
-            configPath = resolvedPath;
-        }
-
-        const config = await loadConfig(contentDir, configPath);
-
-        console.log('Glint Authentication Setup');
-        console.log('==========================\n');
-
-        // Prompt for password
-        const password = await promptPassword('Enter admin password: ');
-        if (!password || password.length < 8) {
-            console.error('Error: Password must be at least 8 characters.');
-            process.exit(1);
-        }
-
-        const confirm = await promptPassword('Confirm password: ');
-        if (password !== confirm) {
-            console.error('Error: Passwords do not match.');
-            process.exit(1);
-        }
-
-        // Hash password and generate session secret
-        const passwordHash = await hashPassword(password);
-        const sessionSecret = crypto.randomBytes(32).toString('base64');
-
-        // Update config
-        const newAuth = {
-            enabled: true,
-            passwordHash,
-            sessionSecret,
-            public: config.auth?.public || [],
-        };
-
-        // Save config
-        await saveConfig(contentDir, { ...config, auth: newAuth }, configPath);
-
-        const actualConfigPath = configPath || await getConfigPath(contentDir);
-        console.log(`\nAuthentication configured successfully!`);
-        console.log(`The configuration file (${path.basename(actualConfigPath)}) has been updated.`);
-        console.log(`\nTo make paths publicly accessible, add them to auth.public:`);
-        console.log(`  [[auth.public]]`);
-        console.log(`  path = "docs/*"`);
-        console.log(`  access = "view"`);
-    });
-
-
-
 program.parse();
-
-function promptPassword(prompt: string): Promise<string> {
-    return new Promise((resolve) => {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-        });
-
-        // Hide input for password
-        const stdin = process.stdin;
-        if (stdin.isTTY) {
-            stdin.setRawMode(true);
-        }
-
-        process.stdout.write(prompt);
-
-        let password = '';
-        stdin.resume();
-        stdin.on('data', (char) => {
-            const str = char.toString();
-
-            if (str === '\n' || str === '\r' || str === '\u0004') {
-                if (stdin.isTTY) {
-                    stdin.setRawMode(false);
-                }
-                stdin.pause();
-                process.stdout.write('\n');
-                rl.close();
-                resolve(password);
-            } else if (str === '\u0003') {
-                // Ctrl+C
-                process.exit();
-            } else if (str === '\u007F' || str === '\b') {
-                // Backspace
-                if (password.length > 0) {
-                    password = password.slice(0, -1);
-                    process.stdout.write('\b \b');
-                }
-            } else {
-                password += str;
-                process.stdout.write('*');
-            }
-        });
-    });
-}
