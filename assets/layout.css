@@ -2082,6 +2082,26 @@ h6:hover .heading-edit-icon,
     font-weight: 500;
 }
 
+.breadcrumb-raw {
+    margin-left: auto;
+}
+
+.breadcrumb-raw a {
+    font-size: 0.8em;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.breadcrumb-raw a:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+    text-decoration: none;
+}
+
 /* Recent Files Sidebar */
 .recent-files {
     margin-bottom: 1rem;

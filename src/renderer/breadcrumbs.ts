@@ -38,6 +38,7 @@ export const renderBreadcrumbs = (currentPath: string) => {
     html += `
             <li class="breadcrumb-separator">/</li>
             <li class="breadcrumb-current" aria-current="page">${escapeHtml(label)}</li>
+            <li class="breadcrumb-raw"><a href="/f/${escapeHtml(path)}?raw=true" title="View raw markdown">Raw</a></li>
         </ol>
     </nav>
     `;

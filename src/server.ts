@@ -379,6 +379,14 @@ ${widgetInstructions}
                     return reply.code(404).send('Not Found');
                 }
 
+                // Raw markdown mode — serve the source file directly
+                const wantRaw = (request.query as { raw?: string }).raw === 'true';
+                if (wantRaw) {
+                    const rawContent = await storageManager.read(filePath);
+                    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    return reply.type('text/plain; charset=utf-8').send(rawContent);
+                }
+
                 // Check cache
                 const cacheKey = filePath;
                 const cached = storageManager.getCachedHtml(cacheKey);
