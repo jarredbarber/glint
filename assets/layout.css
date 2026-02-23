@@ -576,25 +576,6 @@ kbd {
     cursor: pointer;
 }
 
-.logout-button {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    border-radius: 4px;
-    background-color: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.logout-button:hover {
-    background-color: var(--bg-color);
-    border-color: var(--accent-color);
-    color: var(--text-color);
-}
-
 .vim-toggle {
     display: flex;
     align-items: center;
@@ -1892,7 +1873,6 @@ h6:hover .heading-edit-icon,
     .section-edit-btn,
     .code-edit-btn,
     .copy-btn,
-    .logout-button,
     .theme-select,
     .vim-toggle,
     .share-sidebar-button,
@@ -2999,7 +2979,6 @@ body:has(.glint-inline-editor-container) .drag-handle {
     .section-edit-btn,
     .code-edit-btn,
     .copy-btn,
-    .logout-button,
     .theme-select,
     .vim-toggle,
     .share-sidebar-button,

@@ -9,7 +9,6 @@ const mockConfig = {
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
-    headless: false,
     storage: {
         default: 'local',
         providers: { local: { type: 'local' as const, basePath: '.' } },

@@ -7,7 +7,6 @@ import { StorageManager } from '../../storage/index.js';
 
 export async function setupGitRoutes(
     fastify: FastifyInstance,
-    contentDir: string, // Kept for API compatibility, but unused
     getConfig: () => GlintConfig,
     storageManager: StorageManager
 ) {

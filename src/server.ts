@@ -126,7 +126,7 @@ export async function createServer(contentDir: string, configPath?: string) {
 
 
     // Setup Git Routes
-    await setupGitRoutes(fastify, contentDir, getConfig, storageManager);
+    await setupGitRoutes(fastify, getConfig, storageManager);
 
     const updateKnownPaths = (nodes: FileNode[]) => {
         for (const node of nodes) {
@@ -210,9 +210,7 @@ export async function createServer(contentDir: string, configPath?: string) {
     };
     watchAll();
 
-    // UI-related setup: only when not in headless mode
-    if (!config.headless) {
-        // Serve bundled assets
+    // Serve bundled assets
         fastify.register(fastifyStatic, {
             root: assetsDir,
             prefix: '/assets/',
@@ -460,8 +458,6 @@ ${widgetInstructions}
             // But for now, we just handle it here to keep existing links active as requested
             return handleDocument(urlPath, request, reply, `/${urlPath}`);
         });
-    } // End of if (!config.headless)
-
     // Start git provider sync loops
     await storageManager.startGitSync();
 

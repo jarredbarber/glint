@@ -66,7 +66,6 @@ const ConfigSchema = z.object({
     host: z.string().default('0.0.0.0'),
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),
-    headless: z.boolean().default(false),
     'latex-macros': z.record(z.string(), z.string()).optional(),
     storage: StorageConfigSchema.default(() => ({
         default: 'local',
@@ -87,14 +86,11 @@ export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderSchema>;
 export type MountConfig = z.infer<typeof MountSchema>;
 export type CacheConfig = z.infer<typeof CacheConfigSchema>;
-export type AccessLevel = 'view' | 'comment' | 'edit';
-
 const DEFAULTS: GlintConfig = {
     port: 3000,
     host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
-    headless: false,
     storage: {
         default: 'local',
         providers: {
