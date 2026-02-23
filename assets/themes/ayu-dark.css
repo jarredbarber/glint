@@ -1,0 +1,18 @@
+/* Ayu Dark Theme */
+:root {
+    --bg-color: #0d1017;
+    --bg-dim: #131721;
+    --bg-highlight: #1c2433;
+    --bg-secondary: #131721;
+    --text-color: #bfbdb6;
+    --text-dim: #636a72;
+    --green: #ffb454;
+    --red: #d95757;
+    --orange: #ff8f40;
+    --yellow: #e6b450;
+    --blue: #39bae6;
+    --aqua: #73d0ff;
+    --purple: #d2a6ff;
+    --border-color: #1c2433;
+    --code-bg: #131721;
+}

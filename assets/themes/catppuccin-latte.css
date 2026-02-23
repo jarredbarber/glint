@@ -1,0 +1,18 @@
+/* Catppuccin Latte Theme */
+:root {
+    --bg-color: #eff1f5;
+    --bg-dim: #e6e9ef;
+    --bg-highlight: #dce0e8;
+    --bg-secondary: #e6e9ef;
+    --text-color: #4c4f69;
+    --text-dim: #8c8fa1;
+    --green: #8839ef;
+    --red: #d20f39;
+    --orange: #fe640b;
+    --yellow: #df8e1d;
+    --blue: #1e66f5;
+    --aqua: #179299;
+    --purple: #8839ef;
+    --border-color: #ccd0da;
+    --code-bg: #e6e9ef;
+}

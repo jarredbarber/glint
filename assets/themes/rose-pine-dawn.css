@@ -1,0 +1,18 @@
+/* Rose Pine Dawn Theme */
+:root {
+    --bg-color: #faf4ed;
+    --bg-dim: #f2e9e1;
+    --bg-highlight: #dfdad9;
+    --bg-secondary: #f2e9e1;
+    --text-color: #575279;
+    --text-dim: #9893a5;
+    --green: #d7827e;
+    --red: #b4637a;
+    --orange: #ea9d34;
+    --yellow: #ea9d34;
+    --blue: #286983;
+    --aqua: #907aa9;
+    --purple: #907aa9;
+    --border-color: #dfdad9;
+    --code-bg: #f2e9e1;
+}

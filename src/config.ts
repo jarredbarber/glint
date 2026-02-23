@@ -9,17 +9,22 @@ import * as toml from 'smol-toml';
  */
 export const AVAILABLE_THEMES = [
     'default',
-    'everforest-dark',
-    'nord',
-    'gruvbox-dark',
+    'ayu-dark',
+    'ayu-light',
+    'catppuccin-latte',
     'catppuccin-mocha',
-    'solarized-light',
-    'tokyo-night',
-    'rose-pine',
     'dracula',
-    'one-dark',
+    'everforest-dark',
+    'github-light',
+    'gruvbox-dark',
     'kanagawa',
-    'github-light'
+    'moonlight',
+    'nord',
+    'one-dark',
+    'rose-pine',
+    'rose-pine-dawn',
+    'solarized-light',
+    'tokyo-night'
 ] as const;
 
 const StorageProviderSchema = z.discriminatedUnion('type', [

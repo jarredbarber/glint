@@ -1,0 +1,18 @@
+/* Moonlight Theme */
+:root {
+    --bg-color: #222436;
+    --bg-dim: #1e2030;
+    --bg-highlight: #2f334d;
+    --bg-secondary: #1e2030;
+    --text-color: #c8d3f5;
+    --text-dim: #828bb8;
+    --green: #82aaff;
+    --red: #ff757f;
+    --orange: #ff966c;
+    --yellow: #ffc777;
+    --blue: #82aaff;
+    --aqua: #c099ff;
+    --purple: #c099ff;
+    --border-color: #2f334d;
+    --code-bg: #1e2030;
+}
