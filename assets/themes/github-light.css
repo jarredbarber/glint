@@ -1,0 +1,18 @@
+/* GitHub Light Theme */
+:root {
+    --bg-color: #ffffff;
+    --bg-dim: #f6f8fa;
+    --bg-highlight: #eaeef2;
+    --bg-secondary: #f6f8fa;
+    --text-color: #1f2328;
+    --text-dim: #656d76;
+    --green: #1a7f37;
+    --red: #cf222e;
+    --orange: #bc4c00;
+    --yellow: #9a6700;
+    --blue: #0969da;
+    --aqua: #0550ae;
+    --purple: #8250df;
+    --border-color: #d0d7de;
+    --code-bg: #f6f8fa;
+}

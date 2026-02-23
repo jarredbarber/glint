@@ -20,7 +20,7 @@
         { title: 'Go to Journal View', desc: 'See dated notes timeline', action: () => window.location.href = '/journal' },
         {
             title: 'Toggle Theme', desc: 'Switch light/dark mode', action: () => {
-                const themes = ['nord', 'everforest-dark', 'gruvbox-dark', 'dracula', 'one-dark', 'catppuccin-mocha', 'solarized-light', 'default'];
+                const themes = ['nord', 'everforest-dark', 'gruvbox-dark', 'catppuccin-mocha', 'solarized-light', 'tokyo-night', 'rose-pine', 'dracula', 'one-dark', 'kanagawa', 'github-light', 'default'];
                 const current = document.body.className.split(' ').find(c => themes.includes(c)) || 'nord';
                 const next = themes[(themes.indexOf(current) + 1) % themes.length];
 

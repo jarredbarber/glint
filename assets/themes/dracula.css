@@ -1,0 +1,18 @@
+/* Dracula Theme */
+:root {
+    --bg-color: #282a36;
+    --bg-dim: #21222c;
+    --bg-highlight: #44475a;
+    --bg-secondary: #343746;
+    --text-color: #f8f8f2;
+    --text-dim: #6272a4;
+    --green: #50fa7b;
+    --red: #ff5555;
+    --orange: #ffb86c;
+    --yellow: #f1fa8c;
+    --blue: #8be9fd;
+    --aqua: #8be9fd;
+    --purple: #bd93f9;
+    --border-color: #44475a;
+    --code-bg: #343746;
+}

@@ -13,7 +13,13 @@ export const AVAILABLE_THEMES = [
     'nord',
     'gruvbox-dark',
     'catppuccin-mocha',
-    'solarized-light'
+    'solarized-light',
+    'tokyo-night',
+    'rose-pine',
+    'dracula',
+    'one-dark',
+    'kanagawa',
+    'github-light'
 ] as const;
 
 const PublicPathSchema = z.object({

@@ -55,6 +55,18 @@ export const renderSidebar = (options: SidebarOptions) => {
 
     return `
 <aside class="sidebar ${isShared ? 'shared-view' : ''}">
+    <button class="sidebar-collapse-toggle" onclick="
+        const sb = this.closest('.sidebar');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('glint-sidebar-collapsed', sb.classList.contains('collapsed'));
+    "></button>
+    <script>
+        (function() {
+            if (localStorage.getItem('glint-sidebar-collapsed') === 'true') {
+                document.querySelector('.sidebar').classList.add('collapsed');
+            }
+        })();
+    </script>
     <div class="sidebar-scrollable">
         <div class="sidebar-branding">
             <a href="/">
@@ -68,7 +80,7 @@ export const renderSidebar = (options: SidebarOptions) => {
     <footer class="sidebar-footer">
         <select class="theme-select" onchange="
             const theme = this.value;
-            localStorage.setItem('glint-theme', theme);
+            document.body.className = document.body.className.replace(/\\S+/, theme);
             const themeLink = document.querySelector('link[href*=\\'themes/\\']');
             if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
             fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });

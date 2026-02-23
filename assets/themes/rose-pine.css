@@ -1,0 +1,18 @@
+/* Rose Pine Theme */
+:root {
+    --bg-color: #191724;
+    --bg-dim: #1f1d2e;
+    --bg-highlight: #26233a;
+    --bg-secondary: #1f1d2e;
+    --text-color: #e0def4;
+    --text-dim: #908caa;
+    --green: #9ccfd8;
+    --red: #eb6f92;
+    --orange: #ebbcba;
+    --yellow: #f6c177;
+    --blue: #31748f;
+    --aqua: #9ccfd8;
+    --purple: #c4a7e7;
+    --border-color: #26233a;
+    --code-bg: #1f1d2e;
+}

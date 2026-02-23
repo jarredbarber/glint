@@ -11,17 +11,6 @@ export const renderHead = (title: string, theme: string, styles: string[] = []) 
     <link rel="stylesheet" href="/assets/layout.css">
     <link rel="stylesheet" href="/assets/highlight.css">
     ${styles.map(s => `<link rel="stylesheet" href="${s}">`).join('\n')}
-    <script>
-
-        // Apply user's preferred theme from localStorage (before first paint)
-        (function() {
-            var saved = localStorage.getItem('glint-theme');
-            if (saved) {
-                var link = document.getElementById('theme-stylesheet');
-                if (link) link.href = '/assets/themes/' + saved + '.css';
-            }
-        })();
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 `;
