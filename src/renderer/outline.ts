@@ -39,7 +39,7 @@ export const renderRightOutline = (headings: HeadingNode[]) => {
             } else {
                 result.push(`
                     <li class="right-outline-item" data-depth="${heading.depth}">
-                        <a href="#${heading.id}" class="right-outline-link" title="${heading.text}">${heading.text}</a>
+                        <a href="#${escapeHtml(heading.id)}" class="right-outline-link" title="${escapeHtml(heading.text)}">${escapeHtml(heading.text)}</a>
                     </li>
                 `);
                 i++;

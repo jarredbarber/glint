@@ -1,6 +1,10 @@
 import type { TaskItem } from '../tasks/types.js';
 import { injectTaskInteractions } from './editor-tasks.js';
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 class TaskView {
     private root: HTMLElement;
     private tasks: TaskItem[] = [];
@@ -272,25 +276,26 @@ class TaskView {
             .map(([k, v]) => {
                 const className = `meta-${k}`;
                 const label = k === 'assignee' ? `@${v}` : k === 'priority' ? `#${v}` : `${k}:${v}`;
-                return `<span class="${className}">${label}</span>`;
+                return `<span class="${escapeHtml(className)}">${escapeHtml(label)}</span>`;
             })
             .join('');
 
-        const link = `/${task.sourcePath}#L${task.lineNumber}`;
+        const escapedPath = escapeHtml(task.sourcePath);
+        const link = `/${escapedPath}#L${task.lineNumber}`;
 
         // Return HTML matching the widget structure for consistent styling and behavior
         return `
-            <li class="glint-task" 
-                data-state="${task.state}"
-                data-source-path="${task.sourcePath}"
+            <li class="glint-task"
+                data-state="${escapeHtml(task.state)}"
+                data-source-path="${escapedPath}"
                 data-source-line="${task.lineNumber}">
                 <div class="glint-task-header">
                     <span class="glint-task-check" title="Change state">${icons[task.state] || '🟦'}</span>
                     <div class="glint-task-content-row">
                         <div class="task-info-column">
-                            <a href="${link}" class="glint-task-content">${task.description}</a>
+                            <a href="${link}" class="glint-task-content">${escapeHtml(task.description)}</a>
                             <div class="task-view-location">
-                                <a href="${link}" class="file-badge">${task.sourcePath}:${task.lineNumber}</a>
+                                <a href="${link}" class="file-badge">${escapedPath}:${task.lineNumber}</a>
                             </div>
                         </div>
                         <span class="glint-task-meta">${metaHtml}</span>

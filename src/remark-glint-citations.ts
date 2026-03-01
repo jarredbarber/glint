@@ -9,6 +9,7 @@ import { visit } from 'unist-util-visit';
 import type { Plugin } from 'unified';
 import type { Root, Text, PhrasingContent, Heading, List, ListItem, Paragraph, Link } from 'mdast';
 import type { VFile } from 'vfile';
+import { escapeHtml } from './utils/html.js';
 
 export interface Reference {
     id: string;
@@ -155,7 +156,7 @@ export const remarkGlintCitations: Plugin<[], Root> = function () {
                 // This will be processed by rehype-raw
                 newNodes.push({
                     type: 'html',
-                    value: `<cite class="glint-cite" data-ref="${refId}">[${citationNumber}]</cite>`
+                    value: `<cite class="glint-cite" data-ref="${escapeHtml(refId)}">[${citationNumber}]</cite>`
                 } as any);
 
                 lastIndex = regex.lastIndex;

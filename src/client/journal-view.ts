@@ -1,5 +1,9 @@
 import type { DateGroup, JournalSection } from '../journal/types.js';
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 class JournalView {
     private root: HTMLElement;
     private groups: DateGroup[] = [];
@@ -84,7 +88,7 @@ class JournalView {
         return `
             <div class="journal-section">
                 <div class="section-meta">
-                    <a href="${link}" class="file-name">${section.fileTitle}</a>
+                    <a href="${escapeHtml(link)}" class="file-name">${escapeHtml(section.fileTitle)}</a>
                     <span class="line-meta">Line ${section.startLine}</span>
                 </div>
                 <div class="section-content">

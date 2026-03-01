@@ -62,10 +62,14 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
 
         const toast = document.createElement('div');
         toast.className = \`glint-toast \${type}\`;
-        toast.innerHTML = \`
-            <span class="toast-icon">\${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-            <span class="toast-message">\${message}</span>
-        \`;
+        var icon = document.createElement('span');
+        icon.className = 'toast-icon';
+        icon.textContent = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+        var msg = document.createElement('span');
+        msg.className = 'toast-message';
+        msg.textContent = message;
+        toast.appendChild(icon);
+        toast.appendChild(msg);
 
         container.appendChild(toast);
 

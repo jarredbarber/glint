@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+
 export const formatDate = (rawDate: unknown): string | null => {
     if (!rawDate) return null;
     if (rawDate instanceof Date) {
@@ -27,7 +29,7 @@ export const renderMetadata = (frontmatter: Record<string, unknown>) => {
 
     // Featured image
     if (image) {
-        html += `<img class="featured-image" src="${image}" alt="Featured image">`;
+        html += `<img class="featured-image" src="${escapeHtml(image)}" alt="Featured image">`;
     }
 
     // Draft indicator
@@ -37,11 +39,11 @@ export const renderMetadata = (frontmatter: Record<string, unknown>) => {
 
     // Primary meta line (date, author, category, reading time)
     const metaParts = [];
-    if (date) metaParts.push(`<span class="meta-date">${date}</span>`);
-    if (updated && updated !== date) metaParts.push(`<span class="meta-updated">Updated ${updated}</span>`);
-    if (author) metaParts.push(`<span class="meta-author">by ${author}</span>`);
-    if (category) metaParts.push(`<span class="meta-category">${category}</span>`);
-    if (readingTime) metaParts.push(`<span class="meta-reading-time">📖 ${readingTime}</span>`);
+    if (date) metaParts.push(`<span class="meta-date">${escapeHtml(date)}</span>`);
+    if (updated && updated !== date) metaParts.push(`<span class="meta-updated">Updated ${escapeHtml(updated)}</span>`);
+    if (author) metaParts.push(`<span class="meta-author">by ${escapeHtml(author)}</span>`);
+    if (category) metaParts.push(`<span class="meta-category">${escapeHtml(category)}</span>`);
+    if (readingTime) metaParts.push(`<span class="meta-reading-time">${escapeHtml(readingTime)}</span>`);
 
     if (metaParts.length > 0) {
         html += `<div class="article-meta">${metaParts.join(' · ')}</div>`;
@@ -50,13 +52,13 @@ export const renderMetadata = (frontmatter: Record<string, unknown>) => {
     // Tags as pills
     if (tags) {
         const tagList = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
-        const tagHtml = tagList.map(t => `<span class="tag">${t}</span>`).join('');
+        const tagHtml = tagList.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
         html += `<div class="article-tags">${tagHtml}</div>`;
     }
 
     // Description/summary
     if (description) {
-        html += `<p class="article-description">${description}</p>`;
+        html += `<p class="article-description">${escapeHtml(description)}</p>`;
     }
 
     return html;

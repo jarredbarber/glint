@@ -1,5 +1,9 @@
 export { };
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /**
  * Client-side Share Management
  */
@@ -26,10 +30,14 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 
     const toast = document.createElement('div');
     toast.className = `glint-toast ${type}`;
-    toast.innerHTML = `
-        <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-        <span class="toast-message">${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    const msg = document.createElement('span');
+    msg.className = 'toast-message';
+    msg.textContent = message;
+    toast.appendChild(icon);
+    toast.appendChild(msg);
 
     container.appendChild(toast);
 
@@ -153,7 +161,7 @@ function renderShares(shares: any[]) {
         return `
             <div class="share-item">
                 <div class="share-item-header">
-                    <span class="share-label-text">${share.label || 'Untitled Share'}</span>
+                    <span class="share-label-text">${escapeHtml(share.label || 'Untitled Share')}</span>
                     <span class="share-access-badge">${share.access}</span>
                 </div>
                 <div class="share-expiry-text" style="font-size: 0.75rem; color: var(--text-dim);">${expiryText}</div>

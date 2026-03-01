@@ -2,6 +2,7 @@ import { CONTINUE } from 'unist-util-visit';
 import type { Node, Parent } from 'unist';
 import type { VisitorResult } from 'unist-util-visit';
 import type { WidgetHandler } from './types.js';
+import { escapeHtml } from '../utils/html.js';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
@@ -102,7 +103,7 @@ export const commentHandler: WidgetHandler = {
         }
 
         if (snippet) {
-            html += `<span class="comment-header-snippet">${snippet}</span>`;
+            html += `<span class="comment-header-snippet">${escapeHtml(snippet)}</span>`;
         } else {
             html += `<span>Comment Thread</span>`;
         }
@@ -118,11 +119,11 @@ export const commentHandler: WidgetHandler = {
             try {
                 contentHtml = bodyProcessor.processSync(msg.content).toString();
             } catch (e) {
-                contentHtml = msg.content; // Fallback to raw text
+                contentHtml = escapeHtml(msg.content); // Fallback to escaped text
             }
 
             html += `<div class="glint-comment-item">`;
-            html += `<div class="comment-meta"><span class="comment-author">${msg.author}</span>${timestamp ? `<span class="comment-date"> · ${timestamp}</span>` : ''}</div>`;
+            html += `<div class="comment-meta"><span class="comment-author">${escapeHtml(msg.author)}</span>${timestamp ? `<span class="comment-date"> · ${escapeHtml(timestamp)}</span>` : ''}</div>`;
             html += `<div class="comment-body-wrapper"><div class="comment-content">${contentHtml}</div></div>`;
             html += `</div>`;
         }
