@@ -55,7 +55,7 @@ export async function buildFileTree(
             }
         } else if (entry.name.endsWith('.md')) {
             const nameWithoutExt = entry.name.replace('.md', '');
-            const displayName = titleCache?.get(relativePath) || nameWithoutExt;
+            const displayName = nameWithoutExt;
             nodes.push({
                 name: entry.name,
                 path: relativePath,  // Keep full path with .md extension

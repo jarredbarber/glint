@@ -1,6 +1,43 @@
 
 // Client-side Router for Glint
+
+const FOLDER_STATE_KEY = 'glint-folder-state';
+
+function saveFolderState(sidebar: Element): Set<string> {
+    const open = new Set<string>();
+    sidebar.querySelectorAll('.file-tree details').forEach(details => {
+        const summary = details.querySelector('summary');
+        if (summary && (details as HTMLDetailsElement).open) {
+            open.add(summary.textContent || '');
+        }
+    });
+    try {
+        localStorage.setItem(FOLDER_STATE_KEY, JSON.stringify([...open]));
+    } catch {}
+    return open;
+}
+
+function restoreFolderState(sidebar: Element, openFolders: Set<string>) {
+    sidebar.querySelectorAll('.file-tree details').forEach(details => {
+        const summary = details.querySelector('summary');
+        if (summary) {
+            const name = summary.textContent || '';
+            (details as HTMLDetailsElement).open = openFolders.has(name);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Restore folder state from localStorage on initial load
+    try {
+        const saved = localStorage.getItem(FOLDER_STATE_KEY);
+        if (saved) {
+            const openFolders = new Set<string>(JSON.parse(saved));
+            const sidebar = document.querySelector('aside.sidebar');
+            if (sidebar) restoreFolderState(sidebar, openFolders);
+        }
+    } catch {}
+
     let currentController: AbortController | null = null;
 
     // Handle clicks
@@ -94,7 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const oldSidebar = document.querySelector('aside.sidebar');
                 if (oldSidebar) {
                     const oldScroll = oldSidebar.querySelector('.sidebar-scrollable')?.scrollTop;
+                    // Save which folders the user has manually opened/closed
+                    const openFolders = saveFolderState(oldSidebar);
                     oldSidebar.replaceWith(newSidebar);
+                    restoreFolderState(newSidebar, openFolders);
                     if (oldScroll) {
                         const newScrollable = document.querySelector('.sidebar-scrollable');
                         if (newScrollable) newScrollable.scrollTop = oldScroll;
