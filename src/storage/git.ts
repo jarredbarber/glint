@@ -4,8 +4,8 @@
  */
 
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
+import chokidar from 'chokidar';
 import {
     StorageProvider,
     FileEntry,
@@ -267,12 +267,20 @@ export class GitStorageProvider implements StorageProvider {
 
     watch(pathPattern: string, listener: (event: 'change' | 'rename', filename: string) => void): () => void {
         const fullPath = this.resolvePath(pathPattern);
-        const watcher = fsSync.watch(fullPath, { recursive: true }, (event, filename) => {
-            if (filename) {
-                listener(event, filename.toString());
+        const watcher = chokidar.watch(fullPath, {
+            ignoreInitial: true,
+            ignored: /(^|[\/\\])\./,  // ignore dotfiles
+            persistent: true
+        });
+
+        watcher.on('all', (eventType, filePath) => {
+            const relative = path.relative(fullPath, filePath);
+            if (relative) {
+                const event = (eventType === 'add' || eventType === 'unlink' || eventType === 'addDir' || eventType === 'unlinkDir') ? 'rename' : 'change';
+                listener(event, relative);
             }
         });
 
-        return () => watcher.close();
+        return () => { watcher.close(); };
     }
 }
