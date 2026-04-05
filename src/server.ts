@@ -42,6 +42,8 @@ import { setupTaskRoutes } from './server/routes/tasks.js';
 import { JournalScanner } from './journal/scanner.js';
 import { setupJournalRoutes } from './server/routes/journal.js';
 import { setupDocumentRoutes } from './server/routes/documents.js';
+import { setupAuth } from './server/auth.js';
+import formbody from '@fastify/formbody';
 
 
 
@@ -88,6 +90,12 @@ export async function createServer(contentDir: string, configPath?: string) {
     let processor = createProcessor(config, (p) => knownPaths.has(p));
 
     const fastify = Fastify({ logger: true });
+
+    // Auth (if password set in config)
+    if (config.password) {
+        await fastify.register(formbody);
+        setupAuth(fastify, config.password);
+    }
 
     // Config getter for dynamic access
     const getConfig = () => config;
