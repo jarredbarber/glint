@@ -22,17 +22,18 @@ export interface RenderOptions {
     shareId?: string;
     scripts?: string[];
     styles?: string[];
+    static?: boolean;
 }
 
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [] } = options;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [], static: isStatic = false } = options;
     const isShared = !!shareId;
 
     return `
 <!DOCTYPE html>
 <html lang="en">
     ${renderHead(title, config.theme, styles)}
-    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${access || 'edit'}" data-path="${escapeHtml(currentPath)}">
+    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${isStatic ? 'view' : (access || 'edit')}" data-path="${escapeHtml(currentPath)}">
         <div class="mobile-toggle">☰</div>
         <div class="mobile-overlay"></div>
         <div id="command-palette-overlay" class="command-palette-overlay" style="display: none;">
@@ -90,10 +91,10 @@ export const renderHtml = (options: RenderOptions) => {
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared })}
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared, static: isStatic })}
     <main class="content">
         <div class="content-wrapper">
-            ${!isShared ? renderBreadcrumbs(currentPath) : ''}
+            ${!isShared ? renderBreadcrumbs(currentPath, isStatic) : ''}
             <header class="article-header">
                 <h1>${escapeHtml(title)}</h1>
                 ${renderMetadata(frontmatter)}
@@ -103,7 +104,7 @@ export const renderHtml = (options: RenderOptions) => {
         </div>
     </main>
     ${renderRightOutline(headings)}
-    ${!isShared ? `
+    ${(!isShared && !isStatic) ? `
     <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
         <div class="share-modal">
             <div class="share-modal-header">
@@ -158,7 +159,7 @@ export const renderHtml = (options: RenderOptions) => {
     </script>
     ` : ''
         }
-    ${renderScripts(shareId, scripts)}
+    ${renderScripts(shareId, scripts, isStatic)}
 </body>
 </html>
 `;

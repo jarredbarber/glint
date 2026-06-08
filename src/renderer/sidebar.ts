@@ -8,10 +8,12 @@ export interface SidebarOptions {
     headings?: HeadingNode[];
     currentTheme?: string;
     isShared?: boolean;
+    static?: boolean;
 }
 
 export const renderSidebar = (options: SidebarOptions) => {
     const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false } = options;
+    const minimalChrome = options.isShared || options.static;
 
     // Views section (Task View)
     const viewsSection = !isShared ? `
@@ -78,7 +80,7 @@ export const renderSidebar = (options: SidebarOptions) => {
         ">
             ${AVAILABLE_THEMES.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
-        ${!isShared ? `
+        ${!minimalChrome ? `
         <label class="vim-toggle">
             <input type="checkbox" id="vim-mode-toggle" onchange="
                 localStorage.setItem('glint-vim-mode', this.checked);
@@ -93,7 +95,7 @@ export const renderSidebar = (options: SidebarOptions) => {
             })();
         </script>
         ` : ''}
-        ${!isShared ? `
+        ${!minimalChrome ? `
         <button class="share-sidebar-button" onclick="window.openShareModal()">
             <span class="share-icon">🔗</span> Share
         </button>
