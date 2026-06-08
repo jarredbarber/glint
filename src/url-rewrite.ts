@@ -13,7 +13,13 @@ export function rewriteStaticHtml(html: string): string {
     html = html.replace(
         /\/api\/asset\/resolve\?([^"'\s>]+)/g,
         (_full, query: string) => {
-            const params = new URLSearchParams(query.replace(/&amp;/g, '&'));
+            // rehype-stringify may serialize '&' as '&amp;' or as a numeric
+            // entity ('&#x26;' / '&#38;'); normalize all forms before parsing.
+            const decodedQuery = query
+                .replace(/&amp;/g, '&')
+                .replace(/&#x26;/gi, '&')
+                .replace(/&#38;/g, '&');
+            const params = new URLSearchParams(decodedQuery);
             const assetPath = params.get('path') || '';
             const context = params.get('context') || '';
             if (!assetPath) return _full;
