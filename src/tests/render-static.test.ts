@@ -24,3 +24,13 @@ test('static mode keeps the inline mermaid init script', () => {
     const out = renderScripts(undefined, [], true);
     assert.ok(out.includes('mermaid.initialize'));
 });
+
+test('static mode omits the SSE hot-reload EventSource', () => {
+    const out = renderScripts(undefined, [], true);
+    assert.ok(!out.includes('EventSource("/events")'), 'static should not open SSE');
+});
+
+test('non-static mode keeps the SSE hot-reload EventSource', () => {
+    const out = renderScripts(undefined, [], false);
+    assert.ok(out.includes('EventSource("/events")'), 'serve mode keeps SSE');
+});
