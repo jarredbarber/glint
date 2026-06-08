@@ -1,4 +1,4 @@
-export const renderScripts = (shareId?: string, extraScripts: string[] = []) => `
+export const renderScripts = (shareId?: string, extraScripts: string[] = [], isStatic: boolean = false) => `
 <script>
     // Global share context
     window.__glintShareId = ${shareId ? `'${shareId}'` : 'null'};
@@ -139,6 +139,14 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
         }
     });
 </script>
+${isStatic ? `
+<script src="/assets/router.bundle.js"></script>
+<script src="/assets/outline.bundle.js"></script>
+<script src="/assets/citations.bundle.js"></script>
+<script src="/assets/lightbox.bundle.js"></script>
+<script src="/assets/code-blocks.bundle.js"></script>
+<script src="/assets/mobile-sidebar.bundle.js"></script>
+` : `
 <script src="/assets/router.bundle.js"></script>
 <script src="/assets/upload.bundle.js"></script>
 <script src="/assets/editor.bundle.js"></script>
@@ -152,5 +160,6 @@ export const renderScripts = (shareId?: string, extraScripts: string[] = []) => 
 <script src="/assets/lightbox.bundle.js"></script>
 <script src="/assets/code-blocks.bundle.js"></script>
 <script src="/assets/mobile-sidebar.bundle.js"></script>
+`}
 ${extraScripts.map(s => `<script src="${s}"></script>`).join('\n')}
 `;
