@@ -15,8 +15,8 @@ export const renderSidebar = (options: SidebarOptions) => {
     const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false } = options;
     const minimalChrome = options.isShared || options.static;
 
-    // Views section (Task View)
-    const viewsSection = !isShared ? `
+    // Views section (Task View) — dynamic server routes, omitted from static/shared
+    const viewsSection = !minimalChrome ? `
         <details open class="sidebar-section">
             <summary class="sidebar-header">Views</summary>
             <nav class="views-list">
@@ -76,7 +76,7 @@ export const renderSidebar = (options: SidebarOptions) => {
             document.body.className = document.body.className.replace(/\\S+/, theme);
             const themeLink = document.querySelector('link[href*=\\'themes/\\']');
             if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
-            fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+            ${!minimalChrome ? `fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });` : ''}
         ">
             ${AVAILABLE_THEMES.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
