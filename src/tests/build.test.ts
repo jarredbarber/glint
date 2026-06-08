@@ -51,3 +51,45 @@ test('builds directory-per-page output with rewritten links and copied assets', 
     await fs.rm(contentDir, { recursive: true, force: true });
     await fs.rm(outDir, { recursive: true, force: true });
 });
+
+test('refuses to build when outDir equals contentDir', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-guard-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n');
+    await assert.rejects(
+        () => buildSite({ contentDir: dir, outDir: dir }),
+        /Refusing to build/
+    );
+    await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('refuses to build when outDir is an ancestor of contentDir', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-guard-'));
+    const child = path.join(parent, 'wiki');
+    await fs.mkdir(child, { recursive: true });
+    await fs.writeFile(path.join(child, 'README.md'), '# x\n');
+    await assert.rejects(
+        () => buildSite({ contentDir: child, outDir: parent }),
+        /Refusing to build/
+    );
+    await fs.rm(parent, { recursive: true, force: true });
+});
+
+test('refuses to build into the home directory', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-guard-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n');
+    await assert.rejects(
+        () => buildSite({ contentDir: dir, outDir: os.homedir() }),
+        /Refusing to build/
+    );
+    await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('allows building into a subdirectory of the content dir', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-guard-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n');
+    const out = path.join(dir, 'dist');
+    const result = await buildSite({ contentDir: dir, outDir: out });
+    assert.equal(result.failures.length, 0, JSON.stringify(result.failures));
+    assert.ok(result.pages >= 1);
+    await fs.rm(dir, { recursive: true, force: true });
+});
