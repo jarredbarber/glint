@@ -18,10 +18,15 @@ export function rewriteStaticHtml(html: string): string {
             const context = params.get('context') || '';
             if (!assetPath) return _full;
             const clean = assetPath.replace(/^\.\//, '');
-            const joined = context
-                ? path.posix.join(path.posix.dirname(context), clean)
-                : clean;
-            return '/' + joined.replace(/^\/+/, '');
+            let target: string;
+            if (clean.startsWith('/')) {
+                target = clean; // already absolute (uploaded-image case)
+            } else if (context) {
+                target = '/' + path.posix.join(path.posix.dirname(context), clean);
+            } else {
+                target = '/' + clean;
+            }
+            return target;
         }
     );
 

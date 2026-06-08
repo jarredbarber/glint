@@ -41,3 +41,13 @@ test('strips ?raw=true query from any surviving /f/ link', () => {
         '<a href="/foo/bar/">r</a>'
     );
 });
+
+test('uses absolute asset path verbatim (uploaded-image case)', () => {
+    const html = '<img src="/api/asset/resolve?path=%2Ffoo%2Fbar.md.assets%2Fhash.png&context=foo%2Fbar.md">';
+    assert.equal(rewriteStaticHtml(html), '<img src="/foo/bar.md.assets/hash.png">');
+});
+
+test('absolute asset path with no context still used verbatim', () => {
+    const html = '<img src="/api/asset/resolve?path=%2Fimg%2Flogo.png">';
+    assert.equal(rewriteStaticHtml(html), '<img src="/img/logo.png">');
+});

@@ -1,6 +1,7 @@
 // src/build.ts
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import { VFile } from 'vfile';
 import { loadConfig } from './config.js';
 import { StorageManager } from './storage/index.js';
@@ -81,6 +82,20 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     const processor = createProcessor(config, (p) => knownPaths.has(p));
 
     const result: BuildResult = { pages: 0, failures: [], assetsCopied: 0 };
+
+    // Guard against destructive wipes of important directories.
+    const resolvedOut = path.resolve(opts.outDir);
+    const resolvedContent = path.resolve(opts.contentDir);
+    const root = path.parse(resolvedOut).root;
+    if (
+        resolvedOut === root ||
+        resolvedOut === os.homedir() ||
+        resolvedOut === resolvedContent ||
+        resolvedContent === resolvedOut ||
+        (resolvedContent + path.sep).startsWith(resolvedOut + path.sep)
+    ) {
+        throw new Error(`Refusing to build into "${resolvedOut}": it is the filesystem root, your home directory, or contains the content directory. Choose a separate --out path.`);
+    }
 
     // Clean output dir.
     await fs.rm(opts.outDir, { recursive: true, force: true });
