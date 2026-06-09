@@ -145,7 +145,9 @@ ${hotReload}
     });
 </script>
 ${isStatic ? `
-<script src="/assets/router.bundle.js"></script>
+<!-- Static output uses native navigation (no SPA router): full-page loads
+     are instant and reliable on a dumb file host, and avoid the router's
+     fetch+swap overhead and stale-listener issues. -->
 <script src="/assets/outline.bundle.js"></script>
 <script src="/assets/citations.bundle.js"></script>
 <script src="/assets/lightbox.bundle.js"></script>
