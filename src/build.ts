@@ -10,13 +10,15 @@ import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './server.js';
 import * as renderer from './renderer.js';
-import { rewriteStaticHtml } from './url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix } from './url-rewrite.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 export interface BuildOptions {
     contentDir: string;
     outDir: string;
     configPath?: string;
+    /** Base-path prefix for hosting under a subpath, e.g. "/wiki". */
+    prefix?: string;
 }
 
 export interface BuildResult {
@@ -126,6 +128,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
                 static: true,
             });
             html = rewriteStaticHtml(html);
+            if (opts.prefix) html = applyPrefix(html, opts.prefix);
 
             await writeFile(outputHtmlPath(opts.outDir, contentPath), html);
             result.pages++;
@@ -173,7 +176,26 @@ export async function watchSite(
         }
     };
 
-    await run(); // initial build
+    // In-flight guard: only one build runs at a time. Changes that land while a
+    // build is running set `pending`, which triggers exactly one trailing
+    // rebuild after the current one finishes — so output always reflects the
+    // latest state and concurrent builds never race on the output dir.
+    let building = false;
+    let pending = false;
+    const trigger = async () => {
+        if (building) { pending = true; return; }
+        building = true;
+        try {
+            do {
+                pending = false;
+                await run();
+            } while (pending);
+        } finally {
+            building = false;
+        }
+    };
+
+    await trigger(); // initial build
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     const watcher = chokidar.watch(resolvedContent, {
@@ -192,7 +214,7 @@ export async function watchSite(
 
     watcher.on('all', () => {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => { void run(); }, 300);
+        timer = setTimeout(() => { void trigger(); }, 300);
     });
 
     log(`Watching ${resolvedContent} for changes (ignoring ${resolvedOut})...`);

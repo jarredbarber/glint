@@ -47,3 +47,25 @@ export function rewriteStaticHtml(html: string): string {
 
     return html;
 }
+
+/**
+ * Prepends a base-path prefix to every root-absolute href/src in the HTML so a
+ * directory-per-page build can be hosted under a subpath (e.g. foo.com/wiki).
+ * Pure. Only touches single-leading-slash URLs — leaves "//cdn", "https://…",
+ * "#anchor", "mailto:", and already-relative URLs alone.
+ *
+ *   applyPrefix('<a href="/foo/">', '/wiki') -> '<a href="/wiki/foo/">'
+ *   applyPrefix('<a href="/">', 'wiki')      -> '<a href="/wiki/">'
+ *
+ * Note: this rewrites HTML attributes only. URLs embedded inside JavaScript
+ * string literals (e.g. the theme-switcher's '/assets/themes/…') and absolute
+ * url(/…) references inside copied CSS files are NOT prefixed.
+ */
+export function applyPrefix(html: string, prefix: string): string {
+    const normalized = '/' + prefix.replace(/^\/+|\/+$/g, '');
+    if (normalized === '/') return html; // empty prefix -> no-op
+    return html.replace(
+        /\b(href|src)="\/(?!\/)([^"]*)"/g,
+        (_full, attr: string, rest: string) => `${attr}="${normalized}/${rest}"`
+    );
+}
