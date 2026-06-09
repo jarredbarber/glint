@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { renderScripts } from '../renderer/scripts.js';
 import { renderSidebar } from '../renderer/sidebar.js';
 
-const KEEP = ['router', 'outline', 'citations', 'lightbox', 'code-blocks', 'mobile-sidebar'];
-const DROP = ['upload', 'editor', 'editor-integration', 'share', 'command-palette', 'image-resize'];
+// Static uses native navigation, so the SPA router is dropped too.
+const KEEP = ['outline', 'citations', 'lightbox', 'code-blocks', 'mobile-sidebar'];
+const DROP = ['router', 'upload', 'editor', 'editor-integration', 'share', 'command-palette', 'image-resize'];
 
 test('static mode emits only read-only bundles', () => {
     const out = renderScripts(undefined, [], true);
@@ -16,9 +17,10 @@ test('static mode emits only read-only bundles', () => {
     }
 });
 
-test('non-static mode still emits the editor bundle', () => {
+test('non-static mode still emits the editor and router bundles', () => {
     const out = renderScripts(undefined, [], false);
     assert.ok(out.includes('/assets/editor.bundle.js'));
+    assert.ok(out.includes('/assets/router.bundle.js'));
 });
 
 test('static mode keeps the inline mermaid init script', () => {
