@@ -49,7 +49,8 @@ program
     .argument('[path]', 'Path to content directory', process.cwd())
     .option('-o, --out <dir>', 'Output directory', 'dist')
     .option('-w, --watch', 'Rebuild on file changes')
-    .action(async (contentPath: string, options: { out: string; watch?: boolean }) => {
+    .option('--prefix <path>', 'Base path prefix for hosting under a subpath (e.g. /wiki)')
+    .action(async (contentPath: string, options: { out: string; watch?: boolean; prefix?: string }) => {
         const resolvedPath = path.resolve(contentPath);
         const stats = await fs.stat(resolvedPath);
         let contentDir = resolvedPath;
@@ -64,15 +65,17 @@ program
         console.log(`  content: ${contentDir}`);
         console.log(`  output:  ${outDir}`);
 
+        if (options.prefix) console.log(`  prefix:  ${options.prefix}`);
+
         if (options.watch) {
-            const stop = await watchSite({ contentDir, outDir, configPath });
+            const stop = await watchSite({ contentDir, outDir, configPath, prefix: options.prefix });
             const shutdown = () => { void stop().then(() => process.exit(0)); };
             process.on('SIGINT', shutdown);
             process.on('SIGTERM', shutdown);
             return; // keep process alive on the persistent watcher
         }
 
-        const result = await buildSite({ contentDir, outDir, configPath });
+        const result = await buildSite({ contentDir, outDir, configPath, prefix: options.prefix });
 
         console.log(`✓ ${result.pages} pages, ${result.assetsCopied} asset files`);
         if (result.failures.length > 0) {
