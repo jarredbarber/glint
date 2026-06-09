@@ -2,6 +2,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import chokidar from 'chokidar';
 import { VFile } from 'vfile';
 import { loadConfig } from './config.js';
 import { StorageManager } from './storage/index.js';
@@ -148,4 +149,55 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     await fs.cp(repoAssets, path.join(opts.outDir, 'assets'), { recursive: true });
 
     return result;
+}
+
+/**
+ * Build once, then watch the content dir and rebuild (debounced) on change.
+ * The output dir is ignored so the build's own writes don't trigger a loop.
+ * Returns a function that stops watching. Resolves after the initial build.
+ */
+export async function watchSite(
+    opts: BuildOptions,
+    log: (msg: string) => void = console.log
+): Promise<() => Promise<void>> {
+    const resolvedOut = path.resolve(opts.outDir);
+    const resolvedContent = path.resolve(opts.contentDir);
+
+    const run = async () => {
+        try {
+            const r = await buildSite(opts);
+            log(`✓ rebuilt ${r.pages} pages, ${r.assetsCopied} asset files`);
+            for (const f of r.failures) log(`  ✗ ${f.path}: ${f.error}`);
+        } catch (err) {
+            log(`✗ build error: ${(err as Error).message}`);
+        }
+    };
+
+    await run(); // initial build
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const watcher = chokidar.watch(resolvedContent, {
+        ignoreInitial: true,
+        persistent: true,
+        ignored: (p: string) => {
+            const abs = path.resolve(p);
+            return (
+                abs === resolvedOut ||
+                (abs + path.sep).startsWith(resolvedOut + path.sep) ||
+                /(^|[/\\])\./.test(p) ||
+                p.includes('node_modules')
+            );
+        },
+    });
+
+    watcher.on('all', () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { void run(); }, 300);
+    });
+
+    log(`Watching ${resolvedContent} for changes (ignoring ${resolvedOut})...`);
+    return async () => {
+        if (timer) clearTimeout(timer);
+        await watcher.close();
+    };
 }

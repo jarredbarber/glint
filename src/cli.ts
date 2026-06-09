@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'node:fs/promises';
 import { createServer } from './server.js';
 import { loadConfig } from './config.js';
-import { buildSite } from './build.js';
+import { buildSite, watchSite } from './build.js';
 
 const program = new Command();
 
@@ -48,7 +48,8 @@ program
     .description('Build a static HTML snapshot of the wiki')
     .argument('[path]', 'Path to content directory', process.cwd())
     .option('-o, --out <dir>', 'Output directory', 'dist')
-    .action(async (contentPath: string, options: { out: string }) => {
+    .option('-w, --watch', 'Rebuild on file changes')
+    .action(async (contentPath: string, options: { out: string; watch?: boolean }) => {
         const resolvedPath = path.resolve(contentPath);
         const stats = await fs.stat(resolvedPath);
         let contentDir = resolvedPath;
@@ -62,6 +63,14 @@ program
         console.log(`Building static site...`);
         console.log(`  content: ${contentDir}`);
         console.log(`  output:  ${outDir}`);
+
+        if (options.watch) {
+            const stop = await watchSite({ contentDir, outDir, configPath });
+            const shutdown = () => { void stop().then(() => process.exit(0)); };
+            process.on('SIGINT', shutdown);
+            process.on('SIGTERM', shutdown);
+            return; // keep process alive on the persistent watcher
+        }
 
         const result = await buildSite({ contentDir, outDir, configPath });
 
