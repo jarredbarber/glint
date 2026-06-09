@@ -1,6 +1,6 @@
 import { escapeHtml } from '../utils/html.js';
 
-export const renderBreadcrumbs = (currentPath: string) => {
+export const renderBreadcrumbs = (currentPath: string, isStatic: boolean = false) => {
     // Clean path
     const path = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath;
     if (!path || path === '/' || path === 'index.md') return '';
@@ -38,7 +38,7 @@ export const renderBreadcrumbs = (currentPath: string) => {
     html += `
             <li class="breadcrumb-separator">/</li>
             <li class="breadcrumb-current" aria-current="page">${escapeHtml(label)}</li>
-            <li class="breadcrumb-raw"><a href="/f/${escapeHtml(path)}?raw=true" title="View raw markdown">Raw</a></li>
+            ${isStatic ? '' : `<li class="breadcrumb-raw"><a href="/f/${escapeHtml(path)}?raw=true" title="View raw markdown">Raw</a></li>`}
         </ol>
     </nav>
     `;
