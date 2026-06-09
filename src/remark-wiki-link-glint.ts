@@ -43,14 +43,11 @@ export const remarkWikiLinkGlint: Plugin<[WikiLinkOptions?], Root> = function (o
                 const target = match[1].trim();
                 const label = (match[2] || target).trim();
 
-                // Simple URL encoding
-                const url = encodeURI(target);
+                const targetFile = target.endsWith('.md') ? target : `${target}.md`;
+                const url = `/f/${encodeURI(targetFile)}`;
 
-                // Existence check
                 let exists = true;
                 if (validateLink) {
-                    // Normalize target to a file path convention (append .md if missing)
-                    const targetFile = target.endsWith('.md') ? target : `${target}.md`;
                     exists = validateLink(targetFile);
                 }
 
