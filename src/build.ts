@@ -10,7 +10,7 @@ import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './server.js';
 import * as renderer from './renderer.js';
-import { rewriteStaticHtml, applyPrefix } from './url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn } from './url-rewrite.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 export interface BuildOptions {
@@ -19,6 +19,10 @@ export interface BuildOptions {
     configPath?: string;
     /** Base-path prefix for hosting under a subpath, e.g. "/wiki". */
     prefix?: string;
+    /** Inline KaTeX fonts as data: URIs (for sandboxed/opaque-origin hosts). */
+    inlineFonts?: boolean;
+    /** Load KaTeX CSS/fonts from the jsDelivr CDN instead of self-hosting. */
+    katexCdn?: boolean;
 }
 
 export interface BuildResult {
@@ -85,6 +89,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     const processor = createProcessor(config, (p) => knownPaths.has(p));
 
     const result: BuildResult = { pages: 0, failures: [], assetsCopied: 0 };
+    const katexVersion = opts.katexCdn ? await resolveKatexVersion() : '';
 
     // Guard against destructive wipes of important directories.
     const resolvedOut = path.resolve(opts.outDir);
@@ -128,6 +133,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
                 static: true,
             });
             html = rewriteStaticHtml(html);
+            if (opts.katexCdn) html = applyKatexCdn(html, katexVersion);
             if (opts.prefix) html = applyPrefix(html, opts.prefix);
 
             await writeFile(outputHtmlPath(opts.outDir, contentPath), html);
@@ -151,7 +157,56 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     const repoAssets = path.join(import.meta.dirname, '..', 'assets');
     await fs.cp(repoAssets, path.join(opts.outDir, 'assets'), { recursive: true });
 
+    // Optionally inline KaTeX fonts so math renders in sandboxed/opaque-origin
+    // hosts where CORS-mode font fetches are blocked.
+    if (opts.inlineFonts) {
+        await inlineKatexFonts(path.join(opts.outDir, 'assets', 'katex'));
+    }
+
     return result;
+}
+
+/**
+ * Rewrites katex.min.css in place so each `url(fonts/KaTeX_*.woff2)` becomes an
+ * inlined `url(data:font/woff2;base64,…)`. data: URLs are exempt from CORS, so
+ * the fonts load even when the page has an opaque/null origin (sandboxed host).
+ * woff2 is listed first in every @font-face src, so browsers use the data URI
+ * and never request the .woff/.ttf fallbacks. No-op if the CSS isn't present.
+ */
+/** Resolve the installed KaTeX version so the CDN CSS matches the renderer. */
+async function resolveKatexVersion(): Promise<string> {
+    try {
+        const pkgPath = path.join(import.meta.dirname, '..', 'node_modules', 'katex', 'package.json');
+        const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
+        return pkg.version as string;
+    } catch {
+        return '0.16'; // jsDelivr resolves a bare major/minor to the latest patch
+    }
+}
+
+async function inlineKatexFonts(katexDir: string): Promise<void> {
+    const cssPath = path.join(katexDir, 'katex.min.css');
+    let css: string;
+    try {
+        css = await fs.readFile(cssPath, 'utf8');
+    } catch {
+        return; // no katex css to process
+    }
+
+    const fontUrl = /url\(fonts\/(KaTeX_[\w-]+\.woff2)\)/g;
+    const cache = new Map<string, string>();
+    for (const [, fname] of css.matchAll(fontUrl)) {
+        if (cache.has(fname)) continue;
+        try {
+            const buf = await fs.readFile(path.join(katexDir, 'fonts', fname));
+            cache.set(fname, `url(data:font/woff2;base64,${buf.toString('base64')})`);
+        } catch {
+            cache.set(fname, `url(fonts/${fname})`); // leave as-is if missing
+        }
+    }
+
+    css = css.replace(fontUrl, (_full, fname: string) => cache.get(fname) || _full);
+    await fs.writeFile(cssPath, css);
 }
 
 /**
