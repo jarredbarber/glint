@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderScripts } from '../renderer/scripts.js';
+import { renderSidebar } from '../renderer/sidebar.js';
 
 const KEEP = ['router', 'outline', 'citations', 'lightbox', 'code-blocks', 'mobile-sidebar'];
 const DROP = ['upload', 'editor', 'editor-integration', 'share', 'command-palette', 'image-resize'];
@@ -33,4 +34,11 @@ test('static mode omits the SSE hot-reload EventSource', () => {
 test('non-static mode keeps the SSE hot-reload EventSource', () => {
     const out = renderScripts(undefined, [], false);
     assert.ok(out.includes('EventSource("/events")'), 'serve mode keeps SSE');
+});
+
+test('theme switcher derives stylesheet from existing href (prefix-safe), not a hardcoded /assets path', () => {
+    const out = renderSidebar({ fileTree: [], currentPath: 'x.md' });
+    // Must reuse the already-(prefix-)rendered <link> href instead of rebuilding an absolute path.
+    assert.ok(out.includes('themeLink.href.replace('), 'theme switch reuses existing href');
+    assert.ok(!out.includes("'/assets/themes/'"), 'no hardcoded absolute themes path in JS');
 });

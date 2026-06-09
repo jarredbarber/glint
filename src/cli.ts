@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import path from 'path';
 import fs from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { createServer } from './server.js';
 import { loadConfig } from './config.js';
 import { buildSite, watchSite } from './build.js';
@@ -50,7 +51,8 @@ program
     .option('-o, --out <dir>', 'Output directory', 'dist')
     .option('-w, --watch', 'Rebuild on file changes')
     .option('--prefix <path>', 'Base path prefix for hosting under a subpath (e.g. /wiki)')
-    .action(async (contentPath: string, options: { out: string; watch?: boolean; prefix?: string }) => {
+    .option('--post-hook <command>', 'Shell command to run after a successful build (e.g. a deploy)')
+    .action(async (contentPath: string, options: { out: string; watch?: boolean; prefix?: string; postHook?: string }) => {
         const resolvedPath = path.resolve(contentPath);
         const stats = await fs.stat(resolvedPath);
         let contentDir = resolvedPath;
@@ -66,9 +68,27 @@ program
         console.log(`  output:  ${outDir}`);
 
         if (options.prefix) console.log(`  prefix:  ${options.prefix}`);
+        if (options.postHook) console.log(`  hook:    ${options.postHook}`);
+
+        // Runs the post-hook command, inheriting stdio. Resolves when it exits
+        // (never rejects — a failed hook is logged, not fatal, so the watcher
+        // keeps running).
+        const runPostHook = (cmd: string) => new Promise<void>((resolve) => {
+            console.log(`Running post-hook: ${cmd}`);
+            const child = spawn(cmd, { shell: true, stdio: 'inherit' });
+            child.on('exit', (code) => {
+                if (code !== 0) console.error(`✗ post-hook exited with code ${code}`);
+                resolve();
+            });
+            child.on('error', (err) => {
+                console.error(`✗ post-hook error: ${err.message}`);
+                resolve();
+            });
+        });
 
         if (options.watch) {
-            const stop = await watchSite({ contentDir, outDir, configPath, prefix: options.prefix });
+            const onRebuild = options.postHook ? () => runPostHook(options.postHook!) : undefined;
+            const stop = await watchSite({ contentDir, outDir, configPath, prefix: options.prefix }, console.log, onRebuild);
             const shutdown = () => { void stop().then(() => process.exit(0)); };
             process.on('SIGINT', shutdown);
             process.on('SIGTERM', shutdown);
@@ -83,6 +103,9 @@ program
             for (const f of result.failures) console.error(`  ${f.path}: ${f.error}`);
             process.exit(1);
         }
+
+        // One-shot mode: run the deploy hook after a clean build.
+        if (options.postHook) await runPostHook(options.postHook);
     });
 
 program.parse();
