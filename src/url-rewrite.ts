@@ -62,6 +62,20 @@ export function rewriteStaticHtml(html: string): string {
  * switcher derives its stylesheet URL from the (already-prefixed) <link> href,
  * and the bundled CSS uses only relative url(...) references.
  */
+/**
+ * Swaps the self-hosted KaTeX stylesheet link for the jsDelivr CDN copy at the
+ * given version. The CDN serves the CSS and its fonts with
+ * `Access-Control-Allow-Origin: *`, so math fonts load even when the page has an
+ * opaque/null origin (sandboxed host) where self-hosted, CORS-fetched fonts are
+ * blocked. Run before applyPrefix so the resulting https URL is left untouched.
+ */
+export function applyKatexCdn(html: string, version: string): string {
+    return html.replace(
+        /href="[^"]*\/katex\.min\.css"/g,
+        `href="https://cdn.jsdelivr.net/npm/katex@${version}/dist/katex.min.css"`
+    );
+}
+
 export function applyPrefix(html: string, prefix: string): string {
     const normalized = '/' + prefix.replace(/^\/+|\/+$/g, '');
     if (normalized === '/') return html; // empty prefix -> no-op

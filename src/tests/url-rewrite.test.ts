@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rewriteStaticHtml, applyPrefix } from '../url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn } from '../url-rewrite.js';
 
 test('rewrites /f/ page links with .md to directory-per-page', () => {
     assert.equal(
@@ -79,4 +79,25 @@ test('applyPrefix with empty prefix is a no-op', () => {
     const html = '<a href="/foo/">x</a>';
     assert.equal(applyPrefix(html, ''), html);
     assert.equal(applyPrefix(html, '/'), html);
+});
+
+test('applyKatexCdn swaps the self-hosted katex css for the versioned CDN url', () => {
+    const html = '<link rel="stylesheet" href="/assets/katex/katex.min.css">';
+    assert.equal(
+        applyKatexCdn(html, '0.16.27'),
+        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css">'
+    );
+});
+
+test('applyKatexCdn also matches a prefixed katex href', () => {
+    const html = '<link href="/wiki/assets/katex/katex.min.css">';
+    assert.equal(
+        applyKatexCdn(html, '0.16.27'),
+        '<link href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css">'
+    );
+});
+
+test('applyKatexCdn leaves other stylesheet links alone', () => {
+    const html = '<link href="/assets/layout.css"><link href="/assets/highlight.css">';
+    assert.equal(applyKatexCdn(html, '0.16.27'), html);
 });

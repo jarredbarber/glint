@@ -93,3 +93,42 @@ test('allows building into a subdirectory of the content dir', async () => {
     assert.ok(result.pages >= 1);
     await fs.rm(dir, { recursive: true, force: true });
 });
+
+test('--inline-fonts rewrites katex css woff2 urls to data: URIs', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-inline-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n\n$$\\sum_i i$$\n');
+    const out = path.join(dir, 'dist');
+
+    await buildSite({ contentDir: dir, outDir: out, inlineFonts: true });
+    const css = await fs.readFile(path.join(out, 'assets', 'katex', 'katex.min.css'), 'utf8');
+    assert.ok(css.includes('url(data:font/woff2;base64,'), 'woff2 inlined as data URI');
+    assert.ok(!/url\(fonts\/KaTeX_[\w-]+\.woff2\)/.test(css), 'no relative woff2 urls remain');
+
+    await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('without --inline-fonts the katex css keeps relative font urls', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-noinline-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n');
+    const out = path.join(dir, 'dist');
+
+    await buildSite({ contentDir: dir, outDir: out });
+    const css = await fs.readFile(path.join(out, 'assets', 'katex', 'katex.min.css'), 'utf8');
+    assert.ok(/url\(fonts\/KaTeX_[\w-]+\.woff2\)/.test(css), 'relative woff2 urls present');
+    assert.ok(!css.includes('data:font/woff2'), 'no data URIs without the flag');
+
+    await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('--katex-cdn points the katex stylesheet at the CDN', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-cdn-'));
+    await fs.writeFile(path.join(dir, 'README.md'), '# x\n\n$$\\sum_i i$$\n');
+    const out = path.join(dir, 'dist');
+
+    await buildSite({ contentDir: dir, outDir: out, katexCdn: true });
+    const html = await fs.readFile(path.join(out, 'README', 'index.html'), 'utf8');
+    assert.match(html, /href="https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[\d.]+\/dist\/katex\.min\.css"/);
+    assert.ok(!html.includes('/assets/katex/katex.min.css'), 'self-hosted katex link replaced');
+
+    await fs.rm(dir, { recursive: true, force: true });
+});
