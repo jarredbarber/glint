@@ -75,7 +75,7 @@ export const renderSidebar = (options: SidebarOptions) => {
             const theme = this.value;
             document.body.className = document.body.className.replace(/\\S+/, theme);
             const themeLink = document.querySelector('link[href*=\\'themes/\\']');
-            if (themeLink) themeLink.href = '/assets/themes/' + theme + '.css';
+            if (themeLink) themeLink.href = themeLink.href.replace(/[^/]*\\.css$/, theme + '.css');
             ${!minimalChrome ? `fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });` : ''}
         ">
             ${AVAILABLE_THEMES.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}

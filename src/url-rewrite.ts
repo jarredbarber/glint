@@ -57,9 +57,10 @@ export function rewriteStaticHtml(html: string): string {
  *   applyPrefix('<a href="/foo/">', '/wiki') -> '<a href="/wiki/foo/">'
  *   applyPrefix('<a href="/">', 'wiki')      -> '<a href="/wiki/">'
  *
- * Note: this rewrites HTML attributes only. URLs embedded inside JavaScript
- * string literals (e.g. the theme-switcher's '/assets/themes/…') and absolute
- * url(/…) references inside copied CSS files are NOT prefixed.
+ * This rewrites HTML attributes only, which is sufficient for the static
+ * output: the kept client bundles construct no absolute URLs, the theme
+ * switcher derives its stylesheet URL from the (already-prefixed) <link> href,
+ * and the bundled CSS uses only relative url(...) references.
  */
 export function applyPrefix(html: string, prefix: string): string {
     const normalized = '/' + prefix.replace(/^\/+|\/+$/g, '');

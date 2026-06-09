@@ -161,35 +161,48 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
  */
 export async function watchSite(
     opts: BuildOptions,
-    log: (msg: string) => void = console.log
+    log: (msg: string) => void = console.log,
+    onRebuild?: () => void | Promise<void>
 ): Promise<() => Promise<void>> {
     const resolvedOut = path.resolve(opts.outDir);
     const resolvedContent = path.resolve(opts.contentDir);
 
-    const run = async () => {
+    const run = async (): Promise<boolean> => {
         try {
             const r = await buildSite(opts);
             log(`✓ rebuilt ${r.pages} pages, ${r.assetsCopied} asset files`);
             for (const f of r.failures) log(`  ✗ ${f.path}: ${f.error}`);
+            return true;
         } catch (err) {
             log(`✗ build error: ${(err as Error).message}`);
+            return false;
         }
     };
 
     // In-flight guard: only one build runs at a time. Changes that land while a
     // build is running set `pending`, which triggers exactly one trailing
     // rebuild after the current one finishes — so output always reflects the
-    // latest state and concurrent builds never race on the output dir.
+    // latest state and concurrent builds never race on the output dir. The
+    // onRebuild hook (e.g. a deploy) runs once after a burst settles, while the
+    // lock is still held, so it never reads a half-written output dir.
     let building = false;
     let pending = false;
     const trigger = async () => {
         if (building) { pending = true; return; }
         building = true;
         try {
+            let ok = false;
             do {
                 pending = false;
-                await run();
+                ok = await run();
             } while (pending);
+            if (ok && onRebuild) {
+                try {
+                    await onRebuild();
+                } catch (err) {
+                    log(`✗ post-hook error: ${(err as Error).message}`);
+                }
+            }
         } finally {
             building = false;
         }
