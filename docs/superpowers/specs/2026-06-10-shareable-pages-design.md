@@ -12,12 +12,12 @@ entire wiki's structure and contents.
 
 We want a **shareable standalone page**: pick individual pages, and have the
 build emit isolated copies that reveal nothing about the rest of the wiki — no
-sidebar, no file tree, no links that leak the existence of unshared pages. These
+sidebar, no file tree, no links that leak the existence of other pages. These
 copies live at predictable, ACL-able paths.
 
 ## Goals
 
-- Mark individual pages as shareable via frontmatter.
+- Mark individual pages as shareable via a single frontmatter boolean.
 - Emit a standalone copy of each shared page under a dedicated, isolated
   `/share/` subtree.
 - Shared pages leak nothing about the wiki structure.
@@ -26,47 +26,46 @@ copies live at predictable, ACL-able paths.
 
 ## Non-goals (YAGNI / explicitly cut)
 
+- **No closure / transitive sharing.** Sharing a page shares only that page.
+  Cross-page links degrade to plain text (see below). Closure — and the
+  "rewrite link to another shared page" machinery it would justify — can be
+  bolted on later if dead links between co-shared pages ever become an actual
+  annoyance. Do not build it speculatively.
+- **No rich `share` frontmatter block.** No explicit `slug`, no `enabled`, no
+  `closure`, no title override, no expiry. Just `share: true`.
 - No real access control / auth. Static output cannot enforce it; hosting-level
   ACLs (a "useful quirk") can be pointed at `/share/` paths by the user.
-- No per-page title override, no expiry, no configurable base path.
+- No configurable output base path / no `[share]` config section in
+  `glint.toml`.
 - No single-file (`.html` data-URI) export. Possible future extension; out of
   scope here.
-- No `[share]` config section in `glint.toml`.
 
 ## Sharing model (Section 1)
 
-Sharing is declared **per page in frontmatter only**. No site config required.
+Sharing is declared **per page in frontmatter only**, as a single boolean. No
+site config required.
 
 ```yaml
-share: true                    # shorthand for { enabled: true }
-# — or —
-share:
-  enabled: true
-  slug: q3-roadmap             # optional; omitted → hash(path)
-  closure: false               # optional; true = also share linked pages
+share: true
 ```
 
-- **Salt:** a hardcoded constant in the build code. This is not a
-  high-security product; the salt only raises the bar above "guess the path."
-- **Output subtree:** hardcoded `/share/`.
-- **Slug resolution:** `share.slug` if present, else
-  `base32(hmac(SALT, contentPath)).slice(0, 10)`.
+- **Slug:** always `base32(hmac(SALT, contentPath)).slice(0, 10)`.
+  - `SALT` is a hardcoded constant in the build code. This is not a
+    high-security product; the salt only raises the bar above "guess the path."
   - Derived from the **content path**, not content bytes → stable across edits
     (a content hash would churn the URL on every save).
   - Salted HMAC → not computable from the path alone.
+- **Output subtree:** hardcoded `/share/`.
 
 ## Build flow & standalone rendering (Section 2)
 
 Implemented inside `buildSite` (`src/build.ts`):
 
-1. After collecting `mdPaths`, parse each page's frontmatter and scan for
-   `share`. Build a **share set**: `Map<contentPath, { slug, closure }>`.
-2. For any page with `closure: true`, walk its outbound wiki/relative links
-   transitively (cycle-guarded) and add each reachable content page to the share
-   set. Closure-added pages get their own path-hash slug.
-3. For each page in the share set, render a **standalone** variant and emit to
+1. After collecting `mdPaths`, parse each page's frontmatter and check for
+   `share: true`. Build a **share set**: `Set<contentPath>`.
+2. For each page in the share set, render a **standalone** variant and emit to
    `/share/<slug>/index.html`.
-4. The normal full build still emits every page (including shared ones) at its
+3. The normal full build still emits every page (including shared ones) at its
    usual in-tree path with sidebar — unchanged. `/share/` is additive.
 
 **Standalone rendering** reuses the existing `static: true` renderer plus a new
@@ -86,15 +85,10 @@ A new HTML pass applied **only** to `/share/` pages, running **after** the
 existing `rewriteStaticHtml` (so it sees resolved page URLs, not `/f/...`). For
 each `href` pointing at another content page:
 
-- **Target is in the share set** → rewrite to `/share/<target-slug>/`
-  (relative, so the whole `/share/` tree is portable as a unit).
-- **Target is NOT shared** → strip the `<a>` element, leaving its text content
-  in place. No href, no leak.
+- **Strip the `<a>` element, leaving its text content in place.** Every
+  inter-page link becomes plain text — no href, no leak. There is no
+  "is the target also shared?" lookup (that's the closure feature we cut).
 - **External / anchor / mailto** → untouched.
-
-With `closure: true`, the closure walk guarantees linked targets are in the
-share set, so they rewrite to working `/share/` links rather than being
-stripped. Without closure, cross-page links degrade to plain text.
 
 ## Assets (Section 4)
 
@@ -109,12 +103,12 @@ nothing.
 
 ## Files likely touched
 
-- `src/build.ts` — share-set collection, closure walk, standalone emit, asset
-  copy into share tree.
-- `src/url-rewrite.ts` — new share-link rewrite pass (strip-or-rewrite).
+- `src/build.ts` — share-set collection (scan for `share: true`), standalone
+  emit, asset copy into share tree, path-hash slug.
+- `src/url-rewrite.ts` — new strip-internal-links pass for standalone pages.
 - `src/renderer.ts` / `src/renderer/*` — `standalone` flag wiring (suppress
   sidebar/nav).
-- `src/markdown.ts` / frontmatter parsing — surface the `share` field.
+- `src/markdown.ts` / frontmatter parsing — surface the `share` boolean.
 - Tests: `src/tests/build.test.ts`, `src/tests/render-static.test.ts`.
 
 ## Housekeeping
@@ -125,8 +119,7 @@ nothing.
 
 ## Open questions / risks
 
-- Closure walk depth is unbounded by design (`closure: true` is an explicit
-  opt-in). Cycle guard is required; a runaway closure would over-share, but that
-  is the user's stated choice. Consider logging the closure size at build time.
-- Frontmatter `share` schema should be validated (zod) and produce a clear
-  build error on malformed input rather than silently skipping.
+- Frontmatter `share` should be tolerant of a malformed value (e.g. a non-bool):
+  treat anything other than `true` as "not shared," and don't crash the build.
+  A truthy-but-wrong value silently not sharing is acceptable for a boolean this
+  simple — no zod schema needed.
