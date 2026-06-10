@@ -19,10 +19,17 @@ copies live at predictable, ACL-able paths.
 
 - Mark individual pages as shareable via a single frontmatter boolean.
 - Emit a standalone copy of each shared page under a dedicated, isolated
-  `/share/` subtree.
-- Shared pages leak nothing about the wiki structure.
+  `share/` subtree.
+- Optionally redirect the share subtree to a **separate output directory** via
+  `glint build --shared-out <dir>`, so the full wiki can be published to a
+  private host while shares go to an independently published location. A
+  separate `--shared-out` dir is made self-contained (gets its own copy of the
+  client `/assets/` bundles + KaTeX).
+- Shared pages leak nothing about the wiki structure or other pages' paths
+  (including via asset URLs — a shared page's images are copied in and
+  referenced relatively).
 - Share URLs are stable across content edits and not trivially guessable.
-- The normal full build is unchanged — the `/share/` tree is purely additive.
+- The normal full build is unchanged — the share tree is purely additive.
 
 ## Non-goals (YAGNI / explicitly cut)
 
@@ -34,9 +41,9 @@ copies live at predictable, ACL-able paths.
 - **No rich `share` frontmatter block.** No explicit `slug`, no `enabled`, no
   `closure`, no title override, no expiry. Just `share: true`.
 - No real access control / auth. Static output cannot enforce it; hosting-level
-  ACLs (a "useful quirk") can be pointed at `/share/` paths by the user.
-- No configurable output base path / no `[share]` config section in
-  `glint.toml`.
+  ACLs (a "useful quirk") can be pointed at the share paths by the user.
+- No `[share]` config section in `glint.toml`. The only knob is the
+  `--shared-out` CLI flag.
 - No single-file (`.html` data-URI) export. Possible future extension; out of
   scope here.
 
@@ -55,35 +62,45 @@ share: true
   - Derived from the **content path**, not content bytes → stable across edits
     (a content hash would churn the URL on every save).
   - Salted HMAC → not computable from the path alone.
-- **Output subtree:** hardcoded `/share/`.
+- **Output location (share root):**
+  - Default: `<outDir>/share/`. Shares ride along inside the normal build and
+    reuse its sibling `/assets/` bundles (referenced absolutely).
+  - With `--shared-out <dir>`: `<dir>/` directly (one `<slug>/` dir per share).
+    Because this dir is meant to be published on its own, it is made
+    self-contained: the client `/assets/` bundle dir (plus KaTeX, honoring
+    `--inline-fonts` / `--katex-cdn`) is copied into `<dir>/assets/`.
+  - Either way, each share is emitted at `<share-root>/<slug>/index.html`.
 
 ## Build flow & standalone rendering (Section 2)
 
 Implemented inside `buildSite` (`src/build.ts`):
 
-1. After collecting `mdPaths`, parse each page's frontmatter and check for
-   `share: true`. Build a **share set**: `Set<contentPath>`.
-2. For each page in the share set, render a **standalone** variant and emit to
-   `/share/<slug>/index.html`.
-3. The normal full build still emits every page (including shared ones) at its
-   usual in-tree path with sidebar — unchanged. `/share/` is additive.
+In the existing per-page loop, after emitting the normal page, check
+`frontmatter.share === true`. If set, also render a **standalone** variant and
+emit it to `<share-root>/<slug>/index.html`. No separate pre-scan is needed —
+each share is independent (no closure), so it can be produced inline alongside
+the normal page. The normal full build still emits every page (including shared
+ones) at its usual in-tree path with sidebar — unchanged. The share tree is
+additive.
 
-**Standalone rendering** reuses the existing `static: true` renderer plus a new
-`standalone: true` flag that:
+**Standalone rendering** reuses the existing `static: true` renderer. The
+existing `isShared` rendering mode (driven today by server share links via
+`shareId`) already hides the file tree, breadcrumbs, Views section, vim/share
+buttons, and makes theme switching client-only. We add a `standalone?: boolean`
+to `RenderOptions` and compute `isShared = !!shareId || standalone`, so the
+share build gets all of that without setting a bogus `shareId`. The one extra
+change: the sidebar branding logo links to `/` (home); in `standalone` mode it
+renders without that link so nothing points back into the wiki. Math (KaTeX),
+code highlighting, and images are kept.
 
-- omits the sidebar / file tree entirely,
-- drops home/breadcrumb nav that points back into the wiki,
-- keeps theme switcher, math (KaTeX), code highlighting, and images.
-
-`standalone: true` is applied **automatically** to every page emitted into
-`/share/`. It is not a user-facing flag; it is simply how the share renderer is
-invoked. The in-tree copy is rendered normally.
+`standalone: true` is applied **automatically** for every share page. It is not
+a user-facing flag.
 
 ## Link rewriting inside a standalone page (Section 3)
 
-A new HTML pass applied **only** to `/share/` pages, running **after** the
-existing `rewriteStaticHtml` (so it sees resolved page URLs, not `/f/...`). For
-each `href` pointing at another content page:
+A new HTML pass applied **only** to share pages, running **after** the existing
+`rewriteStaticHtml` (so it sees resolved page URLs, not `/f/...`). For each
+`href` pointing at another content page:
 
 - **Strip the `<a>` element, leaving its text content in place.** Every
   inter-page link becomes plain text — no href, no leak. There is no
@@ -92,24 +109,37 @@ each `href` pointing at another content page:
 
 ## Assets (Section 4)
 
-For each shared page, copy its `{page}.md.assets/` directory into
-`/share/<slug>/assets/` and rewrite the page's asset URLs to point there
-(relative). Each `/share/<slug>/` directory is therefore self-contained: it can
-be ACL'd, or even copied out on its own, and still render.
+For each shared page, copy its `{base}.md.assets/` directory into
+`<share-root>/<slug>/{base}.md.assets/` and rewrite the page's image URLs from
+the absolute `/{dir}/{base}.md.assets/...` (produced by `rewriteStaticHtml`) to
+the **relative** `{base}.md.assets/...`. This both isolates the share (no
+absolute path back into the wiki tree) and keeps each `<slug>/` directory
+self-contained.
 
-Shared client bundles under `/assets/` (KaTeX CSS/fonts, JS) stay where they
-are and are referenced absolutely. They are not wiki content, so they leak
+Client bundles under `/assets/` (KaTeX CSS/fonts, JS) are referenced
+absolutely. In the default (in-`outDir`) case they resolve to the build's own
+`/assets/`. With `--shared-out`, a copy is placed at `<share-root>/assets/` so
+the separate dir resolves them too. They are not wiki content, so they leak
 nothing.
 
 ## Files likely touched
 
-- `src/build.ts` — share-set collection (scan for `share: true`), standalone
-  emit, asset copy into share tree, path-hash slug.
-- `src/url-rewrite.ts` — new strip-internal-links pass for standalone pages.
-- `src/renderer.ts` / `src/renderer/*` — `standalone` flag wiring (suppress
-  sidebar/nav).
-- `src/markdown.ts` / frontmatter parsing — surface the `share` boolean.
-- Tests: `src/tests/build.test.ts`, `src/tests/render-static.test.ts`.
+- `src/build.ts` — `BuildOptions.sharedOut`, share detection in the loop,
+  path-hash slug, standalone render + emit, share-asset rewrite/copy, and (for
+  `--shared-out`) self-contained `/assets/` copy.
+- `src/url-rewrite.ts` — new `stripInternalLinks` pass and `rewriteShareAssets`
+  helper (absolute `.md.assets` URL → relative). Plus the path-hash slug helper
+  (or a small new `src/share-slug.ts`).
+- `src/renderer.ts` — add `standalone?: boolean` to `RenderOptions`; compute
+  `isShared = !!shareId || standalone`; thread `standalone` to the sidebar.
+- `src/renderer/sidebar.ts` — drop the branding home link when `standalone`.
+- `src/cli.ts` — add `--shared-out <dir>` option, pass to `buildSite` /
+  `watchSite`.
+- Tests: `src/tests/build.test.ts`, `src/tests/render-static.test.ts`,
+  `src/tests/url-rewrite.test.ts` (create if absent).
+
+Frontmatter already surfaces arbitrary keys via `parseMarkdown` →
+`frontmatter`, so `frontmatter.share` is available with no parser change.
 
 ## Housekeeping
 
