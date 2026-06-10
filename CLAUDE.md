@@ -34,7 +34,7 @@ tsx --test src/tests/parser.test.ts
 - **Markdown:** unified ecosystem (remark → rehype pipeline)
 - **Editor:** CodeMirror 6 with vim mode
 - **Build:** TypeScript (strict mode) + esbuild for client bundles
-- **Config:** Zod schema validation, stored in `.glint/config.json`
+- **Config:** Zod schema validation over TOML (`glint.toml` or `.glint/config.toml`, parsed by `smol-toml`)
 
 ### Unified Pipeline
 
@@ -45,7 +45,8 @@ remark-parse → remark-math → remark-gfm → remark-glint-widgets
   → remark-glint-citations → remark-wiki-link-glint → remark-mermaid-glint
   → remark-rehype(raw) → rehype-source-lines → rehype-raw
   → rehype-glint-image → rehype-glint-citations → rehype-katex
-  → rehype-highlight → rehype-slug → rehype-autolink-headings
+  → rehype-highlight → rehype-glint-code-blocks → rehype-glint-sections
+  → rehype-slug → rehype-autolink-headings
   → rehype-extract-headings → rehype-stringify
 ```
 
@@ -64,6 +65,8 @@ remark-parse → remark-math → remark-gfm → remark-glint-widgets
 
 4. **LRU caching** — Rendered HTML is cached by file path, invalidated on mtime change.
 
+5. **Storage providers** — `StorageManager` supports multiple providers (Local, Git) with prefix-based mounts. Git provider auto-commits and syncs. Providers implement `StorageProvider` interface in `src/storage/types.ts`.
+
 ### Directory Layout
 
 ```
@@ -71,7 +74,7 @@ src/
 ├── cli.ts                    # Commander CLI entry point
 ├── server.ts                 # Main Fastify server + unified pipeline
 ├── renderer.ts               # HTML page template generator
-├── config.ts                 # Zod schema for .glint/config.json
+├── config.ts                 # Zod schema for glint.toml / .glint/config.toml
 ├── renderer/                 # Modular page rendering (head, sidebar, scripts, etc.)
 ├── server/
 │   ├── auth.ts              # bcrypt password auth + session cookies
@@ -94,6 +97,10 @@ src/
 | `/api/upload` | POST | Upload image to `.assets/` folder |
 | `/api/tasks` | GET | Aggregated task list from all files |
 | `/tasks` | GET | Task dashboard page |
+| `/api/journal/*` | GET/POST | Journal entries |
+| `/api/documents/*` | GET/POST | Document CRUD |
+| `/api/git/*` | POST | Git operations (commit, sync) |
+| `/f/*` | GET | File serving (`?raw=true` for raw markdown) |
 
 ## Widget System
 
