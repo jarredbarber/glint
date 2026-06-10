@@ -84,3 +84,41 @@ export function applyPrefix(html: string, prefix: string): string {
         (_full, attr: string, rest: string) => `${attr}="${normalized}/${rest}"`
     );
 }
+
+/**
+ * Strips every <a> that is an inter-page link, leaving its inner content in
+ * place. Used only on standalone share pages so they cannot link back into the
+ * wiki and leak no wiki paths. Kept intact: external schemes (http/https),
+ * protocol-relative (//…), mailto:, tel:, and in-page anchors (#…). Everything
+ * else — root-relative ("/x"), relative ("x.md", "../x") — is stripped to its
+ * inner text. Anchors never nest, so the non-greedy inner match is safe.
+ */
+export function stripInternalLinks(html: string): string {
+    // Keep only links that point outside the wiki: external schemes,
+    // protocol-relative URLs, and in-page anchors. Everything else — root-
+    // relative ("/x"), relative ("x.md", "../x") — is an inter-page link and
+    // is stripped to its inner text so a share page leaks no wiki paths and
+    // has no broken links. Anchors never nest, so the non-greedy match is safe.
+    const KEEP = /^(?:https?:|\/\/|mailto:|tel:|#)/i;
+    return html.replace(
+        /<a\b[^>]*\bhref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g,
+        (full, href: string, inner: string) => (KEEP.test(href) ? full : inner)
+    );
+}
+
+/**
+ * Rewrites a shared page's own image URLs from the absolute form produced by
+ * rewriteStaticHtml ("/{dir}/{base}.md.assets/…") to the page-relative form
+ * ("{base}.md.assets/…"), so the emitted <share-root>/<slug>/ directory is
+ * self-contained and reveals no wiki path. contentPath is the page's source
+ * path, e.g. "notes/first.md".
+ */
+export function rewriteShareAssets(html: string, contentPath: string): string {
+    const base = path.posix.basename(contentPath, '.md');
+    const dir = path.posix.dirname(contentPath); // "." for root-level files
+    const absPrefix = dir === '.' ? `/${base}.md.assets/` : `/${dir}/${base}.md.assets/`;
+    const relPrefix = `${base}.md.assets/`;
+    // Anchor to an attribute-value boundary (double-quote) so only URL values
+    // are touched. rehype-stringify always emits double-quoted attributes.
+    return html.split(`"${absPrefix}`).join(`"${relPrefix}`);
+}

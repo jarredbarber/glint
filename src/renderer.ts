@@ -23,11 +23,12 @@ export interface RenderOptions {
     scripts?: string[];
     styles?: string[];
     static?: boolean;
+    standalone?: boolean;
 }
 
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [], static: isStatic = false } = options;
-    const isShared = !!shareId;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [], static: isStatic = false, standalone = false } = options;
+    const isShared = !!shareId || standalone;
 
     return `
 <!DOCTYPE html>
@@ -91,7 +92,7 @@ export const renderHtml = (options: RenderOptions) => {
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared, static: isStatic })}
+    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared, static: isStatic, standalone })}
     <main class="content">
         <div class="content-wrapper">
             ${!isShared ? renderBreadcrumbs(currentPath, isStatic) : ''}
