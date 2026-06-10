@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets } from '../url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets, relativizeShareAssets } from '../url-rewrite.js';
 
 test('rewrites /f/ page links with .md to directory-per-page', () => {
     assert.equal(
@@ -142,4 +142,17 @@ test('rewriteShareAssets handles a root-level page (no dir)', () => {
         rewriteShareAssets(html, 'first.md'),
         '<img src="first.md.assets/p.png">'
     );
+});
+
+test('relativizeShareAssets turns /assets/ refs into ../assets/', () => {
+    const html = '<link href="/assets/layout.css"><script src="/assets/outline.bundle.js"></script>';
+    assert.equal(
+        relativizeShareAssets(html),
+        '<link href="../assets/layout.css"><script src="../assets/outline.bundle.js"></script>'
+    );
+});
+
+test('relativizeShareAssets leaves external and non-asset urls alone', () => {
+    const html = '<a href="https://x/assets/y"><img src="first.md.assets/p.png">';
+    assert.equal(relativizeShareAssets(html), html);
 });

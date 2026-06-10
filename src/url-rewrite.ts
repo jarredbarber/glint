@@ -107,6 +107,20 @@ export function stripInternalLinks(html: string): string {
 }
 
 /**
+ * Rewrites root-absolute "/assets/…" references (CSS, JS bundles, KaTeX, fonts)
+ * to the page-relative "../assets/…" form. A standalone share page is emitted at
+ * <share-root>/<slug>/index.html — one level deep — so "../assets/" resolves to
+ * <share-root>/assets/, the share dir's own self-contained copy. This makes the
+ * page's chrome load no matter where the share dir is hosted (site root, a
+ * subpath, or opened straight off disk), instead of depending on an absolute
+ * "/assets/" that only resolves when the share dir is the server root. Only
+ * "/assets/" URLs are touched; external and already-relative URLs are left as-is.
+ */
+export function relativizeShareAssets(html: string): string {
+    return html.replace(/\b(href|src)="\/assets\//g, '$1="../assets/');
+}
+
+/**
  * Rewrites a shared page's own image URLs from the absolute form produced by
  * rewriteStaticHtml ("/{dir}/{base}.md.assets/…") to the page-relative form
  * ("{base}.md.assets/…"), so the emitted <share-root>/<slug>/ directory is

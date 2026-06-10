@@ -158,6 +158,17 @@ test('emits a standalone share page with stripped links and relative assets', as
     assert.ok(shareHtml.includes('Second'), 'link text kept');
     assert.ok(shareHtml.includes('src="first.md.assets/p.png"'), 'relative asset');
     await fs.access(path.join(outDir, 'share', slug, 'first.md.assets', 'p.png'));
+
+    // Chrome (CSS/JS) is referenced relative to the share page so it loads from
+    // the share root's own assets/ copy wherever the dir is hosted.
+    assert.ok(shareHtml.includes('href="../assets/layout.css"'), 'relative css');
+    assert.ok(shareHtml.includes('src="../assets/outline.bundle.js"'), 'relative js');
+    assert.ok(!/(?:href|src)="\/assets\//.test(shareHtml), 'no absolute /assets/ refs');
+    await fs.access(path.join(outDir, 'share', 'assets', 'layout.css'));
+
+    // No glint branding on the share page.
+    assert.ok(!shareHtml.includes('logo.png'), 'no logo');
+    assert.ok(!/alt="glint"/.test(shareHtml), 'no glint mention');
 });
 
 test('does not emit a share page for an unshared file', async () => {
@@ -183,6 +194,22 @@ test('--shared-out emits shares to a separate, self-contained dir', async () => 
     await fs.access(path.join(sharedOut, slug, 'index.html'));
     await fs.access(path.join(sharedOut, 'assets', 'katex', 'katex.min.css'));
     await assert.rejects(fs.access(path.join(outDir, 'share')));
+});
+
+test('--shared-out share pages keep relative assets even with --prefix', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-sop-content-'));
+    await fs.writeFile(path.join(dir, 'doc.md'), '---\nshare: true\n---\n# Doc\n');
+    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-sop-out-'));
+    const sharedOut = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-sop-share-'));
+
+    await buildSite({ contentDir: dir, outDir, sharedOut, prefix: '/wiki' });
+
+    const slug = shareSlug('doc.md');
+    const shareHtml = await fs.readFile(path.join(sharedOut, slug, 'index.html'), 'utf8');
+    // The prefix is for the main wiki; a self-contained share page must not pick
+    // it up, or its CSS/JS would point at a /wiki/assets/ path the share dir lacks.
+    assert.ok(shareHtml.includes('href="../assets/layout.css"'), 'relative css, no prefix');
+    assert.ok(!shareHtml.includes('/wiki/assets/'), 'no prefixed asset paths');
 });
 
 test('--shared-out that contains the output dir is rejected', async () => {

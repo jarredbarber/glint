@@ -63,11 +63,11 @@ export const renderSidebar = (options: SidebarOptions) => {
         })();
     </script>
     <div class="sidebar-scrollable">
-        <div class="sidebar-branding">
-            ${standalone
-                ? `<img src="/assets/logo.png" alt="glint" class="sidebar-logo">`
-                : `<a href="/"><img src="/assets/logo.png" alt="glint" class="sidebar-logo"></a>`}
-        </div>
+        ${standalone
+            ? '' // Standalone share pages carry no branding — no logo, no mention of glint.
+            : `<div class="sidebar-branding">
+            <a href="/"><img src="/assets/logo.png" alt="glint" class="sidebar-logo"></a>
+        </div>`}
 
         ${viewsSection}
         ${filesSection}

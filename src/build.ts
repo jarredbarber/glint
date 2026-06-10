@@ -10,7 +10,7 @@ import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './server.js';
 import * as renderer from './renderer.js';
-import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets } from './url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets, relativizeShareAssets } from './url-rewrite.js';
 import { shareSlug } from './share-slug.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
@@ -104,7 +104,11 @@ async function emitSharePage(
     html = stripInternalLinks(html);
     html = rewriteShareAssets(html, contentPath);
     if (opts.katexCdn) html = applyKatexCdn(html, katexVersion);
-    if (opts.prefix) html = applyPrefix(html, opts.prefix);
+    // Relativize chrome assets last so the page loads its CSS/JS from the share
+    // root's own assets/ copy — self-contained wherever the share dir is hosted.
+    // Run after applyKatexCdn (which may swap in an absolute CDN URL) and instead
+    // of applyPrefix (a self-contained page needs no subpath prefix).
+    html = relativizeShareAssets(html);
 
     await writeFile(path.join(shareRoot, slug, 'index.html'), html);
 
@@ -151,6 +155,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
 
     const result: BuildResult = { pages: 0, failures: [], assetsCopied: 0 };
     const katexVersion = opts.katexCdn ? await resolveKatexVersion() : '';
+    let sharePagesEmitted = 0;
 
     // Guard against destructive wipes of important directories.
     const resolvedOut = path.resolve(opts.outDir);
@@ -241,6 +246,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
                     katexVersion,
                     () => result.assetsCopied++
                 );
+                sharePagesEmitted++;
             }
         } catch (err) {
             result.failures.push({ path: contentPath, error: (err as Error).message });
@@ -257,9 +263,12 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
         await inlineKatexFonts(path.join(opts.outDir, 'assets', 'katex'));
     }
 
-    // When --shared-out points to a separate directory, make it self-contained
-    // by giving it its own copy of the client assets (JS bundles + KaTeX).
-    if (shareRootIsSeparate) {
+    // Share pages reference their chrome via relative "../assets/…", so the share
+    // root needs its own copy of the client assets (JS bundles + KaTeX). This
+    // holds whether shareRoot is the default "<out>/share" or a separate
+    // --shared-out dir — in both cases shareRoot/assets is distinct from
+    // out/assets. Skipped when no page opted into sharing.
+    if (sharePagesEmitted > 0) {
         await fs.cp(repoAssets, path.join(resolvedShareRoot, 'assets'), { recursive: true });
         if (opts.inlineFonts) {
             await inlineKatexFonts(path.join(resolvedShareRoot, 'assets', 'katex'));
