@@ -166,3 +166,20 @@ test('does not emit a share page for an unshared file', async () => {
     await buildSite({ contentDir: dir, outDir });
     await assert.rejects(fs.access(path.join(outDir, 'share')));
 });
+
+test('--shared-out emits shares to a separate, self-contained dir', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-so-content-'));
+    await fs.writeFile(
+        path.join(dir, 'doc.md'),
+        '---\nshare: true\n---\n# Doc\n\n$x^2$\n'
+    );
+    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-so-out-'));
+    const sharedOut = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-so-share-'));
+
+    await buildSite({ contentDir: dir, outDir, sharedOut });
+
+    const slug = shareSlug('doc.md');
+    await fs.access(path.join(sharedOut, slug, 'index.html'));
+    await fs.access(path.join(sharedOut, 'assets', 'katex', 'katex.min.css'));
+    await assert.rejects(fs.access(path.join(outDir, 'share')));
+});

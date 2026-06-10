@@ -166,11 +166,23 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
         throw new Error(`Refusing to build into "${resolvedOut}": it is the filesystem root, your home directory, or contains the content directory. Choose a separate --out path.`);
     }
 
+    const shareRoot = opts.sharedOut ? path.resolve(opts.sharedOut) : path.join(opts.outDir, 'share');
+    const resolvedShareRoot = path.resolve(shareRoot);
+    const shareRootIsSeparate =
+        !!opts.sharedOut &&
+        resolvedShareRoot !== resolvedOut &&
+        !(resolvedShareRoot + path.sep).startsWith(resolvedOut + path.sep);
+
+    if (shareRootIsSeparate) {
+        const sroot = path.parse(resolvedShareRoot).root;
+        if (resolvedShareRoot === sroot || resolvedShareRoot === os.homedir() || resolvedShareRoot === resolvedContent) {
+            throw new Error(`Refusing to use "${resolvedShareRoot}" as --shared-out: it is the filesystem root, your home directory, or the content directory.`);
+        }
+    }
+
     // Clean output dir.
     await fs.rm(opts.outDir, { recursive: true, force: true });
     await fs.mkdir(opts.outDir, { recursive: true });
-
-    const shareRoot = opts.sharedOut ? path.resolve(opts.sharedOut) : path.join(opts.outDir, 'share');
 
     for (const contentPath of mdPaths) {
         try {
@@ -236,6 +248,15 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     // hosts where CORS-mode font fetches are blocked.
     if (opts.inlineFonts) {
         await inlineKatexFonts(path.join(opts.outDir, 'assets', 'katex'));
+    }
+
+    // When --shared-out points to a separate directory, make it self-contained
+    // by giving it its own copy of the client assets (JS bundles + KaTeX).
+    if (shareRootIsSeparate) {
+        await fs.cp(repoAssets, path.join(resolvedShareRoot, 'assets'), { recursive: true });
+        if (opts.inlineFonts) {
+            await inlineKatexFonts(path.join(resolvedShareRoot, 'assets', 'katex'));
+        }
     }
 
     return result;
