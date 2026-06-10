@@ -154,6 +154,7 @@ test('emits a standalone share page with stripped links and relative assets', as
     );
     assert.ok(!shareHtml.includes('class="file-tree"'), 'no file tree');
     assert.ok(!shareHtml.includes('href="/notes/second/"'), 'internal link stripped');
+    assert.ok(!shareHtml.includes('href="second.md"'), 'relative md link stripped too');
     assert.ok(shareHtml.includes('Second'), 'link text kept');
     assert.ok(shareHtml.includes('src="first.md.assets/p.png"'), 'relative asset');
     await fs.access(path.join(outDir, 'share', slug, 'first.md.assets', 'p.png'));

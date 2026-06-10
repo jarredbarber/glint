@@ -121,6 +121,13 @@ test('strips internal link that has extra attributes, keeps inner markup', () =>
     assert.equal(stripInternalLinks(html), 'go <em>now</em>');
 });
 
+test('strips relative markdown links (not just root-relative)', () => {
+    assert.equal(
+        stripInternalLinks('see <a href="second.md">Second</a> and <a href="../x/y.md">Y</a>'),
+        'see Second and Y'
+    );
+});
+
 test('rewriteShareAssets makes md.assets URLs relative to the page', () => {
     const html = '<img src="/notes/first.md.assets/p.png">';
     assert.equal(

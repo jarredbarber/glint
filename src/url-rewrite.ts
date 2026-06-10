@@ -86,17 +86,23 @@ export function applyPrefix(html: string, prefix: string): string {
 }
 
 /**
- * Removes every <a> whose href is a root-relative internal page link
- * (e.g. "/notes/second/"), leaving its inner content in place. Used only on
- * standalone share pages so they cannot link back into the wiki. Keeps
- * anchors (#…), external (http/https), protocol-relative (//…), and
- * mailto:/tel: links. Anchors never nest, so the non-greedy inner match is safe.
+ * Strips every <a> that is an inter-page link, leaving its inner content in
+ * place. Used only on standalone share pages so they cannot link back into the
+ * wiki and leak no wiki paths. Kept intact: external schemes (http/https),
+ * protocol-relative (//…), mailto:, tel:, and in-page anchors (#…). Everything
+ * else — root-relative ("/x"), relative ("x.md", "../x") — is stripped to its
+ * inner text. Anchors never nest, so the non-greedy inner match is safe.
  */
 export function stripInternalLinks(html: string): string {
-    // href="/x" but NOT href="//x" (protocol-relative).
+    // Keep only links that point outside the wiki: external schemes,
+    // protocol-relative URLs, and in-page anchors. Everything else — root-
+    // relative ("/x"), relative ("x.md", "../x") — is an inter-page link and
+    // is stripped to its inner text so a share page leaks no wiki paths and
+    // has no broken links. Anchors never nest, so the non-greedy match is safe.
+    const KEEP = /^(?:https?:|\/\/|mailto:|tel:|#)/i;
     return html.replace(
-        /<a\b[^>]*\bhref="\/(?!\/)[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
-        (_full, inner: string) => inner
+        /<a\b[^>]*\bhref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g,
+        (full, href: string, inner: string) => (KEEP.test(href) ? full : inner)
     );
 }
 
