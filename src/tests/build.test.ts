@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { buildSite } from '../build.js';
+import { shareSlug } from '../share-slug.js';
 
 async function makeFixture(): Promise<string> {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-fixture-'));
@@ -131,4 +132,37 @@ test('--katex-cdn points the katex stylesheet at the CDN', async () => {
     assert.ok(!html.includes('/assets/katex/katex.min.css'), 'self-hosted katex link replaced');
 
     await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('emits a standalone share page with stripped links and relative assets', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-share-'));
+    await fs.mkdir(path.join(dir, 'notes', 'first.md.assets'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'notes', 'first.md.assets', 'p.png'), 'PNGDATA');
+    await fs.writeFile(
+        path.join(dir, 'notes', 'first.md'),
+        '---\nshare: true\n---\n# First\n\n![pic](first.md.assets/p.png)\n\nlink to [Second](second.md)\n'
+    );
+    await fs.writeFile(path.join(dir, 'notes', 'second.md'), '# Second\n');
+
+    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-out-'));
+    await buildSite({ contentDir: dir, outDir });
+
+    const slug = shareSlug('notes/first.md');
+    const shareHtml = await fs.readFile(
+        path.join(outDir, 'share', slug, 'index.html'),
+        'utf8'
+    );
+    assert.ok(!shareHtml.includes('class="file-tree"'), 'no file tree');
+    assert.ok(!shareHtml.includes('href="/notes/second/"'), 'internal link stripped');
+    assert.ok(shareHtml.includes('Second'), 'link text kept');
+    assert.ok(shareHtml.includes('src="first.md.assets/p.png"'), 'relative asset');
+    await fs.access(path.join(outDir, 'share', slug, 'first.md.assets', 'p.png'));
+});
+
+test('does not emit a share page for an unshared file', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-noshare-'));
+    await fs.writeFile(path.join(dir, 'plain.md'), '# Plain\n');
+    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-out-'));
+    await buildSite({ contentDir: dir, outDir });
+    await assert.rejects(fs.access(path.join(outDir, 'share')));
 });

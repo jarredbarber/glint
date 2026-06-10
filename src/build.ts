@@ -10,7 +10,8 @@ import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './server.js';
 import * as renderer from './renderer.js';
-import { rewriteStaticHtml, applyPrefix, applyKatexCdn } from './url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets } from './url-rewrite.js';
+import { shareSlug } from './share-slug.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 export interface BuildOptions {
@@ -23,6 +24,8 @@ export interface BuildOptions {
     inlineFonts?: boolean;
     /** Load KaTeX CSS/fonts from the jsDelivr CDN instead of self-hosting. */
     katexCdn?: boolean;
+    /** Separate output dir for share pages. Defaults to `<outDir>/share`. */
+    sharedOut?: string;
 }
 
 export interface BuildResult {
@@ -79,6 +82,64 @@ async function copyAssetDir(
     }
 }
 
+/**
+ * Render and write a single standalone share page plus its image assets.
+ * Mirrors the normal render transforms, then strips internal links and makes
+ * the page's own assets relative so the emitted <share-root>/<slug>/ dir is
+ * self-contained.
+ */
+async function emitSharePage(
+    opts: BuildOptions,
+    shareRoot: string,
+    contentPath: string,
+    renderArgs: Parameters<typeof renderer.renderHtml>[0],
+    storage: StorageManager,
+    katexVersion: string,
+    onCopied: () => void
+): Promise<void> {
+    const slug = shareSlug(contentPath);
+
+    let html = renderer.renderHtml({ ...renderArgs, static: true, standalone: true });
+    html = rewriteStaticHtml(html);
+    html = stripInternalLinks(html);
+    html = rewriteShareAssets(html, contentPath);
+    if (opts.katexCdn) html = applyKatexCdn(html, katexVersion);
+    if (opts.prefix) html = applyPrefix(html, opts.prefix);
+
+    await writeFile(path.join(shareRoot, slug, 'index.html'), html);
+
+    const assetsRel = `${contentPath}.assets`;
+    if (await storage.exists(assetsRel)) {
+        const base = path.posix.basename(contentPath); // e.g. "first.md"
+        await copyShareAssets(storage, assetsRel, path.join(shareRoot, slug, `${base}.assets`), onCopied);
+    }
+}
+
+/** Copy a storage dir tree into an absolute destination dir. */
+async function copyShareAssets(
+    storage: StorageManager,
+    relDir: string,
+    destDir: string,
+    onCopied: () => void
+): Promise<void> {
+    let entries;
+    try {
+        entries = await storage.list(relDir);
+    } catch {
+        return;
+    }
+    for (const entry of entries) {
+        const childRel = `${relDir}/${entry.name}`;
+        if (entry.type === 'directory') {
+            await copyShareAssets(storage, childRel, path.join(destDir, entry.name), onCopied);
+        } else {
+            const buf = await storage.readBuffer(childRel);
+            await writeFile(path.join(destDir, entry.name), buf);
+            onCopied();
+        }
+    }
+}
+
 export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     const config = await loadConfig(opts.contentDir, opts.configPath);
     const storage = new StorageManager(config, opts.contentDir);
@@ -108,6 +169,8 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
     // Clean output dir.
     await fs.rm(opts.outDir, { recursive: true, force: true });
     await fs.mkdir(opts.outDir, { recursive: true });
+
+    const shareRoot = opts.sharedOut ? path.resolve(opts.sharedOut) : path.join(opts.outDir, 'share');
 
     for (const contentPath of mdPaths) {
         try {
@@ -147,6 +210,18 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
             const assetsRel = `${contentPath}.assets`;
             if (await storage.exists(assetsRel)) {
                 await copyAssetDir(storage, assetsRel, opts.outDir, () => result.assetsCopied++);
+            }
+
+            if (frontmatter.share === true) {
+                await emitSharePage(
+                    opts,
+                    shareRoot,
+                    contentPath,
+                    { content: String(vfile), title, config, fileTree, currentPath: contentPath, headings, frontmatter },
+                    storage,
+                    katexVersion,
+                    () => result.assetsCopied++
+                );
             }
         } catch (err) {
             result.failures.push({ path: contentPath, error: (err as Error).message });
