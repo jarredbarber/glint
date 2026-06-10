@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderScripts } from '../renderer/scripts.js';
 import { renderSidebar } from '../renderer/sidebar.js';
+import { renderHtml } from '../renderer.js';
+
+const config = { theme: 'nord' } as any;
+const fileTree = [] as any;
 
 // Static uses native navigation, so the SPA router is dropped too.
 const KEEP = ['outline', 'citations', 'lightbox', 'code-blocks', 'mobile-sidebar'];
@@ -36,6 +40,20 @@ test('static mode omits the SSE hot-reload EventSource', () => {
 test('non-static mode keeps the SSE hot-reload EventSource', () => {
     const out = renderScripts(undefined, [], false);
     assert.ok(out.includes('EventSource("/events")'), 'serve mode keeps SSE');
+});
+
+test('standalone render hides file tree and the home branding link', () => {
+    const out = renderHtml({
+        content: '<p>hi</p>',
+        title: 'Shared',
+        config,
+        fileTree,
+        currentPath: 'notes/first.md',
+        static: true,
+        standalone: true,
+    });
+    assert.ok(!out.includes('class="file-tree"'), 'no file tree in standalone');
+    assert.ok(!out.includes('<a href="/"'), 'no home branding link in standalone');
 });
 
 test('theme switcher derives stylesheet from existing href (prefix-safe), not a hardcoded /assets path', () => {

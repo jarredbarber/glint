@@ -9,10 +9,12 @@ export interface SidebarOptions {
     currentTheme?: string;
     isShared?: boolean;
     static?: boolean;
+    /** Static share page: suppress the branding home link. Chrome hiding is carried via isShared. */
+    standalone?: boolean;
 }
 
 export const renderSidebar = (options: SidebarOptions) => {
-    const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false } = options;
+    const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false, standalone = false } = options;
     const minimalChrome = options.isShared || options.static;
 
     // Views section (Task View) — dynamic server routes, omitted from static/shared
@@ -62,9 +64,9 @@ export const renderSidebar = (options: SidebarOptions) => {
     </script>
     <div class="sidebar-scrollable">
         <div class="sidebar-branding">
-            <a href="/">
-                <img src="/assets/logo.png" alt="glint" class="sidebar-logo">
-            </a>
+            ${standalone
+                ? `<img src="/assets/logo.png" alt="glint" class="sidebar-logo">`
+                : `<a href="/"><img src="/assets/logo.png" alt="glint" class="sidebar-logo"></a>`}
         </div>
 
         ${viewsSection}
