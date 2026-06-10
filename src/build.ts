@@ -175,8 +175,15 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
 
     if (shareRootIsSeparate) {
         const sroot = path.parse(resolvedShareRoot).root;
-        if (resolvedShareRoot === sroot || resolvedShareRoot === os.homedir() || resolvedShareRoot === resolvedContent) {
-            throw new Error(`Refusing to use "${resolvedShareRoot}" as --shared-out: it is the filesystem root, your home directory, or the content directory.`);
+        const contains = (parent: string, child: string) =>
+            child === parent || (child + path.sep).startsWith(parent + path.sep);
+        if (
+            resolvedShareRoot === sroot ||
+            resolvedShareRoot === os.homedir() ||
+            contains(resolvedShareRoot, resolvedContent) ||
+            contains(resolvedShareRoot, resolvedOut)
+        ) {
+            throw new Error(`Refusing to use "${resolvedShareRoot}" as --shared-out: it is the filesystem root, your home directory, or a directory that contains the content or output directory.`);
         }
     }
 

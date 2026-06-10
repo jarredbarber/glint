@@ -183,3 +183,14 @@ test('--shared-out emits shares to a separate, self-contained dir', async () => 
     await fs.access(path.join(sharedOut, 'assets', 'katex', 'katex.min.css'));
     await assert.rejects(fs.access(path.join(outDir, 'share')));
 });
+
+test('--shared-out that contains the output dir is rejected', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-soguard-content-'));
+    await fs.writeFile(path.join(dir, 'doc.md'), '---\nshare: true\n---\n# Doc\n');
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-soguard-'));
+    const outDir = path.join(parent, 'build');
+    await assert.rejects(
+        buildSite({ contentDir: dir, outDir, sharedOut: parent }),
+        /Refusing to use .* as --shared-out/
+    );
+});
