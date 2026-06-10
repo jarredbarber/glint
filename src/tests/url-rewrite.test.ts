@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rewriteStaticHtml, applyPrefix, applyKatexCdn } from '../url-rewrite.js';
+import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets } from '../url-rewrite.js';
 
 test('rewrites /f/ page links with .md to directory-per-page', () => {
     assert.equal(
@@ -100,4 +100,39 @@ test('applyKatexCdn also matches a prefixed katex href', () => {
 test('applyKatexCdn leaves other stylesheet links alone', () => {
     const html = '<link href="/assets/layout.css"><link href="/assets/highlight.css">';
     assert.equal(applyKatexCdn(html, '0.16.27'), html);
+});
+
+test('strips internal page links to plain text', () => {
+    const html = 'see <a href="/notes/second/">Second</a> page';
+    assert.equal(stripInternalLinks(html), 'see Second page');
+});
+
+test('keeps external, anchor, and mailto links', () => {
+    const html =
+        '<a href="https://x.com">x</a> ' +
+        '<a href="#sec">sec</a> ' +
+        '<a href="//cdn.com/a">cdn</a> ' +
+        '<a href="mailto:a@b.com">mail</a>';
+    assert.equal(stripInternalLinks(html), html);
+});
+
+test('strips internal link that has extra attributes, keeps inner markup', () => {
+    const html = '<a class="x" href="/a/b/" data-y="1">go <em>now</em></a>';
+    assert.equal(stripInternalLinks(html), 'go <em>now</em>');
+});
+
+test('rewriteShareAssets makes md.assets URLs relative to the page', () => {
+    const html = '<img src="/notes/first.md.assets/p.png">';
+    assert.equal(
+        rewriteShareAssets(html, 'notes/first.md'),
+        '<img src="first.md.assets/p.png">'
+    );
+});
+
+test('rewriteShareAssets handles a root-level page (no dir)', () => {
+    const html = '<img src="/first.md.assets/p.png">';
+    assert.equal(
+        rewriteShareAssets(html, 'first.md'),
+        '<img src="first.md.assets/p.png">'
+    );
 });

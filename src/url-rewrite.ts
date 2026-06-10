@@ -84,3 +84,35 @@ export function applyPrefix(html: string, prefix: string): string {
         (_full, attr: string, rest: string) => `${attr}="${normalized}/${rest}"`
     );
 }
+
+/**
+ * Removes every <a> whose href is a root-relative internal page link
+ * (e.g. "/notes/second/"), leaving its inner content in place. Used only on
+ * standalone share pages so they cannot link back into the wiki. Keeps
+ * anchors (#…), external (http/https), protocol-relative (//…), and
+ * mailto:/tel: links. Anchors never nest, so the non-greedy inner match is safe.
+ */
+export function stripInternalLinks(html: string): string {
+    // href="/x" but NOT href="//x" (protocol-relative).
+    return html.replace(
+        /<a\b[^>]*\bhref="\/(?!\/)[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
+        (_full, inner: string) => inner
+    );
+}
+
+/**
+ * Rewrites a shared page's own image URLs from the absolute form produced by
+ * rewriteStaticHtml ("/{dir}/{base}.md.assets/…") to the page-relative form
+ * ("{base}.md.assets/…"), so the emitted <share-root>/<slug>/ directory is
+ * self-contained and reveals no wiki path. contentPath is the page's source
+ * path, e.g. "notes/first.md".
+ */
+export function rewriteShareAssets(html: string, contentPath: string): string {
+    const base = path.posix.basename(contentPath, '.md');
+    const dir = path.posix.dirname(contentPath); // "." for root-level files
+    const absPrefix = dir === '.' ? `/${base}.md.assets/` : `/${dir}/${base}.md.assets/`;
+    const relPrefix = `${base}.md.assets/`;
+    // Anchor to an attribute-value boundary (double-quote) so only URL values
+    // are touched. rehype-stringify always emits double-quoted attributes.
+    return html.split(`"${absPrefix}`).join(`"${relPrefix}`);
+}
