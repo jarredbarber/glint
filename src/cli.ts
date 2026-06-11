@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from './server.js';
 import { loadConfig } from './config.js';
 import { buildSite, watchSite } from './build.js';
+import { renderFile } from './render.js';
 
 const program = new Command();
 
@@ -112,6 +113,29 @@ program
 
         // One-shot mode: run the deploy hook after a clean build.
         if (options.postHook) await runPostHook(options.postHook);
+    });
+
+program
+    .command('render')
+    .description('Render a single Markdown file to a self-contained HTML file')
+    .argument('<file>', 'Path to the .md file to render')
+    .option('-o, --output <file>', 'Output HTML file (defaults to <file>.html)')
+    .option('--theme <name>', 'Theme name override (e.g. nord, default)')
+    .action(async (file: string, options: { output?: string; theme?: string }) => {
+        const filePath = path.resolve(file);
+        const stats = await fs.stat(filePath).catch(() => null);
+        if (!stats || !stats.isFile()) {
+            console.error(`✗ Not a file: ${filePath}`);
+            process.exit(1);
+        }
+
+        const outPath = options.output
+            ? path.resolve(options.output)
+            : filePath.replace(/\.md$/i, '') + '.html';
+
+        const html = await renderFile({ filePath, theme: options.theme });
+        await fs.writeFile(outPath, html);
+        console.log(`✓ rendered ${path.basename(filePath)} -> ${outPath}`);
     });
 
 program.parse();

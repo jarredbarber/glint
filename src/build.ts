@@ -286,7 +286,7 @@ export async function buildSite(opts: BuildOptions): Promise<BuildResult> {
  * and never request the .woff/.ttf fallbacks. No-op if the CSS isn't present.
  */
 /** Resolve the installed KaTeX version so the CDN CSS matches the renderer. */
-async function resolveKatexVersion(): Promise<string> {
+export async function resolveKatexVersion(): Promise<string> {
     try {
         const pkgPath = path.join(import.meta.dirname, '..', 'node_modules', 'katex', 'package.json');
         const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
