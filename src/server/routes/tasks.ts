@@ -64,7 +64,7 @@ export async function setupTaskRoutes(
         if (!validationResult.success) {
             return reply.code(400).send({
                 error: 'Invalid request',
-                details: validationResult.error.errors
+                details: validationResult.error.issues
             });
         }
 

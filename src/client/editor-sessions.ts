@@ -229,8 +229,8 @@ export async function openInlineEditor(el: HTMLElement, startLine: number, endLi
                     const newLines = [...lines];
                     // Calculate how many lines we're replacing based on current editor content
                     const currentEditorLines = newSectionContent.split('\n').length;
-                    const currentStartInFile = activeEditor.currentStartLine || effectiveStartLine;
-                    const currentEndInFile = activeEditor.currentEndLine || (effectiveEndLineIndex === -1 ? lines.length : effectiveEndLineIndex);
+                    const currentStartInFile = activeEditor?.currentStartLine || effectiveStartLine;
+                    const currentEndInFile = activeEditor?.currentEndLine || (effectiveEndLineIndex === -1 ? lines.length : effectiveEndLineIndex);
                     const deleteCount = currentEndInFile - currentStartInFile;
 
                     newLines.splice(currentStartInFile - 1, deleteCount, newSectionContent);

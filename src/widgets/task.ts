@@ -1,7 +1,7 @@
 import type { Node, Parent } from 'unist';
-import type { ListItem, Paragraph, Text } from 'mdast';
+import type { BlockContent, ListItem, Paragraph, Text } from 'mdast';
 import { CONTINUE } from 'unist-util-visit';
-import type { WidgetHandler, CustomTextNode, CustomParagraphNode, HASTElement, HASTText } from './types.js';
+import type { WidgetHandler, CustomTextNode, CustomParagraphNode, HASTElement } from './types.js';
 
 export const taskHandler: WidgetHandler = {
     match: (node: Node) => node.type === 'listItem',
@@ -107,38 +107,24 @@ export const taskHandler: WidgetHandler = {
 
         // 2. Metadata Pills (if any)
         const hasMeta = (attrs.due || attrs.assignee || attrs.priority || attrs.created || attrs.completed || attrs.scheduled);
+        const pill = (className: string, value: string, extra?: Record<string, string>): HASTElement => ({
+            type: 'element',
+            tagName: 'span',
+            properties: { className: [className], ...extra },
+            children: [{ type: 'text', value }]
+        });
+        const metaChildren: HASTElement[] = [];
+        // created and completed are hidden from view
+        if (attrs.priority) metaChildren.push(pill('meta-priority', `#${attrs.priority}`, { dataPriority: attrs.priority }));
+        if (attrs.assignee) metaChildren.push(pill('meta-assignee', `@${attrs.assignee}`));
+        if (attrs.due) metaChildren.push(pill('meta-due', `due:${attrs.due}`));
+        if (attrs.scheduled) metaChildren.push(pill('meta-scheduled', `plan:${attrs.scheduled}`));
         const metaNode: CustomTextNode | null = hasMeta ? {
             type: 'text',
             data: {
                 hName: 'span',
                 hProperties: { className: ['glint-task-meta'] },
-                hChildren: [
-                    attrs.priority ? {
-                        type: 'element' as const,
-                        tagName: 'span',
-                        properties: { className: ['meta-priority'], dataPriority: attrs.priority },
-                        children: [{ type: 'text' as const, value: `#${attrs.priority}` }]
-                    } : null,
-                    attrs.assignee ? {
-                        type: 'element' as const,
-                        tagName: 'span',
-                        properties: { className: ['meta-assignee'] },
-                        children: [{ type: 'text' as const, value: `@${attrs.assignee}` }]
-                    } : null,
-                    attrs.due ? {
-                        type: 'element' as const,
-                        tagName: 'span',
-                        properties: { className: ['meta-due'] },
-                        children: [{ type: 'text' as const, value: `due:${attrs.due}` }]
-                    } : null,
-                    attrs.scheduled ? {
-                        type: 'element' as const,
-                        tagName: 'span',
-                        properties: { className: ['meta-scheduled'] },
-                        children: [{ type: 'text' as const, value: `plan:${attrs.scheduled}` }]
-                    } : null
-                    // created and completed are hidden from view
-                ].filter((item): item is HASTElement => item !== null)
+                hChildren: metaChildren
             },
             value: ''
         } : null;
@@ -150,7 +136,7 @@ export const taskHandler: WidgetHandler = {
                 hName: 'div',
                 hProperties: { className: ['glint-task-content-row'] }
             },
-            children: [
+            children: ([
                 {
                     type: 'paragraph',
                     data: { hName: 'span', hProperties: { className: ['glint-task-content'] } },
@@ -162,7 +148,9 @@ export const taskHandler: WidgetHandler = {
                     })
                 } as CustomParagraphNode,
                 metaNode
-            ].filter((item): item is Node => item !== null)
+            ] satisfies (CustomParagraphNode | CustomTextNode | null)[]).filter(
+                (item): item is CustomParagraphNode | CustomTextNode => item !== null
+            )
         };
 
         // 4. Header Container (Checkbox + Content Row) -> The styled "Task Box"
@@ -182,8 +170,13 @@ export const taskHandler: WidgetHandler = {
         // Render any remaining children (subtasks, secondary paragraphs)
         const subtasks = listItem.children.filter(c => c !== paragraph);
 
-        // Replace listItem children
-        listItem.children = [headerNode, ...subtasks];
+        // Replace listItem children.
+        // `headerNode` is a deliberately broadened paragraph wrapper (its
+        // `children` hold arbitrary mdast content and `data.hName` overrides
+        // the rendered tag). At runtime remark-rehype handles it as a block
+        // node via its `paragraph` type, so we cast at this injection boundary
+        // to the mdast block-content type the list item expects.
+        listItem.children = [headerNode as unknown as BlockContent, ...subtasks];
 
         return CONTINUE;
     },
