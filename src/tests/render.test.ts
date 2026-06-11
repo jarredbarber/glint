@@ -17,6 +17,22 @@ test('stripScripts removes multiline script blocks', () => {
     assert.equal(stripScripts(html), '<head>\n\n</head>');
 });
 
+test('stripScripts with keepMermaid keeps mermaid loader + init, drops the rest', () => {
+    const html =
+        '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>' +
+        '<script>foo();</script>' +
+        '<script>mermaid.initialize({});</script>';
+    const out = stripScripts(html, { keepMermaid: true });
+    assert.ok(out.includes('mermaid.min.js'), 'keeps the loader');
+    assert.ok(out.includes('mermaid.initialize'), 'keeps the init');
+    assert.ok(!out.includes('foo()'), 'drops unrelated scripts');
+});
+
+test('stripScripts without keepMermaid removes mermaid scripts too', () => {
+    const html = '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>';
+    assert.equal(stripScripts(html), '');
+});
+
 test('inlineStylesheets replaces a known stylesheet link with an inline style block', () => {
     const html = '<link rel="stylesheet" href="/assets/layout.css">';
     const css = new Map([['/assets/layout.css', 'body{color:red}']]);
@@ -84,4 +100,20 @@ t2('renderFile produces a self-contained static HTML document', async () => {
 
     // Wiki link is not a live internal link
     assert.ok(!/href="[^"]*other[^"]*"/.test(html), 'wiki link stripped/inert');
+});
+
+t2('renderFile keeps mermaid JS only when the page has a diagram', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-mer-'));
+
+    await fs.writeFile(path.join(dir, 'plain.md'), '# Plain\n\nNo diagram here.\n');
+    const plain = await renderFile({ filePath: path.join(dir, 'plain.md'), katexVersion: '0.16.9' });
+    assert.ok(!/<script/i.test(plain), 'plain page stays fully JS-free');
+
+    await fs.writeFile(path.join(dir, 'd.md'), '# D\n\n```mermaid\ngraph TD\n  A-->B\n```\n');
+    const diagram = await renderFile({ filePath: path.join(dir, 'd.md'), katexVersion: '0.16.9' });
+    assert.match(diagram, /<div class="mermaid">/, 'mermaid div preserved');
+    assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader kept');
+    assert.match(diagram, /mermaid\.initialize/, 'mermaid init kept');
+    // Only mermaid JS survives — no app bundles.
+    assert.ok(!/\.bundle\.js/.test(diagram), 'no app bundles kept');
 });

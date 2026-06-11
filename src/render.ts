@@ -18,9 +18,16 @@ import type { HeadingNode } from './rehype-extract-headings.js';
  * Removes every <script> element from the HTML — both inline blocks and
  * external `<script src>` tags. The single-file render is fully static, so no
  * client JS is emitted. Pure.
+ *
+ * With `keepMermaid`, mermaid-related scripts survive (the CDN loader and the
+ * `mermaid.initialize` block) so client-rendered diagrams still draw — every
+ * other script is still dropped. A script "is mermaid" if the tag or its body
+ * mentions mermaid.
  */
-export function stripScripts(html: string): string {
-    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+export function stripScripts(html: string, opts: { keepMermaid?: boolean } = {}): string {
+    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag) =>
+        opts.keepMermaid && /mermaid/i.test(tag) ? tag : ''
+    );
 }
 
 /**
@@ -168,8 +175,10 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     // stripped and would otherwise leak the original asset path.
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
-    // Finally, drop all client JS — the single-file render is fully static.
-    html = stripScripts(html);
+    // Finally, drop client JS. Mermaid diagrams render client-side, so when the
+    // page has one, keep just the mermaid loader + init; everything else goes.
+    const hasMermaid = /<div class="mermaid">/.test(html);
+    html = stripScripts(html, { keepMermaid: hasMermaid });
 
     return html;
 }
