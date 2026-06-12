@@ -71,8 +71,7 @@ const ConfigSchema = z.object({
     host: z.string().default('0.0.0.0'),
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),
-    password: z.string().optional(),
-    'latex-macros': z.record(z.string(), z.string()).optional(),
+'latex-macros': z.record(z.string(), z.string()).optional(),
     storage: StorageConfigSchema.default(() => ({
         default: 'local',
         providers: {
