@@ -11,8 +11,22 @@ import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './server.js';
 import * as renderer from './renderer.js';
 import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
-import { resolveKatexVersion } from './build.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
+
+/**
+ * Resolve the installed KaTeX version for the CDN stylesheet URL. Falls back to
+ * a bare major/minor (jsDelivr resolves that to the latest patch) when the
+ * package can't be read.
+ */
+export async function resolveKatexVersion(): Promise<string> {
+    try {
+        const pkgPath = path.join(import.meta.dirname, '..', 'node_modules', 'katex', 'package.json');
+        const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
+        return pkg.version as string;
+    } catch {
+        return '0.16'; // jsDelivr resolves a bare major/minor to the latest patch
+    }
+}
 
 /**
  * Removes every <script> element from the HTML — both inline blocks and

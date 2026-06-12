@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rewriteStaticHtml, applyPrefix, applyKatexCdn, stripInternalLinks, rewriteShareAssets, relativizeShareAssets } from '../url-rewrite.js';
+import { rewriteStaticHtml, applyKatexCdn, stripInternalLinks } from '../url-rewrite.js';
 
 test('rewrites /f/ page links with .md to directory-per-page', () => {
     assert.equal(
@@ -52,35 +52,6 @@ test('absolute asset path with no context still used verbatim', () => {
     assert.equal(rewriteStaticHtml(html), '<img src="/img/logo.png">');
 });
 
-test('applyPrefix prefixes root-absolute href and src', () => {
-    const html = '<a href="/notes/first/">x</a><script src="/assets/router.bundle.js"></script>';
-    assert.equal(
-        applyPrefix(html, '/wiki'),
-        '<a href="/wiki/notes/first/">x</a><script src="/wiki/assets/router.bundle.js"></script>'
-    );
-});
-
-test('applyPrefix normalizes the prefix (no leading/trailing slash needed)', () => {
-    assert.equal(applyPrefix('<a href="/foo/">x</a>', 'wiki'), '<a href="/wiki/foo/">x</a>');
-    assert.equal(applyPrefix('<a href="/foo/">x</a>', '/wiki/'), '<a href="/wiki/foo/">x</a>');
-});
-
-test('applyPrefix rewrites the bare home link', () => {
-    assert.equal(applyPrefix('<a href="/">home</a>', '/wiki'), '<a href="/wiki/">home</a>');
-});
-
-test('applyPrefix leaves external, protocol-relative, anchor, and relative urls alone', () => {
-    const html =
-        '<a href="https://x.com">e</a><img src="//cdn/a.png"><a href="#L1">h</a><a href="sub/page/">r</a>';
-    assert.equal(applyPrefix(html, '/wiki'), html);
-});
-
-test('applyPrefix with empty prefix is a no-op', () => {
-    const html = '<a href="/foo/">x</a>';
-    assert.equal(applyPrefix(html, ''), html);
-    assert.equal(applyPrefix(html, '/'), html);
-});
-
 test('applyKatexCdn swaps the self-hosted katex css for the versioned CDN url', () => {
     const html = '<link rel="stylesheet" href="/assets/katex/katex.min.css">';
     assert.equal(
@@ -126,33 +97,4 @@ test('strips relative markdown links (not just root-relative)', () => {
         stripInternalLinks('see <a href="second.md">Second</a> and <a href="../x/y.md">Y</a>'),
         'see Second and Y'
     );
-});
-
-test('rewriteShareAssets makes md.assets URLs relative to the page', () => {
-    const html = '<img src="/notes/first.md.assets/p.png">';
-    assert.equal(
-        rewriteShareAssets(html, 'notes/first.md'),
-        '<img src="first.md.assets/p.png">'
-    );
-});
-
-test('rewriteShareAssets handles a root-level page (no dir)', () => {
-    const html = '<img src="/first.md.assets/p.png">';
-    assert.equal(
-        rewriteShareAssets(html, 'first.md'),
-        '<img src="first.md.assets/p.png">'
-    );
-});
-
-test('relativizeShareAssets turns /assets/ refs into ../assets/', () => {
-    const html = '<link href="/assets/layout.css"><script src="/assets/outline.bundle.js"></script>';
-    assert.equal(
-        relativizeShareAssets(html),
-        '<link href="../assets/layout.css"><script src="../assets/outline.bundle.js"></script>'
-    );
-});
-
-test('relativizeShareAssets leaves external and non-asset urls alone', () => {
-    const html = '<a href="https://x/assets/y"><img src="first.md.assets/p.png">';
-    assert.equal(relativizeShareAssets(html), html);
 });
