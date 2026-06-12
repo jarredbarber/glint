@@ -16,7 +16,7 @@ npm test              # Run tests (Node.js native test runner)
 npm start             # Run compiled server
 
 glint serve [path]    # Start server on a directory
-glint setup-auth      # Configure password protection
+glint render <file>   # Render one .md file to a self-contained HTML file
 ```
 
 ### Running a Single Test
@@ -24,6 +24,8 @@ glint setup-auth      # Configure password protection
 ```bash
 tsx --test src/tests/parser.test.ts
 ```
+
+> **Note:** `npm test` may hang at the end due to server/storage test files keeping a process open. Run individual test files directly when that matters.
 
 ## Architecture
 
