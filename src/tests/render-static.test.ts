@@ -9,10 +9,10 @@ const fileTree = [] as any;
 
 // Static uses native navigation, so the SPA router is dropped too.
 const KEEP = ['outline', 'citations', 'lightbox', 'code-blocks', 'mobile-sidebar'];
-const DROP = ['router', 'upload', 'editor', 'editor-integration', 'share', 'command-palette', 'image-resize'];
+const DROP = ['router', 'upload', 'editor', 'editor-integration', 'command-palette', 'image-resize'];
 
 test('static mode emits only read-only bundles', () => {
-    const out = renderScripts(undefined, [], true);
+    const out = renderScripts([], true);
     for (const name of KEEP) {
         assert.ok(out.includes(`/assets/${name}.bundle.js`), `expected ${name}`);
     }
@@ -22,23 +22,23 @@ test('static mode emits only read-only bundles', () => {
 });
 
 test('non-static mode still emits the editor and router bundles', () => {
-    const out = renderScripts(undefined, [], false);
+    const out = renderScripts([], false);
     assert.ok(out.includes('/assets/editor.bundle.js'));
     assert.ok(out.includes('/assets/router.bundle.js'));
 });
 
 test('static mode keeps the inline mermaid init script', () => {
-    const out = renderScripts(undefined, [], true);
+    const out = renderScripts([], true);
     assert.ok(out.includes('mermaid.initialize'));
 });
 
 test('static mode omits the SSE hot-reload EventSource', () => {
-    const out = renderScripts(undefined, [], true);
+    const out = renderScripts([], true);
     assert.ok(!out.includes('EventSource("/events")'), 'static should not open SSE');
 });
 
 test('non-static mode keeps the SSE hot-reload EventSource', () => {
-    const out = renderScripts(undefined, [], false);
+    const out = renderScripts([], false);
     assert.ok(out.includes('EventSource("/events")'), 'serve mode keeps SSE');
 });
 

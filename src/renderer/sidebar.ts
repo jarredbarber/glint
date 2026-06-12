@@ -97,11 +97,6 @@ export const renderSidebar = (options: SidebarOptions) => {
             })();
         </script>
         ` : ''}
-        ${!minimalChrome ? `
-        <button class="share-sidebar-button" onclick="window.openShareModal()">
-            <span class="share-icon">🔗</span> Share
-        </button>
-        ` : ''}
     </footer>
 </aside>
 `;

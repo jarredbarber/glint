@@ -1,4 +1,4 @@
-export const renderScripts = (shareId?: string, extraScripts: string[] = [], isStatic: boolean = false) => {
+export const renderScripts = (extraScripts: string[] = [], isStatic: boolean = false) => {
 
 const hotReload = isStatic ? '' : `
     // Hot Reloading
@@ -83,8 +83,6 @@ const hotReload = isStatic ? '' : `
 
 return `
 <script>
-    // Global share context
-    window.__glintShareId = ${shareId ? `'${shareId}'` : 'null'};
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof mermaid !== 'undefined') {
             // Get theme from body class (set by server from config)
@@ -161,7 +159,6 @@ ${isStatic ? `
 <script src="/assets/outline.bundle.js"></script>
 <script src="/assets/image-resize.bundle.js"></script>
 
-<script src="/assets/share.bundle.js"></script>
 <script src="/assets/command-palette.bundle.js"></script>
 <script src="/assets/citations.bundle.js"></script>
 <script src="/assets/lightbox.bundle.js"></script>

@@ -32,7 +32,6 @@
             }
         },
         { title: 'Print Page', desc: 'Export as PDF', action: () => window.print() },
-        { title: 'Share Page', desc: 'Create shareable link', action: () => (window as any).openShareModal && (window as any).openShareModal() },
         {
             title: 'Edit Page', desc: 'Toggle editor', action: () => {
                 const editBtn = document.querySelector('.code-edit-btn') as HTMLElement;
