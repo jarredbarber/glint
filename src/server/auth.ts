@@ -72,12 +72,11 @@ export function setupAuth(fastify: FastifyInstance, password: string) {
         }
     });
 
-    // Auth guard — skip login page, static assets, and share links
+    // Auth guard — skip login page and static assets
     fastify.addHook('onRequest', async (request, reply) => {
         const url = request.url;
         if (url === '/login' ||
             url.startsWith('/assets/') ||
-            url.startsWith('/s/') ||
             url === '/favicon.ico') {
             return;
         }

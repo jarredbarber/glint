@@ -49,39 +49,16 @@ export function rewriteStaticHtml(html: string): string {
 }
 
 /**
- * Prepends a base-path prefix to every root-absolute href/src in the HTML so a
- * directory-per-page build can be hosted under a subpath (e.g. foo.com/wiki).
- * Pure. Only touches single-leading-slash URLs — leaves "//cdn", "https://…",
- * "#anchor", "mailto:", and already-relative URLs alone.
- *
- *   applyPrefix('<a href="/foo/">', '/wiki') -> '<a href="/wiki/foo/">'
- *   applyPrefix('<a href="/">', 'wiki')      -> '<a href="/wiki/">'
- *
- * This rewrites HTML attributes only, which is sufficient for the static
- * output: the kept client bundles construct no absolute URLs, the theme
- * switcher derives its stylesheet URL from the (already-prefixed) <link> href,
- * and the bundled CSS uses only relative url(...) references.
- */
-/**
  * Swaps the self-hosted KaTeX stylesheet link for the jsDelivr CDN copy at the
  * given version. The CDN serves the CSS and its fonts with
  * `Access-Control-Allow-Origin: *`, so math fonts load even when the page has an
  * opaque/null origin (sandboxed host) where self-hosted, CORS-fetched fonts are
- * blocked. Run before applyPrefix so the resulting https URL is left untouched.
+ * blocked.
  */
 export function applyKatexCdn(html: string, version: string): string {
     return html.replace(
         /href="[^"]*\/katex\.min\.css"/g,
         `href="https://cdn.jsdelivr.net/npm/katex@${version}/dist/katex.min.css"`
-    );
-}
-
-export function applyPrefix(html: string, prefix: string): string {
-    const normalized = '/' + prefix.replace(/^\/+|\/+$/g, '');
-    if (normalized === '/') return html; // empty prefix -> no-op
-    return html.replace(
-        /\b(href|src)="\/(?!\/)([^"]*)"/g,
-        (_full, attr: string, rest: string) => `${attr}="${normalized}/${rest}"`
     );
 }
 
@@ -104,35 +81,4 @@ export function stripInternalLinks(html: string): string {
         /<a\b[^>]*\bhref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g,
         (full, href: string, inner: string) => (KEEP.test(href) ? full : inner)
     );
-}
-
-/**
- * Rewrites root-absolute "/assets/…" references (CSS, JS bundles, KaTeX, fonts)
- * to the page-relative "../assets/…" form. A standalone share page is emitted at
- * <share-root>/<slug>/index.html — one level deep — so "../assets/" resolves to
- * <share-root>/assets/, the share dir's own self-contained copy. This makes the
- * page's chrome load no matter where the share dir is hosted (site root, a
- * subpath, or opened straight off disk), instead of depending on an absolute
- * "/assets/" that only resolves when the share dir is the server root. Only
- * "/assets/" URLs are touched; external and already-relative URLs are left as-is.
- */
-export function relativizeShareAssets(html: string): string {
-    return html.replace(/\b(href|src)="\/assets\//g, '$1="../assets/');
-}
-
-/**
- * Rewrites a shared page's own image URLs from the absolute form produced by
- * rewriteStaticHtml ("/{dir}/{base}.md.assets/…") to the page-relative form
- * ("{base}.md.assets/…"), so the emitted <share-root>/<slug>/ directory is
- * self-contained and reveals no wiki path. contentPath is the page's source
- * path, e.g. "notes/first.md".
- */
-export function rewriteShareAssets(html: string, contentPath: string): string {
-    const base = path.posix.basename(contentPath, '.md');
-    const dir = path.posix.dirname(contentPath); // "." for root-level files
-    const absPrefix = dir === '.' ? `/${base}.md.assets/` : `/${dir}/${base}.md.assets/`;
-    const relPrefix = `${base}.md.assets/`;
-    // Anchor to an attribute-value boundary (double-quote) so only URL values
-    // are touched. rehype-stringify always emits double-quoted attributes.
-    return html.split(`"${absPrefix}`).join(`"${relPrefix}`);
 }

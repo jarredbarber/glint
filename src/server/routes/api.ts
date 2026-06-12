@@ -8,13 +8,10 @@ import { resolveStoragePath } from '../../storage/utils.js';
 import { isForbiddenError, isNotFoundError } from '../../utils/errors.js';
 import { TaskScanner } from '../../tasks/scanner.js';
 
-import { ShareService } from '../share.js';
-
 export async function setupAPIRoutes(
     fastify: FastifyInstance,
     contentDir: string,
     getConfig: () => GlintConfig,
-    shareService: ShareService,
     taskScanner: TaskScanner,
     storage: StorageManager
 ) {
@@ -39,7 +36,7 @@ export async function setupAPIRoutes(
     // Asset Resolver Endpoint
     fastify.get('/api/asset/resolve', async (request, reply) => {
         try {
-            const { path: assetPath, context, shareId } = request.query as { path: string, context?: string, shareId?: string };
+            const { path: assetPath, context } = request.query as { path: string, context?: string };
 
             if (!assetPath) {
                 return reply.code(400).send({ error: 'Missing path parameter' });
@@ -215,46 +212,5 @@ export async function setupAPIRoutes(
             request.log.error(err as Error);
             return reply.code(500).send({ error: 'Upload failed' });
         }
-    });
-
-    // List shares for a file
-    fastify.get('/api/shares', async (request, reply) => {
-        const { path: filePath } = request.query as { path: string };
-        if (!filePath) return reply.code(400).send({ error: 'Missing path' });
-
-        const shares = shareService.getSharesForFile(filePath);
-        return reply.send(shares);
-    });
-
-    // Create a new share
-    fastify.post('/api/shares', async (request, reply) => {
-        const { path: filePath, access, expiresAt, label } = request.body as {
-            path: string,
-            access: 'view' | 'comment' | 'edit',
-            expiresAt?: number,
-            label?: string
-        };
-
-        if (!filePath || !access) return reply.code(400).send({ error: 'Missing required fields' });
-
-        const share = await shareService.createShare({
-            filePath,
-            access,
-            expiresAt,
-            label
-        });
-
-        return reply.code(201).send(share);
-    });
-
-    // Revoke a share
-    fastify.delete('/api/shares/:id', async (request, reply) => {
-        const { id } = request.params as { id: string };
-        const share = shareService.getShare(id);
-
-        if (!share) return reply.code(404).send({ error: 'Share not found' });
-
-        await shareService.revokeShare(id);
-        return reply.code(204).send();
     });
 }

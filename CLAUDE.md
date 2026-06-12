@@ -78,7 +78,6 @@ src/
 ├── renderer/                 # Modular page rendering (head, sidebar, scripts, etc.)
 ├── server/
 │   ├── auth.ts              # bcrypt password auth + session cookies
-│   ├── share.ts             # Time-limited shareable links
 │   ├── sse.ts               # Server-Sent Events for hot reload
 │   └── routes/              # API endpoints (api.ts, auth.ts, git.ts, tasks.ts)
 ├── widgets/                  # Widget handlers (task.ts, comment.ts)

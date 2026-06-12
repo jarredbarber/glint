@@ -19,7 +19,6 @@ export interface RenderOptions {
     headings?: HeadingNode[];
     frontmatter?: Record<string, unknown>;
     access?: string;
-    shareId?: string;
     scripts?: string[];
     styles?: string[];
     static?: boolean;
@@ -27,8 +26,8 @@ export interface RenderOptions {
 }
 
 export const renderHtml = (options: RenderOptions) => {
-    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, shareId, scripts = [], styles = [], static: isStatic = false, standalone = false } = options;
-    const isShared = !!shareId || standalone;
+    const { content, title, config, fileTree, currentPath, headings = [], frontmatter = {}, access, scripts = [], styles = [], static: isStatic = false, standalone = false } = options;
+    const isShared = standalone;
 
     return `
 <!DOCTYPE html>
@@ -106,50 +105,6 @@ export const renderHtml = (options: RenderOptions) => {
     </main>
     ${renderRightOutline(headings)}
     ${(!isShared && !isStatic) ? `
-    <div class="modal-overlay" id="share-modal-overlay" onclick="if(event.target === this) window.closeShareModal()">
-        <div class="share-modal">
-            <div class="share-modal-header">
-                <h2>Share Page</h2>
-                <button class="close-modal" onclick="window.closeShareModal()">&times;</button>
-            </div>
-            <div class="share-modal-content">
-                <div class="share-form">
-                    <div class="form-row">
-                        <div class="form-group-share">
-                            <label>Permission</label>
-                            <select id="share-access">
-                                <option value="view">View Only</option>
-                                <option value="comment">Allow Comments</option>
-                                <option value="edit">Allow Editing</option>
-                            </select>
-                        </div>
-                        <div class="form-group-share">
-                            <label>Expires</label>
-                            <select id="share-expiry">
-                                <option value="0">Never</option>
-                                <option value="3600">1 Hour</option>
-                                <option value="86400">1 Day</option>
-                                <option value="604800">1 Week</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group-share">
-                        <label>Label (optional)</label>
-                        <input type="text" id="share-label" placeholder="e.g. For client review">
-                    </div>
-                    <button class="create-share-btn" onclick="window.createShare()">Create Shareable Link</button>
-                </div>
-
-                <div class="existing-shares">
-                    <h3>Active Share Links</h3>
-                    <div class="share-list" id="share-list">
-                        <!-- Populated by JS -->
-                        <div class="loading-shares">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     <script>
         // Close mobile sidebar on navigation
         document.addEventListener('click', (e) => {
@@ -160,7 +115,7 @@ export const renderHtml = (options: RenderOptions) => {
     </script>
     ` : ''
         }
-    ${renderScripts(shareId, scripts, isStatic)}
+    ${renderScripts(scripts, isStatic)}
 </body>
 </html>
 `;

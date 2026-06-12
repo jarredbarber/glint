@@ -34,7 +34,6 @@ import { isForbiddenError, isNotFoundError, NotFoundError } from './utils/errors
 import { setupSSERoutes } from './server/sse.js';
 import { setupAPIRoutes } from './server/routes/api.js';
 import { setupGitRoutes } from './server/routes/git.js';
-import { ShareService } from './server/share.js';
 import { TaskScanner } from './tasks/scanner.js';
 import { StorageManager } from './storage/index.js';
 import { resolveStoragePath } from './storage/utils.js';
@@ -103,10 +102,6 @@ export async function createServer(contentDir: string, configPath?: string) {
     // Initialize Storage Manager
     const storageManager = new StorageManager(config, contentDir);
 
-    // Initialize Share Service
-    const shareService = new ShareService(storageManager);
-    await shareService.load();
-
     // Setup SSE
     const { broadcast } = setupSSERoutes(fastify);
 
@@ -122,7 +117,7 @@ export async function createServer(contentDir: string, configPath?: string) {
     await taskScanner.scanAll(); // Initial scan
 
     // Setup API Routes
-    await setupAPIRoutes(fastify, contentDir, getConfig, shareService, taskScanner, storageManager);
+    await setupAPIRoutes(fastify, contentDir, getConfig, taskScanner, storageManager);
 
     // Setup Task Routes
     await setupTaskRoutes(fastify, getConfig, taskScanner, storageManager);
@@ -240,79 +235,6 @@ export async function createServer(contentDir: string, configPath?: string) {
         await scanTitles(initialTree);
         fileTree = await buildFileTree(storageManager, '', titleCache);
         updateKnownPaths(fileTree);
-
-        // Share Route
-        fastify.get('/s/:shareId', async (request, reply) => {
-            const { shareId } = request.params as { shareId: string };
-            const share = shareService.getShare(shareId);
-
-            if (!share) {
-                return reply.code(404).send('Share link not found or expired');
-            }
-
-            try {
-                // Check existence and get stats
-                let stat;
-                let resolvedPath = share.filePath;
-
-                try {
-                    const resolved = await resolveStoragePath(storageManager, share.filePath, config);
-                    stat = resolved.stat;
-                    resolvedPath = resolved.path;
-
-                    if (!resolved.isMarkdown || stat.isDirectory) {
-                        return reply.code(404).send('Linked file not found');
-                    }
-
-                } catch {
-                    return reply.code(404).send('Linked file not found');
-                }
-
-                // Check if share is already cached
-                const cacheKey = `share:${shareId}:${resolvedPath}`;
-                const cached = storageManager.getCachedHtml(cacheKey);
-                if (cached && cached.mtime >= stat.mtime.getTime()) {
-                    return reply.type('text/html').send(cached.html);
-                }
-
-                // Read and Process
-                const rawContent = await storageManager.read(resolvedPath);
-                const { content: cleanContent, title: frontmatterTitle, frontmatter, contentStartLine } = parseMarkdown(rawContent);
-
-                // Run Unified Pipeline
-                const file = new VFile({ value: cleanContent });
-                file.data.contentStartLine = contentStartLine;
-                file.data.filePath = resolvedPath;
-                file.data.shareId = shareId;
-
-                const vfile = await processor.process(file);
-                let htmlContent = String(vfile);
-
-                const pageTitle = frontmatterTitle || path.basename(resolvedPath, '.md').replace(/-/g, ' ');
-                const headings = (vfile.data.headings as HeadingNode[]) || [];
-
-                const fullHtml = renderer.renderHtml({
-                    content: htmlContent,
-                    title: pageTitle,
-                    config,
-                    fileTree,
-                    currentPath: resolvedPath,
-                    headings,
-                    frontmatter,
-                    access: share.access,
-                    shareId: shareId
-                });
-
-                storageManager.setCachedHtml(cacheKey, { html: fullHtml, mtime: stat.mtime.getTime() });
-                return reply.type('text/html').send(fullHtml);
-
-            } catch (err) {
-                if (isForbiddenError(err)) return reply.code(403).send('Forbidden');
-                if (isNotFoundError(err)) return reply.code(404).send('Not Found');
-                fastify.log.error(err as Error);
-                return reply.code(500).send('Internal Server Error');
-            }
-        });
 
         // LLM.txt - Machine-readable documentation for AI agents
         fastify.get('/llm.txt', async (request, reply) => {
