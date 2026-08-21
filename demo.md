@@ -1,16 +1,11 @@
 ---
 title: Glint Markdown Demo
-title: Glint Markdown Demo
 eqn-numbers: true
-author: Jarred
 author: Jarred
 date: 2026-01-08
 updated: 2026-01-22
-updated: 2026-01-22
 reading-time: 4 years
 ---
-
-## Comment blocks
 
 ## Comment blocks
 
@@ -66,8 +61,6 @@ jarred@2026-01-11:15:07 sup
 
 ## Task lists
 
-## Task lists
-
 - Not a task
 - Also not a task
   - Definitely not a task.
@@ -81,7 +74,7 @@ jarred@2026-01-11:15:07 sup
 
 ## Music Notation
 
-Glint renders [ABC notation](https://abcnotation.com/) via abcjs:
+Glint renders [ABC notation](https://abcnotation.com/) via abcjs, with playback:
 
 ```abcjs
 X:1
@@ -92,20 +85,6 @@ L:1/8
 K:C
 E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |
 E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |
-```
-
-Multi-voice example:
-
-```abc
-X:2
-T:Simple Canon
-M:4/4
-L:1/4
-K:G
-V:1
-G A B c | d c B A | G4 |
-V:2
-z2 G A | B c d c | B A G2 |
 ```
 
 ## Mermaid Diagrams
@@ -119,7 +98,6 @@ graph TD;
     B -- No --> D[Debug];
     D --> B;
 ```
-
 ## Code blocks
 
 ```python
@@ -132,10 +110,6 @@ def fib(n):
 
 ## Equations and citations
 
-## Equations and citations
-
-### The Euler-Lagrange Equation [[#ref:euler]]
-
 ### The Euler-Lagrange Equation [[#ref:euler]]
 
 **Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
@@ -145,16 +119,17 @@ $$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \d
 
 Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
 
+
 $$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right)_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
+
 
 The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substituting this back:
 
 $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt = 0 $$
 
+
 By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
 $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
-
-### Einstein Field Equations [[#ref:einstein]]
 
 ### Einstein Field Equations [[#ref:einstein]]
 
@@ -182,5 +157,5 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
 
 ## References
 
-- [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation>
+- [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation> 
 - [ref:euler] "Methodus Inveniendi Lineas Curvas Maximi Minive Proprietate Gaudentes" Euler, L. (1744)

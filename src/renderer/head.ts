@@ -14,6 +14,7 @@ export const renderHead = (title: string, theme: string, styles: string[] = []) 
     <link rel="stylesheet" href="/assets/highlight.css">
     ${styles.map(s => `<link rel="stylesheet" href="${s}">`).join('\n')}
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6/abcjs-audio.css">
     <script src="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js"></script>
 </head>
 `;
