@@ -126,6 +126,22 @@ return `
                 }
             });
         }
+
+        if (typeof ABCJS !== 'undefined') {
+            var isDark = document.body.className.split(' ')[0] !== 'default' && document.body.className.split(' ')[0] !== 'solarized-light' && document.body.className.split(' ')[0] !== 'github-light';
+            document.querySelectorAll('.abcjs-notation').forEach(function(el) {
+                var abc = el.getAttribute('data-abc') || '';
+                ABCJS.renderAbc(el, abc, {
+                    responsive: 'resize',
+                    add_classes: true,
+                    staffwidth: 680,
+                    paddingright: 0,
+                    paddingleft: 0,
+                    format: { gchordfont: 'Inter 12' }
+                });
+                if (isDark) el.classList.add('abcjs-dark');
+            });
+        }
     });
 
 ${hotReload}

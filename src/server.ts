@@ -18,6 +18,7 @@ import { parseMarkdown } from './markdown.js';
 import rehypeKatex from 'rehype-katex';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
+import { remarkAbcjsGlint } from './remark-abcjs-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { widgets } from './widgets/index.js';
@@ -54,6 +55,7 @@ export function createProcessor(config: GlintConfig, linkValidator: (path: strin
         .use(remarkGlintCitations)
         .use(remarkWikiLinkGlint, { validateLink: linkValidator })
         .use(remarkMermaidGlint)
+        .use(remarkAbcjsGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeSourceLines)
         .use(rehypeGlintSections)

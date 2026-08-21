@@ -18,9 +18,9 @@ export function setupKeyboardShortcuts() {
             e.preventDefault();
             const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
             if (hint) {
-                const match = hint.textContent?.match(/L(\d+)/);
-                if (match) {
-                    insertCommentBlock(match[1], hint.dataset.nextLine);
+                const line = hint.dataset.line || hint.textContent?.match(/L(\d+)/)?.[1];
+                if (line) {
+                    insertCommentBlock(line, hint.dataset.nextLine);
                 }
             }
             return;
@@ -50,31 +50,40 @@ export function setupKeyboardShortcuts() {
 
 function editCurrentSection() {
     const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
-    if (hint && hint.textContent) {
-        const match = hint.textContent.match(/L(\d+)/);
-        if (match) {
-            const targetLine = parseInt(match[1]);
-            const target = document.querySelector(`[data-source-line="${targetLine}"]`) as HTMLElement;
-            if (target) {
-                const contentWrapper = target.parentElement;
-                const allBlocks = Array.from(contentWrapper?.children || []) as HTMLElement[];
-                const targetIndex = allBlocks.indexOf(target);
+    if (!hint) return;
 
-                let sectionHeading = target;
-                let sectionStartLine = targetLine;
+    // dataset.line is set by the tracker and is more reliable than parsing textContent
+    const lineStr = hint.dataset.line || hint.textContent?.match(/L(\d+)/)?.[1];
+    if (!lineStr) return;
 
-                for (let i = targetIndex; i >= 0; i--) {
-                    if (allBlocks[i].tagName.match(/^H[1-6]$/)) {
-                        sectionHeading = allBlocks[i];
-                        const hLine = sectionHeading.getAttribute('data-source-line');
-                        if (hLine) sectionStartLine = parseInt(hLine);
-                        break;
-                    }
-                }
+    const targetLine = parseInt(lineStr);
+    const contentWrapper = document.querySelector('.content-wrapper') as HTMLElement;
+    if (!contentWrapper) return;
 
-                const relativeLine = targetLine - sectionStartLine + 1;
-                openInlineEditor(sectionHeading, sectionStartLine, undefined, relativeLine);
-            }
+    // Find the last heading in content-wrapper that precedes targetLine
+    const headings = Array.from(
+        contentWrapper.querySelectorAll('h1[data-source-line], h2[data-source-line], h3[data-source-line], h4[data-source-line], h5[data-source-line], h6[data-source-line]')
+    ) as HTMLElement[];
+
+    let sectionHeading: HTMLElement | null = null;
+    let sectionStartLine = targetLine;
+
+    for (let i = headings.length - 1; i >= 0; i--) {
+        const hLine = parseInt(headings[i].getAttribute('data-source-line') || '0');
+        if (hLine <= targetLine) {
+            sectionHeading = headings[i];
+            sectionStartLine = hLine;
+            break;
         }
     }
+
+    if (!sectionHeading) {
+        // Target is before the first heading — open inline editor at the target element
+        const target = document.querySelector(`[data-source-line="${targetLine}"]`) as HTMLElement;
+        openInlineEditor(target || contentWrapper, targetLine);
+        return;
+    }
+
+    const relativeLine = targetLine - sectionStartLine + 1;
+    openInlineEditor(sectionHeading, sectionStartLine, undefined, relativeLine);
 }

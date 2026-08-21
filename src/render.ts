@@ -38,10 +38,12 @@ export async function resolveKatexVersion(): Promise<string> {
  * other script is still dropped. A script "is mermaid" if the tag or its body
  * mentions mermaid.
  */
-export function stripScripts(html: string, opts: { keepMermaid?: boolean } = {}): string {
-    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag) =>
-        opts.keepMermaid && /mermaid/i.test(tag) ? tag : ''
-    );
+export function stripScripts(html: string, opts: { keepMermaid?: boolean; keepAbcjs?: boolean } = {}): string {
+    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag) => {
+        if (opts.keepMermaid && /mermaid/i.test(tag)) return tag;
+        if (opts.keepAbcjs && /abcjs/i.test(tag)) return tag;
+        return '';
+    });
 }
 
 /**
@@ -189,10 +191,10 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     // stripped and would otherwise leak the original asset path.
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
-    // Finally, drop client JS. Mermaid diagrams render client-side, so when the
-    // page has one, keep just the mermaid loader + init; everything else goes.
+    // Drop client JS. Keep CDN loaders for client-rendered content (mermaid, abcjs).
     const hasMermaid = /<div class="mermaid">/.test(html);
-    html = stripScripts(html, { keepMermaid: hasMermaid });
+    const hasAbcjs = /class="abcjs-notation"/.test(html);
+    html = stripScripts(html, { keepMermaid: hasMermaid, keepAbcjs: hasAbcjs });
 
     return html;
 }
