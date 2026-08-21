@@ -127,14 +127,14 @@ Flags: `#resolved`, `#important`, `summary: Title`
 
 ## Issue Tracking
 
-This project uses **bd (beads)** for issue tracking. Key commands:
+Issues are tracked in GitHub Issues. Use the `gh` CLI:
 
 ```bash
-bd ready              # Find unblocked work (main source of tasks)
-bd create "Title" --type task --priority 2   # Create issue (priority: 0-4)
-bd update <id> --status in_progress          # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git (run at session end)
+gh issue list --state open          # All open issues
+gh issue view <number>              # Full issue details
+gh issue create --title "..." --body "..."
+gh issue close <number> --comment "..."
+gh issue edit <number> --add-label "ready-for-agent"
 ```
 
 ## Citations
