@@ -79,6 +79,35 @@ jarred@2026-01-11:15:07 sup
   - [w] Wait for transaction to clear (due:2026-02-05 remind:2026-02-01)
 - [x] Review PR #42 (@jarred)
 
+## Music Notation
+
+Glint renders [ABC notation](https://abcnotation.com/) via abcjs:
+
+```abcjs
+X:1
+T:Ode to Joy (Theme)
+C:Beethoven
+M:4/4
+L:1/8
+K:C
+E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |
+E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |
+```
+
+Multi-voice example:
+
+```abc
+X:2
+T:Simple Canon
+M:4/4
+L:1/4
+K:G
+V:1
+G A B c | d c B A | G4 |
+V:2
+z2 G A | B c d c | B A G2 |
+```
+
 ## Mermaid Diagrams
 
 Here is a flow chart:
