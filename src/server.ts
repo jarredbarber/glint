@@ -1,33 +1,12 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import path from 'node:path';
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkMath from 'remark-math';
-import remarkGfm from 'remark-gfm';
-import remarkRehype from 'remark-rehype';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
-import rehypeStringify from 'rehype-stringify';
-import rehypeRaw from 'rehype-raw';
-
-import { loadConfig, type GlintConfig, getProcessedMacros } from './config.js';
+import { loadConfig, type GlintConfig } from './config.js';
 import { buildFileTree, type FileNode } from './filetree.js';
 import { parseMarkdown } from './markdown.js';
-import rehypeKatex from 'rehype-katex';
 import { rehypeExtractHeadings, type HeadingNode } from './rehype-extract-headings.js';
-import { remarkMermaidGlint } from './remark-mermaid-glint.js';
-import { remarkAbcjsGlint } from './remark-abcjs-glint.js';
-import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
-import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { widgets } from './widgets/index.js';
-import { rehypeSourceLines } from './rehype-source-lines.js';
-import { rehypeGlintSections } from './rehype-glint-sections.js';
-import { rehypeGlintImage } from './rehype-glint-image.js';
-import { rehypeGlintCodeBlocks } from './rehype-glint-code-blocks.js';
-import { remarkGlintCitations } from './remark-glint-citations.js';
-import { rehypeGlintCitations } from './rehype-glint-citations.js';
+import { createProcessor } from './pipeline.js';
 import { VFile } from 'vfile';
 import * as renderer from './renderer.js';
 import { isForbiddenError, isNotFoundError, NotFoundError } from './utils/errors.js';
@@ -43,37 +22,6 @@ import { JournalScanner } from './journal/scanner.js';
 import { setupJournalRoutes } from './server/routes/journal.js';
 import { setupDocumentRoutes } from './server/routes/documents.js';
 
-
-export function createProcessor(config: GlintConfig, linkValidator: (path: string) => boolean) {
-    const macros = getProcessedMacros(config);
-
-    return unified()
-        .use(remarkParse)
-        .use(remarkMath)  // Protect $...$ and $$...$$ from markdown parsing
-        .use(remarkGfm)
-        .use(remarkGlintWidgets)
-        .use(remarkGlintCitations)
-        .use(remarkWikiLinkGlint, { validateLink: linkValidator })
-        .use(remarkMermaidGlint)
-        .use(remarkAbcjsGlint)
-        .use(remarkRehype, { allowDangerousHtml: true })
-        .use(rehypeSourceLines)
-        .use(rehypeGlintSections)
-        .use(rehypeRaw)
-        .use(rehypeGlintImage)
-        .use(rehypeGlintCitations)
-        .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
-        .use(rehypeHighlight, { detect: true })
-        .use(rehypeGlintCodeBlocks)
-        .use(rehypeSlug)
-        .use(rehypeExtractHeadings)
-        .use(rehypeAutolinkHeadings, {
-            behavior: 'prepend',
-            properties: { className: ['heading-anchor'] },
-            content: { type: 'text', value: '#' }
-        })
-        .use(rehypeStringify, { allowDangerousHtml: true });
-}
 
 export async function createServer(contentDir: string, configPath?: string) {
     let config = await loadConfig(contentDir, configPath);

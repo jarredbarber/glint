@@ -8,7 +8,7 @@ import fs from 'node:fs/promises';
 import { VFile } from 'vfile';
 import { loadConfig } from './config.js';
 import { parseMarkdown } from './markdown.js';
-import { createProcessor } from './server.js';
+import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
 import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
 import type { HeadingNode } from './rehype-extract-headings.js';

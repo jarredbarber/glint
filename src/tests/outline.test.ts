@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createProcessor } from '../server.js';
+import { createProcessor } from '../pipeline.js';
 import { VFile } from 'vfile';
 import type { HeadingNode } from '../rehype-extract-headings.js';
 
