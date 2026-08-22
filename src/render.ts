@@ -111,6 +111,17 @@ export interface RenderFileOptions {
     configPath?: string;
 }
 
+export interface RenderMarkdownOptions {
+    /** Raw markdown string to render. */
+    markdown: string;
+    /** Directory used for config loading and image resolution (defaults to cwd). */
+    fileDir?: string;
+    /** Theme name override (defaults to the config / 'nord'). */
+    theme?: string;
+    /** KaTeX version for the CDN stylesheet. Resolved from the install if omitted. */
+    katexVersion?: string;
+}
+
 /**
  * Render a single markdown file into a self-contained static HTML document:
  * chrome CSS inlined, images inlined as data: URIs, all JS stripped, internal /
@@ -192,6 +203,60 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
     // Drop client JS. Keep CDN loaders for client-rendered content (mermaid, abcjs).
+    const hasMermaid = /<div class="mermaid">/.test(html);
+    const hasAbcjs = /class="abcjs-notation"/.test(html);
+    html = stripScripts(html, { keepMermaid: hasMermaid, keepAbcjs: hasAbcjs });
+
+    return html;
+}
+
+/** Render a raw markdown string to a full static HTML document. */
+export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<string> {
+    const fileDir = opts.fileDir ?? process.cwd();
+    const config = await loadConfig(fileDir);
+    if (opts.theme) config.theme = opts.theme;
+
+    const { content, title: fmTitle, frontmatter, contentStartLine } = parseMarkdown(opts.markdown);
+    const currentPath = 'stdin.md';
+
+    const processor = createProcessor(config, () => false);
+    const file = new VFile({ value: content });
+    file.data.contentStartLine = contentStartLine;
+    file.data.filePath = currentPath;
+    const vfile = await processor.process(file);
+    const headings = (vfile.data.headings as HeadingNode[]) || [];
+    const title = fmTitle ?? 'Document';
+
+    let html = renderer.renderHtml({
+        content: String(vfile),
+        title,
+        config,
+        fileTree: [],
+        currentPath,
+        headings,
+        frontmatter,
+        static: true,
+        standalone: true,
+    });
+
+    const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
+    html = rewriteStaticHtml(html);
+    html = stripInternalLinks(html);
+    html = applyKatexCdn(html, katexVersion);
+
+    const repoAssets = path.join(import.meta.dirname, '..', 'assets');
+    const cssByHref = new Map<string, string>();
+    const cssFiles: [string, string][] = [
+        ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
+        ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
+        [`/assets/themes/${config.theme}.css`, path.join(repoAssets, 'themes', `${config.theme}.css`)],
+    ];
+    for (const [href, fsPath] of cssFiles) {
+        try { cssByHref.set(href, await fs.readFile(fsPath, 'utf8')); } catch { /* skip */ }
+    }
+    html = inlineStylesheets(html, cssByHref);
+    html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
+
     const hasMermaid = /<div class="mermaid">/.test(html);
     const hasAbcjs = /class="abcjs-notation"/.test(html);
     html = stripScripts(html, { keepMermaid: hasMermaid, keepAbcjs: hasAbcjs });

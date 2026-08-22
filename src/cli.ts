@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import path from 'path';
 import fs from 'node:fs/promises';
 import { createServer } from './server.js';
-import { renderFile } from './render.js';
+import { renderFile, renderMarkdown } from './render.js';
 
 const program = new Command();
 
@@ -45,24 +45,41 @@ program
 program
     .command('render')
     .description('Render a single Markdown file to a self-contained HTML file')
-    .argument('<file>', 'Path to the .md file to render')
-    .option('-o, --output <file>', 'Output HTML file (defaults to <file>.html)')
+    .argument('[file]', 'Path to the .md file to render (omit with --stdin)')
+    .option('-o, --output <file>', 'Output HTML file (defaults to <file>.html or stdout with --stdin)')
     .option('--theme <name>', 'Theme name override (e.g. nord, default)')
-    .action(async (file: string, options: { output?: string; theme?: string }) => {
-        const filePath = path.resolve(file);
-        const stats = await fs.stat(filePath).catch(() => null);
-        if (!stats || !stats.isFile()) {
-            console.error(`✗ Not a file: ${filePath}`);
-            process.exit(1);
+    .option('--stdin', 'Read markdown from stdin instead of a file')
+    .option('--body-only', 'Output only the <body> HTML fragment (for embedding in external templates)')
+    .action(async (file: string | undefined, options: { output?: string; theme?: string; stdin?: boolean; bodyOnly?: boolean }) => {
+        let html: string;
+
+        if (options.stdin) {
+            const chunks: Buffer[] = [];
+            for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+            const markdown = Buffer.concat(chunks).toString('utf8');
+            html = await renderMarkdown({ markdown, theme: options.theme });
+        } else {
+            if (!file) { console.error('✗ Provide a file argument or use --stdin'); process.exit(1); }
+            const filePath = path.resolve(file);
+            const stats = await fs.stat(filePath).catch(() => null);
+            if (!stats || !stats.isFile()) { console.error(`✗ Not a file: ${filePath}`); process.exit(1); }
+            html = await renderFile({ filePath, theme: options.theme });
         }
 
-        const outPath = options.output
-            ? path.resolve(options.output)
-            : filePath.replace(/\.md$/i, '') + '.html';
+        if (options.bodyOnly) {
+            const m = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            html = m ? m[1] : html;
+        }
 
-        const html = await renderFile({ filePath, theme: options.theme });
-        await fs.writeFile(outPath, html);
-        console.log(`✓ rendered ${path.basename(filePath)} -> ${outPath}`);
+        if (options.stdin && !options.output) {
+            process.stdout.write(html);
+        } else {
+            const outPath = options.output
+                ? path.resolve(options.output)
+                : path.resolve(file!).replace(/\.md$/i, '') + '.html';
+            await fs.writeFile(outPath, html);
+            if (!options.stdin) console.log(`✓ rendered ${path.basename(file!)} -> ${outPath}`);
+        }
     });
 
 const SKILL_TEXT = `---
