@@ -9,7 +9,7 @@ becomes a wiki. No server, no Glint user database — access control is the back
 |---------|-----------|-------|
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
-| GitHub repo | `#/gh/<owner>/<repo>/<path>` (optional `...@<ref>`) | a pasted fine-grained PAT |
+| GitHub repo | `#/gh/<owner>/<repo>/<path>@<ref>` | GitHub OAuth or an explicit fine-grained PAT |
 | Demo (in-memory) | `#/fake` | nothing |
 
 ## Local dev
@@ -25,13 +25,18 @@ you only need the deploy artifact.
 
 ## OAuth client IDs (public — not secrets)
 
-Copy `src/spa/config.example.js` → `src/spa/config.js` and fill in:
+Copy `src/spa/config.example.js` → `src/spa/config.js` and fill in the public values:
 
 ```js
-window.GLINT_CONFIG = { driveClientId: '...', githubClientId: '...' };
+window.GLINT_CONFIG = {
+  driveClientId: '...',
+  githubClientId: '...',
+  githubOAuthWorkerOrigin: 'https://glint-github-oauth.<account>.workers.dev',
+  githubRedirectUri: 'https://<user>.github.io/glint/',
+};
 ```
 
-Commit `config.js` to enable Drive/GitHub on the deployed site (client IDs are public identifiers).
+Commit `config.js` to enable Drive/GitHub on the deployed site. Client IDs and Worker origins are public; OAuth client secrets never enter the SPA.
 
 ### Google (Drive)
 
@@ -42,20 +47,17 @@ Commit `config.js` to enable Drive/GitHub on the deployed site (client IDs are p
 4. Scope used: `drive.file` (least privilege). The app recursively lists Markdown files below the folder id.
 5. Enable the **Google Drive API** for the project.
 
-### GitHub — fine-grained PAT (no OAuth App)
+### GitHub — OAuth Worker, with optional fine-grained PAT
 
-Device flow was dropped: `github.com/login/*` sends no CORS headers, so a browser can't acquire the
-token. `api.github.com` *does* allow CORS, so read/write with a token works from the static page —
-the token is just pasted rather than obtained via OAuth. No `config.js` entry, no server, no proxy.
+GitHub's authorization-code exchange needs an OAuth App secret, so the SPA redirects through the narrow Cloudflare Worker in `src/github-oauth-worker.ts`. The SPA sends repository traffic directly to `api.github.com`; the Worker only accepts `POST /exchange` from configured origins and never stores/proxies GitHub data.
 
-1. github.com → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
-2. **Repository access:** only the repo(s) you'll edit. **Permissions → Contents: Read and write.**
-   (A classic token with the `repo` scope also works.)
-3. On first `#/gh/...` load the app prompts for the token, validates it against `api.github.com/user`,
-   and caches it in `localStorage`. Commits are attributed to the token's user.
+1. Create a GitHub OAuth App. Its callback URL must exactly equal `githubRedirectUri`; the app requests the broad `repo` scope.
+2. Deploy the Worker with `wrangler deploy --config wrangler.github-oauth.toml`.
+3. Configure `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_OAUTH_REDIRECT_URI`, and `GITHUB_OAUTH_ALLOWED_ORIGINS` on the Worker. `GITHUB_OAUTH_ALLOWED_ORIGINS` is a comma-separated exact list such as `https://<user>.github.io,http://localhost:8080`.
+4. Add the public client ID, Worker origin, and callback URL to `config.js`. Do not add the secret.
+5. The sign-in screen explains that OAuth grants broad `repo` access. Choosing the explicit fallback prompts for a repository-selected fine-grained PAT with Contents read/write.
 
-> The token lives only in the browser's `localStorage` (never committed, never sent anywhere but GitHub).
-> Set a short expiry and re-paste when it lapses.
+OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,

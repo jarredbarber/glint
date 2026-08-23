@@ -44,12 +44,8 @@ test('widgets: tasks', async (t) => {
     });
 });
 
-test('widgets: comments', async (t) => {
-    await t.test('renders comment block', async () => {
-        const markdown = '```comment\nsummary: Test\nuser@2026-01-01: Hello\n```';
-        const html = await processMarkdown(markdown);
-        assert.ok(html.includes('glint-comment'));
-        assert.ok(html.includes('Test'));
-        assert.ok(html.includes('Hello'));
-    });
+test('comment fences remain ordinary Markdown code blocks', async () => {
+    const html = await processMarkdown('```comment\nuser@2026-01-01: Hello\n```');
+    assert.doesNotMatch(html, /glint-comment/);
+    assert.match(html, /<code class="language-comment">/);
 });

@@ -1,0 +1,7 @@
+name = "glint-github-oauth"
+main = "src/github-oauth-worker.ts"
+compatibility_date = "2026-08-23"
+
+# Set GITHUB_OAUTH_CLIENT_SECRET with `wrangler secret put`.
+# Configure the non-secret values with `wrangler secret put` too, or add them as
+# environment-specific vars outside this committed file.

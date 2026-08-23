@@ -1,6 +1,6 @@
 # Glint
 
-Glint is a static Markdown wiki SPA. It renders GitHub Flavored Markdown, KaTeX math, Mermaid diagrams, wiki links, citations, task widgets, and comment blocks.
+Glint is a static Markdown wiki SPA. It renders GitHub Flavored Markdown, KaTeX math, Mermaid diagrams, wiki links, citations, and task widgets.
 
 ## Wiki links
 
@@ -18,6 +18,3 @@ Add references under `## References` as `- [ref:id] "Title" Author (Year) URL`, 
 
 Use `- [state] description (metadata)`. States are `[ ]`, `[x]`, `[/]`, `[w]`, `[b]`, and `[c]`.
 
-## Comments
-
-Use a `comment` fenced block with `author@YYYY-MM-DD:HH:MM message` entries. Optional flags are `#resolved` and `#important`.

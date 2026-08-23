@@ -120,14 +120,10 @@ t2('renderFile keeps mermaid JS only when the page has a diagram', async () => {
 
 // --- body-only fragment (VimR embedding) ---
 
-test('body-only fragment: comment toggle selector matches the class comment.ts emits', async () => {
-    const md = '# T\n\n```comment\nme@2026-01-01:10:00 hi\n```\n';
-    const out = await renderMarkdown({ markdown: md, bodyOnly: true });
-    // The emitted comment container and the toggle handler must agree on the
-    // class, or clicking the toggle silently no-ops (the .glint-comment-block bug).
-    const cls = out.match(/class="([^"]*\bglint-comment\b[^"]*)"/);
-    assert.ok(cls, 'comment markup carries a glint-comment class');
-    assert.match(out, /closest\('\.glint-comment'\)/, 'toggle targets that same class');
+test('body-only fragment: comment fences are ordinary code blocks', async () => {
+    const out = await renderMarkdown({ markdown: '# T\n\n```comment\nme@2026-01-01:10:00 hi\n```\n', bodyOnly: true });
+    assert.doesNotMatch(out, /glint-widget glint-comment/);
+    assert.match(out, /language-comment/);
 });
 
 test('body-only fragment: forces Glint theme colors, no colorscheme bridge by default', async () => {

@@ -1,13 +1,9 @@
-// GitHub backend: fine-grained PAT (pasted once, cached in localStorage) + Contents API.
-// Device flow was dropped: github.com/login/* sends no CORS headers, so token
-// acquisition is browser-blocked. api.github.com does allow CORS, so read/write
-// with a token works from the static page — the PAT is the zero-server path.
+// GitHub backend: OAuth or a fine-grained PAT kept only in memory.
+import { beginGitHubOAuth, GitHubOAuthConfig } from '../github-oauth.js';
 import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
 
 const API = 'https://api.github.com';
-const TOKEN_KEY = 'glint-gh-token';
-
 
 interface CachedRead {
     content: string;
@@ -39,27 +35,30 @@ export class GitHubAdapter implements StorageAdapter {
     private reads = new Map<string, CachedRead>();
     private listedVersions = new Map<string, string>();
 
-
     constructor(
         private owner: string,
         private repo: string,
         private path: string,
         private ref: string,
-    ) {}
+        private oauth?: GitHubOAuthConfig,
+        initialToken?: string | null,
+    ) {
+        this.token = initialToken ?? null;
+    }
 
     async auth(): Promise<void> {
-        const cached = localStorage.getItem(TOKEN_KEY);
-        if (cached && (await this.validate(cached))) { this.token = cached; return; }
+        if (this.token && (await this.validate(this.token))) return;
+        if (this.oauth && confirm('GitHub OAuth grants Glint broad “repo” access. Continue to sign in with GitHub? Cancel to use a repository-selected personal access token instead.')) {
+            beginGitHubOAuth(this.oauth);
+        }
         const pat = prompt(
-            'Paste a GitHub token with Contents read/write on this repo.\n' +
-            'Fine-grained PAT (Repository access → Contents: Read and write), or a classic token with the "repo" scope.\n' +
+            'Paste a GitHub fine-grained token with Contents read/write on this repo. It will be kept only until this tab reloads.\\n' +
             'Create one at github.com/settings/tokens'
         );
         const token = pat?.trim();
         if (!token) throw new Error('GitHub token required.');
         if (!(await this.validate(token))) throw new Error('Token is invalid or lacks access to this repo.');
         this.token = token;
-        localStorage.setItem(TOKEN_KEY, token);
     }
 
     async reauthenticate(): Promise<void> {

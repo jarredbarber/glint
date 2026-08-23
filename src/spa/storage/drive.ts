@@ -4,7 +4,7 @@
 // back empty under drive.file, widen SCOPE to `drive.readonly` + `drive.file` or
 // `drive` (the documented tradeoff — spec §Risks) — a one-line change here.
 import { z } from 'zod';
-import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com';
@@ -36,6 +36,30 @@ const driveFileListSchema = z.object({
 
 const tokenResponseSchema = z.object({ access_token: z.string().optional() });
 
+const driveAnchorSchema = z.object({
+    version: z.literal(1),
+    sourceLine: z.number().int().positive(),
+    quote: z.string(),
+    before: z.string().nullable(),
+    after: z.string().nullable(),
+});
+const driveReplySchema = z.object({
+    id: z.string(),
+    content: z.string().default(''),
+    createdTime: z.string().default(''),
+    author: z.object({ displayName: z.string().optional() }).optional(),
+});
+const driveCommentSchema = z.object({
+    id: z.string(),
+    content: z.string().default(''),
+    createdTime: z.string().default(''),
+    resolved: z.boolean().default(false),
+    anchor: z.string().optional(),
+    author: z.object({ displayName: z.string().optional() }).optional(),
+    replies: z.array(driveReplySchema).default([]),
+});
+const driveCommentListSchema = z.object({ comments: z.array(driveCommentSchema).default([]) });
+
 function loadScript(src: string): Promise<void> {
     return new Promise((res, rej) => {
         if (document.querySelector(`script[src="${src}"]`)) return res();
@@ -49,6 +73,12 @@ function loadScript(src: string): Promise<void> {
 
 export class DriveAdapter implements StorageAdapter {
     private token: string | null = null;
+    discussions: DiscussionCapability = {
+        list: (fileId) => this.listDiscussions(fileId),
+        create: (fileId, anchor, content) => this.createDiscussion(fileId, anchor, content),
+        reply: (fileId, discussionId, content) => this.replyToDiscussion(fileId, discussionId, content),
+        setResolved: (fileId, discussionId, resolved) => this.setDiscussionResolved(fileId, discussionId, resolved),
+    };
     private userName = 'Drive User';
 
     constructor(private folderId: string, private clientId: string) {
@@ -157,10 +187,69 @@ export class DriveAdapter implements StorageAdapter {
             body,
         });
         const created = await response.json();
+
         return { id: created.id, name: created.name, path: created.name, version: created.modifiedTime };
     }
 
     async delete(id: string): Promise<void> {
         await this.api(`/drive/v3/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    }
+    private mapComment(comment: z.infer<typeof driveCommentSchema>): Discussion {
+        let anchor: DiscussionAnchor | null = null;
+        if (comment.anchor) {
+            try {
+                const parsed = driveAnchorSchema.safeParse(JSON.parse(comment.anchor));
+                anchor = parsed.success ? parsed.data : null;
+            } catch {
+                anchor = null;
+            }
+        }
+        return {
+            id: comment.id,
+            content: comment.content,
+            author: comment.author?.displayName ?? 'Drive user',
+            createdAt: comment.createdTime,
+            resolved: comment.resolved,
+            anchor,
+            replies: comment.replies.map((reply): DiscussionReply => ({
+                id: reply.id,
+                content: reply.content,
+                author: reply.author?.displayName ?? 'Drive user',
+                createdAt: reply.createdTime,
+            })),
+        };
+    }
+
+    private async listDiscussions(fileId: string): Promise<Discussion[]> {
+        const fields = 'comments(id,content,createdTime,resolved,anchor,author(displayName),replies(id,content,createdTime,author(displayName)))';
+        const response = await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments?fields=${encodeURIComponent(fields)}`);
+        return driveCommentListSchema.parse(await response.json()).comments.map((comment) => this.mapComment(comment));
+    }
+
+    private async createDiscussion(fileId: string, anchor: DiscussionAnchor, content: string): Promise<Discussion> {
+        const response = await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments?fields=id,content,createdTime,resolved,anchor,author(displayName),replies(id,content,createdTime,author(displayName))`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, anchor: JSON.stringify(anchor), quotedFileContent: { mimeType: 'text/markdown', value: anchor.quote } }),
+        });
+        return this.mapComment(driveCommentSchema.parse(await response.json()));
+    }
+
+    private async replyToDiscussion(fileId: string, discussionId: string, content: string): Promise<DiscussionReply> {
+        const response = await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments/${encodeURIComponent(discussionId)}/replies?fields=id,content,createdTime,author(displayName)`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+        });
+        const reply = driveReplySchema.parse(await response.json());
+        return { id: reply.id, content: reply.content, author: reply.author?.displayName ?? 'Drive user', createdAt: reply.createdTime };
+    }
+
+    private async setDiscussionResolved(fileId: string, discussionId: string, resolved: boolean): Promise<void> {
+        await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments/${encodeURIComponent(discussionId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolved }),
+        });
     }
 }

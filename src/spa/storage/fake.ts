@@ -1,4 +1,4 @@
-import { StorageAdapter, FileMeta, ConflictError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
 
 interface Entry { meta: FileMeta; content: string; v: number; }
 
@@ -7,6 +7,28 @@ export { ConflictError };
 export class FakeAdapter implements StorageAdapter {
     private entries = new Map<string, Entry>();
     private seq = 0;
+    private discussionsByFile = new Map<string, Discussion[]>();
+    private discussionSeq = 0;
+    discussions: DiscussionCapability = {
+        list: async (fileId) => this.discussionsByFile.get(fileId)?.map((discussion) => ({ ...discussion, replies: [...discussion.replies] })) ?? [],
+        create: async (fileId, anchor, content) => {
+            const discussion: Discussion = { id: `d${++this.discussionSeq}`, content, anchor, author: 'Fake User', createdAt: new Date(0).toISOString(), resolved: false, replies: [] };
+            this.discussionsByFile.set(fileId, [...(this.discussionsByFile.get(fileId) ?? []), discussion]);
+            return discussion;
+        },
+        reply: async (fileId, discussionId, content) => {
+            const discussion = this.discussionsByFile.get(fileId)?.find((item) => item.id === discussionId);
+            if (!discussion) throw new Error(`no such discussion: ${discussionId}`);
+            const reply: DiscussionReply = { id: `r${++this.discussionSeq}`, content, author: 'Fake User', createdAt: new Date(0).toISOString() };
+            discussion.replies.push(reply);
+            return reply;
+        },
+        setResolved: async (fileId, discussionId, resolved) => {
+            const discussion = this.discussionsByFile.get(fileId)?.find((item) => item.id === discussionId);
+            if (!discussion) throw new Error(`no such discussion: ${discussionId}`);
+            discussion.resolved = resolved;
+        },
+    };
 
     constructor(initial: { name: string; content: string }[] = []) {
         for (const it of initial) {

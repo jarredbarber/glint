@@ -53,7 +53,7 @@ program
 
 const SKILL_TEXT = `---
 name: glint-markdown
-description: Reference for Glint-flavored Markdown extensions (math, diagrams, tasks, comments, wiki links, citations)
+description: Reference for Glint-flavored Markdown extensions (math, diagrams, tasks, wiki links, citations)
 ---
 
 # Glint Markdown Extensions
@@ -131,20 +131,6 @@ Optional metadata appended to the description:
 
 Metadata tokens: \`#priority\`, \`@assignee\`, \`due:YYYY-MM-DD\`, \`scheduled:YYYY-MM-DD\`, \`created:YYYY-MM-DD\`, \`completed:YYYY-MM-DD\`
 
-## Comment Widget
-
-Fenced \`comment\` blocks render as a threaded comment UI:
-
-\`\`\`
-\\\`\\\`\\\`comment
-summary: Discussion title
-alice@2024-11-01:14:30 First comment here.
-bob@2024-11-02:09:00 Reply from Bob. #resolved
-\\\`\\\`\\\`
-\`\`\`
-
-Flags: \`#resolved\`, \`#important\`
-Optional \`summary: Title\` sets the thread title.
 
 ## GitHub-Flavored Markdown
 

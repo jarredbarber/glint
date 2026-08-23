@@ -61,7 +61,7 @@ function isAuthExpired(error: unknown): boolean {
     return error instanceof AuthExpiredError || (error instanceof Error && error.name === 'AuthExpiredError');
 }
 
-export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement): Promise<void> {
+export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement, vimMode = true): Promise<void> {
     closeSectionEditor();
     const generation = editorGeneration;
 
@@ -85,7 +85,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     }
     const editor = new (window as any).GlintEditor(container, {
         initialValue: sectionText,
-        vimMode: true,
+        vimMode,
         onSave: async (edited: string) => {
             const next = [...lines];
             next.splice(startLine - 1, endLine - startLine, edited);
@@ -138,7 +138,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     active = editor;
 }
 
-export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null): void {
+export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true): void {
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'e' || e.metaKey || e.ctrlKey || e.altKey) return;
         const el = e.target as HTMLElement;
@@ -148,6 +148,6 @@ export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: (
         const section = getCurrentSection(64);
         if (!section) { alert('Scroll to a section first.'); return; }   // never a silent no-op (#8 §2/§4)
         e.preventDefault();
-        void openSectionEditor(adapter, id, section);
+        void openSectionEditor(adapter, id, section, vimMode());
     });
 }
