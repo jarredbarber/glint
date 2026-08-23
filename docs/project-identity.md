@@ -12,7 +12,7 @@ Two axes define it. **Purpose:** technical and scholarly authoring — that's *w
 
 The `remark → rehype` pipeline is the whole product: server-side KaTeX, syntax highlighting, mermaid, wiki-links, citations, task/comment widgets, source-line mapping. It has no external API dependencies and produces self-contained output. That is the thing worth defending. Every surface below is just a different way to feed markdown in and get rendered HTML out.
 
-**The razor:** a proposed pipeline feature is in-scope only if it serves technical or long-form authoring. Math, diagrams, callouts, definition lists, footnotes, citations, cross-references → yes. Blog templating, social embeds, comment servers, analytics → no. When in doubt, ask what a person writing a paper, a spec, or research notes needs.
+**The razor:** a proposed pipeline feature is in-scope only if it serves technical or long-form authoring. Math, diagrams, callouts, definition lists, footnotes, citations, cross-references, **in-file review/comment threads** → yes — feedback is a core part of writing technical docs. Blog templating, social embeds, live multi-user collaboration servers, analytics → no. When in doubt, ask what a person writing a paper, a spec, or research notes needs.
 
 ## The three surfaces (and nothing else)
 
@@ -30,8 +30,8 @@ Render is the floor (pipeline only). Serve is the ceiling (pipeline + statefulne
 1. **Zero external render dependencies.** No calls to a math API, no CDN at render time. Server-side or bust. This is the differentiator; never trade it away.
 2. **Self-contained output.** `glint render` produces one file that works offline forever. The Chrome extension inherits the same constraint.
 3. **The pipeline is shared, not forked.** All three surfaces run the *same* remark/rehype stages. A feature added to the pipeline (a new widget, a new callout) shows up everywhere for free. If a feature only makes sense on one surface, it lives on that surface, not in the pipeline.
-4. **Personal-scale, single-user.** No auth, no multi-tenancy, no collaboration server. Access control is the network's job (already the stated deployment model). This was already decided when auth was cut — make it a tenet, not an accident.
-5. **Files are the source of truth.** Plain `.md` on disk (or in git). No database, no proprietary format. Widgets are plain-text syntax that degrades gracefully in any other viewer.
+4. **Single-user *stack*, multi-author *content*.** The `serve` process is single-user with no auth or multi-tenancy — access control is the network's job (decided when auth was cut). But review is core to technical writing, so *multiple people collaborate through the files*: comments are `author@date` threads stored in the `.md` itself, synced via git (§tenet 5), reviewed the way code is. What's out of scope is a *live collaboration server* — presence, cursors, real-time co-editing. Async, file-based feedback is in; a realtime backend is not.
+5. **Files are the source of truth.** Plain `.md` on disk (or in git). No database, no proprietary format. Widgets — including comment threads — are plain-text syntax that degrades gracefully in any other viewer. This is also what makes multi-author feedback work without a server: the file *is* the shared state.
 
 ## Target use cases
 
@@ -39,13 +39,13 @@ Render is the floor (pipeline only). Serve is the ceiling (pipeline + statefulne
 2. **"Browse and edit my notes folder"** — a personal Obsidian-lite with real math and live reload, served on localhost or a Tailnet. (`serve`)
 3. **"Read this markdown on the web the way I like it"** — GitHub/Drive/HTTP `.md` rendered with Glint's pipeline instead of the site's default. (`embed`, #9)
 
-One persona: **a technical person managing their own markdown.** Not teams, not publishing platforms, not CMS.
+One persona: **a technical person writing and circulating their own markdown docs.** Others read and comment via the shared files (git), but there's no team server, publishing platform, or CMS.
 
 ## Explicitly out of scope
 
 - **Static *site* generation** — already removed; do not bring back. `render` does one file; multi-page site builds are a different product.
-- **Auth / multi-user / sharing servers** — already removed; the network layer owns access.
-- **Collaboration / real-time multi-cursor.** Single-user only.
+- **Auth / multi-tenant / sharing servers** — already removed; the network layer owns access. (Multi-*author* feedback is fine — it happens in the files, see tenet 4.)
+- **Live collaboration** — presence, real-time multi-cursor, a co-editing backend. Feedback is async and file-based (comment threads + git), not a realtime server.
 - **Being a general CMS or blog engine.** No templating, no theming DSL beyond the built-in themes, no plugin marketplace.
 - **A second rendering path.** Chromedown must adopt Glint's pipeline, not run a parallel one (see the #9 warning below).
 
