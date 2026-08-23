@@ -5,7 +5,6 @@ import * as toml from 'smol-toml';
 
 /**
  * Available theme names for Glint.
- * Centralized to avoid duplication across API routes and UI.
  */
 export const AVAILABLE_THEMES = [
     'default',
@@ -27,87 +26,19 @@ export const AVAILABLE_THEMES = [
     'tokyo-night'
 ] as const;
 
-const StorageProviderSchema = z.discriminatedUnion('type', [
-    z.object({
-        type: z.literal('local'),
-        basePath: z.string().default('.'),
-    }),
-    z.object({
-        type: z.literal('git'),
-        basePath: z.string(),
-        autoCommit: z.boolean().default(true),
-        autoSync: z.boolean().default(true),
-        syncInterval: z.number().default(60),
-        commitMessage: z.string().optional(),
-    }),
-]);
-
-const MountSchema = z.object({
-    prefix: z.string(),
-    provider: z.string(),
-});
-
-const CacheConfigSchema = z.object({
-    enabled: z.boolean().default(true),
-    ttl: z.number().default(300000), // 5 minutes
-    maxSize: z.number().default(100 * 1024 * 1024), // 100MB
-});
-
-const StorageConfigSchema = z.object({
-    default: z.string().optional(),
-    providers: z.record(z.string(), StorageProviderSchema).default({
-        local: { type: 'local', basePath: '.' }
-    }),
-    mounts: z.array(MountSchema).default([]),
-    cache: CacheConfigSchema.default(() => ({
-        enabled: true,
-        ttl: 300000,
-        maxSize: 100 * 1024 * 1024
-    })),
-});
-
+// Server-side config (port/host/storage providers) was removed with `glint serve`.
+// What remains drives the render pipeline: theme, base file, and LaTeX macros.
 const ConfigSchema = z.object({
-    port: z.coerce.number().default(3000),
-    host: z.string().default('0.0.0.0'),
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),
-'latex-macros': z.record(z.string(), z.string()).optional(),
-    storage: StorageConfigSchema.default(() => ({
-        default: 'local',
-        providers: {
-            local: { type: 'local' as const, basePath: '.' }
-        },
-        mounts: [],
-        cache: {
-            enabled: true,
-            ttl: 300000,
-            maxSize: 100 * 1024 * 1024
-        }
-    })),
+    'latex-macros': z.record(z.string(), z.string()).optional(),
 });
 
 export type GlintConfig = z.infer<typeof ConfigSchema>;
-export type StorageConfig = z.infer<typeof StorageConfigSchema>;
-export type StorageProviderConfig = z.infer<typeof StorageProviderSchema>;
-export type MountConfig = z.infer<typeof MountSchema>;
-export type CacheConfig = z.infer<typeof CacheConfigSchema>;
+
 const DEFAULTS: GlintConfig = {
-    port: 3000,
-    host: '0.0.0.0',
     theme: 'nord',
     baseFile: 'README.md',
-    storage: {
-        default: 'local',
-        providers: {
-            local: { type: 'local', basePath: '.' }
-        },
-        mounts: [],
-        cache: {
-            enabled: true,
-            ttl: 300000,
-            maxSize: 100 * 1024 * 1024
-        }
-    }
 };
 
 export async function loadConfig(contentDir: string, configPath?: string): Promise<GlintConfig> {
@@ -118,62 +49,20 @@ export async function loadConfig(contentDir: string, configPath?: string): Promi
     ];
 
     let raw: string | undefined;
-    let actualConfigPath: string | undefined;
 
     for (const p of paths) {
         try {
             raw = await fs.readFile(p, 'utf-8');
-            actualConfigPath = p;
             break;
         } catch (err) {
             if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
         }
     }
 
-    if (!raw || !actualConfigPath) {
-        return DEFAULTS;
-    }
+    if (!raw) return DEFAULTS;
 
-    try {
-        const parsed = toml.parse(raw);
-        return ConfigSchema.parse({ ...DEFAULTS, ...parsed });
-    } catch (err) {
-        throw err;
-    }
-}
-
-/**
- * Save configuration to the content directory.
- * If configPath is provided, saves to that specific file instead.
- */
-export async function saveConfig(contentDir: string, config: Partial<GlintConfig>, configPath?: string): Promise<void> {
-    const fullConfig = { ...DEFAULTS, ...config };
-    const content = toml.stringify(fullConfig);
-
-    if (configPath) {
-        const dir = path.dirname(configPath);
-        await fs.mkdir(dir, { recursive: true });
-        await fs.writeFile(configPath, content, 'utf-8');
-        return;
-    }
-
-    const dotGlintDir = path.join(contentDir, '.glint');
-    const tomlPath = path.join(contentDir, 'glint.toml');
-    const oldTomlPath = path.join(dotGlintDir, 'config.toml');
-
-    let targetPath = tomlPath;
-    try {
-        await fs.access(tomlPath);
-    } catch {
-        try {
-            await fs.access(oldTomlPath);
-            targetPath = oldTomlPath;
-        } catch {
-            // None exist, use default
-        }
-    }
-
-    await fs.writeFile(targetPath, content, 'utf-8');
+    const parsed = toml.parse(raw);
+    return ConfigSchema.parse({ ...DEFAULTS, ...parsed });
 }
 
 /**
@@ -188,23 +77,3 @@ export function getProcessedMacros(config: GlintConfig): Record<string, string> 
     }
     return processed;
 }
-
-/**
- * Get the path to the current config file.
- */
-export async function getConfigPath(contentDir: string): Promise<string> {
-    const paths = [
-        path.join(contentDir, 'glint.toml'),
-        path.join(contentDir, '.glint', 'config.toml'),
-    ];
-
-    for (const p of paths) {
-        try {
-            await fs.access(p);
-            return p;
-        } catch { }
-    }
-
-    return paths[0]; // Default to glint.toml for creation
-}
-

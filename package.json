@@ -7,14 +7,13 @@
     "glint": "./dist/cli.js"
   },
   "scripts": {
-    "dev": "tsx watch src/cli.ts serve",
+    "dev": "npm run bundle && python3 -m http.server 8080",
     "bundle:editor": "esbuild src/client/editor.ts --bundle --minify --outfile=assets/editor.bundle.js",
-    "bundle:client": "esbuild src/client/router.ts src/client/upload.ts src/client/editor-integration.ts src/client/image-resize.ts src/client/outline.ts src/client/citations.ts src/client/task-view.ts src/client/journal-view.ts src/client/command-palette.ts src/client/lightbox.ts src/client/code-blocks.ts src/client/mobile-sidebar.ts --bundle --minify --outdir=assets --entry-names=[name].bundle",
     "bundle:render": "esbuild src/browser.ts --bundle --minify --platform=browser --global-name=GlintRender --outfile=assets/glint-render.bundle.js",
     "bundle:spa": "esbuild src/spa/app.ts --bundle --minify --format=esm --outfile=assets/spa.bundle.js",
-    "bundle": "npm run bundle:editor && npm run bundle:client && npm run bundle:render && npm run bundle:spa",
+    "bundle": "npm run bundle:editor && npm run bundle:render && npm run bundle:spa",
     "build": "tsc && npm run bundle",
-    "start": "node dist/cli.js serve",
+    "start": "node dist/cli.js render",
     "test": "tsx --test src/tests/**/*.test.ts"
   },
   "keywords": [],
