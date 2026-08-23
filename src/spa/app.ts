@@ -1,6 +1,7 @@
 // Glint SPA app shell: routing → adapter → auth → list → render + sidebar + editor.
 import { StorageAdapter, FileMeta } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
+import { LocalAdapter, localSupported } from './storage/local.js';
 import { resolveWikiLink } from './wiki-links.js';
 import { installEditorShortcuts } from './editor/session.js';
 
@@ -20,7 +21,10 @@ function pickAdapter(backend: string): StorageAdapter {
             { name: 'Home.md', content: '# Home\n\nSee [[Notes]].\n\n## Intro\n\nWelcome.' },
             { name: 'Notes.md', content: '## Notes\n\nHello from notes.' },
         ]);
-        // 'drive' | 'github' | 'local' wired in Tasks 5–7
+        case 'local':
+            if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
+            return new LocalAdapter();
+        // 'drive' | 'github' wired in Tasks 5–6
         default: throw new Error(`unknown backend: ${backend}`);
     }
 }

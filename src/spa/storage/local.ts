@@ -1,0 +1,89 @@
+// Local directory backend via the File System Access API (Chromium/Edge only).
+// The directory handle is persisted in IndexedDB so the workspace survives reloads;
+// permission is re-requested on return.
+import { StorageAdapter, FileMeta, ConflictError } from './types.js';
+
+export function localSupported(): boolean {
+    return typeof (window as any).showDirectoryPicker === 'function';
+}
+
+// --- tiny IndexedDB single-key store (handles aren't localStorage-serializable) ---
+const DB = 'glint-spa', STORE = 'handles', KEY = 'dir';
+
+function idb(): Promise<IDBDatabase> {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+    });
+}
+async function idbGet<T>(): Promise<T | undefined> {
+    const db = await idb();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY);
+        tx.onsuccess = () => res(tx.result as T);
+        tx.onerror = () => rej(tx.error);
+    });
+}
+async function idbSet(val: unknown): Promise<void> {
+    const db = await idb();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readwrite').objectStore(STORE).put(val, KEY);
+        tx.onsuccess = () => res();
+        tx.onerror = () => rej(tx.error);
+    });
+}
+
+type DirHandle = any; // FileSystemDirectoryHandle — types vary by TS lib version
+
+export class LocalAdapter implements StorageAdapter {
+    private dir: DirHandle | null = null;
+
+    async auth(): Promise<void> {
+        const saved = await idbGet<DirHandle>().catch(() => undefined);
+        if (saved) {
+            const perm = await saved.queryPermission({ mode: 'readwrite' });
+            if (perm === 'granted' || (await saved.requestPermission({ mode: 'readwrite' })) === 'granted') {
+                this.dir = saved;
+                return;
+            }
+        }
+        this.dir = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+        await idbSet(this.dir).catch(() => { /* non-fatal: handle just won't persist */ });
+    }
+
+    identity() { return { name: 'Local' }; }
+
+    private need(): DirHandle {
+        if (!this.dir) throw new Error('call auth() first');
+        return this.dir;
+    }
+
+    async list(): Promise<FileMeta[]> {
+        const out: FileMeta[] = [];
+        for await (const [name, handle] of this.need().entries()) {
+            if (handle.kind === 'file' && name.endsWith('.md')) {
+                const f = await handle.getFile();
+                out.push({ id: name, name, path: name, version: String(f.lastModified) });
+            }
+        }
+        return out.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    async read(id: string) {
+        const fh = await this.need().getFileHandle(id);
+        const f = await fh.getFile();
+        return { content: await f.text(), version: String(f.lastModified) };
+    }
+
+    async write(id: string, content: string, version: string) {
+        const fh = await this.need().getFileHandle(id, { create: true });
+        const current = String((await fh.getFile()).lastModified);
+        if (current !== version) throw new ConflictError();
+        const w = await fh.createWritable();
+        await w.write(content);
+        await w.close();
+        return { version: String((await fh.getFile()).lastModified) };
+    }
+}
