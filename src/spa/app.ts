@@ -2,7 +2,13 @@
 import { StorageAdapter, FileMeta } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
+import { DriveAdapter } from './storage/drive.js';
+import { GitHubAdapter } from './storage/github.js';
 import { resolveWikiLink } from './wiki-links.js';
+
+// Public OAuth client IDs, injected via an optional /config.js that sets
+// window.GLINT_CONFIG = { driveClientId, githubClientId }. Client IDs are public.
+const CFG: { driveClientId?: string; githubClientId?: string } = (window as any).GLINT_CONFIG ?? {};
 import { installEditorShortcuts } from './editor/session.js';
 
 declare const GlintRender: { renderMarkdown(src: string, opts?: any): Promise<string> };
@@ -15,7 +21,7 @@ export function parseRoute(hash: string): { backend: string; rest: string[] } | 
     return { backend: parts[0], rest: parts.slice(1) };
 }
 
-function pickAdapter(backend: string): StorageAdapter {
+function pickAdapter(backend: string, rest: string[]): StorageAdapter {
     switch (backend) {
         case 'fake': return new FakeAdapter([
             { name: 'Home.md', content: '# Home\n\nSee [[Notes]].\n\n## Intro\n\nWelcome.' },
@@ -24,7 +30,19 @@ function pickAdapter(backend: string): StorageAdapter {
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
             return new LocalAdapter();
-        // 'drive' | 'github' wired in Tasks 5–6
+        case 'drive':
+            // #/drive/<folderId>
+            return new DriveAdapter(rest[0], CFG.driveClientId ?? '');
+        case 'gh':
+        case 'github': {
+            // #/gh/owner/repo/path...  (optional @ref on the last segment)
+            const [owner, repo, ...pathParts] = rest;
+            let ref = 'main';
+            let path = pathParts.join('/');
+            const at = path.lastIndexOf('@');
+            if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
+            return new GitHubAdapter(owner, repo, path, ref, CFG.githubClientId ?? '');
+        }
         default: throw new Error(`unknown backend: ${backend}`);
     }
 }
@@ -46,12 +64,6 @@ async function openFile(id: string) {
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = html;
     wireWikiLinks();
-    location.hash = routeForFile(id);
-}
-
-function routeForFile(id: string): string {
-    const route = parseRoute(location.hash) ?? { backend: 'fake', rest: [] };
-    return `#/${route.backend}/${encodeURIComponent(id)}`;
 }
 
 function wireWikiLinks() {
@@ -73,15 +85,12 @@ function renderSidebar() {
 
 export async function boot(): Promise<void> {
     const route = parseRoute(location.hash) ?? { backend: 'fake', rest: [] };
-    adapter = pickAdapter(route.backend);
+    adapter = pickAdapter(route.backend, route.rest);
     await adapter.auth();
     files = await adapter.list();
     renderSidebar();
     installEditorShortcuts(adapter, () => currentFileId);
-    // A file id may be in the route (rest[0]); else open the first file.
-    const routed = route.rest[0] && files.find((f) => f.id === route.rest[0]);
-    if (routed) await openFile(routed.id);
-    else if (files.length) await openFile(files[0].id);
+    if (files.length) await openFile(files[0].id);
 }
 
 window.addEventListener('DOMContentLoaded', () => void boot());
