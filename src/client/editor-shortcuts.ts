@@ -5,6 +5,23 @@ import { canEdit, canComment } from './permissions.js';
 
 let shortcutsAttached = false;
 
+// Resolve the line to act on. Prefer the hover-tracked line; fall back to the
+// top-most section visible in the viewport so e/c work with no mouse movement
+// (fresh page load, keyboard-only) — issue #8, "sometimes doesn't open".
+function resolveCurrentLine(): { line: string; nextLine?: string } | null {
+    const hint = document.querySelector('.line-tracker-hint') as HTMLElement | null;
+    const hovered = hint?.dataset.line;
+    if (hovered) return { line: hovered, nextLine: hint?.dataset.nextLine };
+
+    const wrapper = document.querySelector('.content-wrapper');
+    if (!wrapper) return null;
+    const els = Array.from(wrapper.querySelectorAll('[data-source-line]')) as HTMLElement[];
+    const headerOffset = 80; // clears the sticky heading
+    const current = els.find(el => el.getBoundingClientRect().bottom > headerOffset);
+    if (!current) return null;
+    return { line: current.getAttribute('data-source-line') || '' };
+}
+
 export function setupKeyboardShortcuts() {
     if (shortcutsAttached) return;
     shortcutsAttached = true;
@@ -16,13 +33,8 @@ export function setupKeyboardShortcuts() {
 
         if (e.key === 'c' && canComment()) {
             e.preventDefault();
-            const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
-            if (hint) {
-                const line = hint.dataset.line || hint.textContent?.match(/L(\d+)/)?.[1];
-                if (line) {
-                    insertCommentBlock(line, hint.dataset.nextLine);
-                }
-            }
+            const cur = resolveCurrentLine();
+            if (cur?.line) insertCommentBlock(cur.line, cur.nextLine);
             return;
         }
 
@@ -49,14 +61,10 @@ export function setupKeyboardShortcuts() {
 }
 
 function editCurrentSection() {
-    const hint = document.querySelector('.line-tracker-hint') as HTMLElement;
-    if (!hint) return;
+    const cur = resolveCurrentLine();
+    if (!cur?.line) return;
 
-    // dataset.line is set by the tracker and is more reliable than parsing textContent
-    const lineStr = hint.dataset.line || hint.textContent?.match(/L(\d+)/)?.[1];
-    if (!lineStr) return;
-
-    const targetLine = parseInt(lineStr);
+    const targetLine = parseInt(cur.line);
     const contentWrapper = document.querySelector('.content-wrapper') as HTMLElement;
     if (!contentWrapper) return;
 

@@ -158,9 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isVisible = false;
         });
 
-        // Update state on scroll but keep hidden until mouse moves
-        // This ensures shortcuts (e/c) work after scroll even if visual is hidden
-        content.addEventListener('scroll', () => {
+        // Update state on scroll but keep hidden until mouse moves.
+        // The actual scroll container is `.content` (overflow-y:auto), NOT
+        // `.content-wrapper` — listening on the wrapper never fired, leaving
+        // dataset.line stale after scroll (issue #8, wrong-line-on-edit).
+        const scrollContainer = document.querySelector('.content') || content;
+        scrollContainer.addEventListener('scroll', () => {
             updateTracker(lastX, lastY, false);
         }, { passive: true });
     }
