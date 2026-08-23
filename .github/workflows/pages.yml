@@ -24,14 +24,7 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
-      - name: Assemble deploy root
-        run: |
-          mkdir -p dist-spa
-          cp src/spa/index.html dist-spa/
-          cp src/spa/llms.txt dist-spa/
-          # Optional client-id config (commit src/spa/config.js to enable Drive/GitHub).
-          [ -f src/spa/config.js ] && cp src/spa/config.js dist-spa/ || true
-          cp -r assets dist-spa/assets
+      - run: npm run stage:spa
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-spa

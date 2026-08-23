@@ -88,21 +88,33 @@ export class GitHubAdapter implements StorageAdapter {
     }
 
     private fullPath(name: string): string {
-        return this.path ? `${this.path.replace(/\/$/, '')}/${name}` : name;
+        const root = this.path.replace(/^\/+|\/+$/g, '');
+        return root ? (name ? `${root}/${name}` : root) : name;
+    }
+
+    private async listDirectory(path: string): Promise<FileMeta[]> {
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(path))}?ref=${encodeURIComponent(this.ref)}`);
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        const items = githubListSchema.parse(await r.json());
+        const files: FileMeta[] = [];
+        for (const item of items) {
+            const relativePath = path ? `${path}/${item.name}` : item.name;
+            if (item.type === 'dir') {
+                files.push(...await this.listDirectory(relativePath));
+            } else if (item.type === 'file' && item.name.endsWith('.md')) {
+                files.push({ id: relativePath, name: item.name, path: relativePath, version: item.sha });
+            }
+        }
+        return files;
     }
 
     async list(): Promise<FileMeta[]> {
-        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.path)}?ref=${encodeURIComponent(this.ref)}`);
-        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        const items = githubListSchema.parse(await r.json());
-        const files = items
-            .filter((item) => item.type === 'file' && item.name.endsWith('.md'))
-            .map((item) => ({ id: item.name, name: item.name, path: item.path, version: item.sha }));
+        const files = await this.listDirectory('');
         this.listedVersions = new Map(files.map((file) => [file.id, file.version]));
         for (const id of this.reads.keys()) {
             if (!this.listedVersions.has(id)) this.reads.delete(id);
         }
-        return files;
+        return files.sort((a, b) => a.path.localeCompare(b.path));
     }
 
     async read(id: string) {

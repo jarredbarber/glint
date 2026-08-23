@@ -733,6 +733,29 @@ details:not([open]) .sidebar-header::after {
     overflow-wrap: anywhere;
 }
 
+.spa-page-list ul {
+    margin: 0;
+    padding-left: 1rem;
+    list-style: none;
+}
+
+.spa-page-list > ul {
+    padding-left: 0;
+}
+
+.spa-page-list li {
+    margin: 0.15rem 0;
+}
+
+.spa-page-list summary {
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.spa-page-list a[aria-current="page"] {
+    font-weight: 700;
+}
+
 .glint-landing .sidebar,
 .glint-landing .mobile-toggle,
 .glint-landing .mobile-overlay {

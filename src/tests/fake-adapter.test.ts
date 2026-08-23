@@ -11,6 +11,11 @@ test('list + read round-trip', async () => {
     assert.ok(version);
 });
 
+test('preserves nested source paths while exposing a basename for wiki links', async () => {
+    const [file] = await new FakeAdapter([{ name: 'Guides/Welcome.md', content: '# Welcome' }]).list();
+    assert.deepEqual(file, { id: 'f1', name: 'Welcome.md', path: 'Guides/Welcome.md', version: '1' });
+});
+
 test('write with current version succeeds and bumps version', async () => {
     const a = new FakeAdapter([{ name: 'a.md', content: '# A' }]);
     const [f] = await a.list();

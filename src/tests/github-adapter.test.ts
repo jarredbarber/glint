@@ -81,3 +81,32 @@ test('caches GitHub file content until a directory refresh reports a new blob SH
     assert.deepEqual(await adapter.read('note.md'), { content: 'second', version: 'sha-2' });
     assert.equal(fileReads, 2);
 });
+
+
+test('recursively lists repository folders using source-relative file IDs', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string) => {
+            if (url.includes('/contents/docs/notes?')) {
+                return new Response(JSON.stringify([{
+                    type: 'file', name: 'Draft.md', path: 'docs/notes/Draft.md', sha: 'draft-sha',
+                }]));
+            }
+            return new Response(JSON.stringify([
+                { type: 'dir', name: 'notes', path: 'docs/notes', sha: 'dir-sha' },
+                { type: 'file', name: 'Home.md', path: 'docs/Home.md', sha: 'home-sha' },
+            ]));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', 'docs', 'main');
+    assert.deepEqual(await adapter.list(), [
+        { id: 'Home.md', name: 'Home.md', path: 'Home.md', version: 'home-sha' },
+        { id: 'notes/Draft.md', name: 'Draft.md', path: 'notes/Draft.md', version: 'draft-sha' },
+    ]);
+});

@@ -15,14 +15,13 @@ becomes a wiki. No server, no Glint user database — access control is the back
 ## Local dev
 
 ```bash
-npm run build          # tsc + all bundles (editor, render, spa)
-npm run dev            # build + python3 -m http.server 8080
-# open http://localhost:8080/src/spa/index.html#/fake  (dev: assets resolve from repo root — see note)
+npm run dev
+# open http://localhost:8080/#/fake
 ```
 
-> The deploy layout puts `index.html` beside `assets/`. In the repo, `src/spa/index.html`
-> references `./assets/`, which only resolves when it sits at the same root — the Pages
-> workflow assembles that. For a quick local check, serve from a root where `./assets/` exists.
+`npm run dev` type-checks, rebuilds browser bundles, stages the deploy layout in
+`dist-spa/`, and serves it. Run `npm run stage:spa` after `npm run build` when
+you only need the deploy artifact.
 
 ## OAuth client IDs (public — not secrets)
 
@@ -40,7 +39,7 @@ Commit `config.js` to enable Drive/GitHub on the deployed site (client IDs are p
 2. **Authorized JavaScript origins** = your Pages origin (e.g. `https://<user>.github.io`). OAuth needs a
    real origin — `localhost` works for dev (not `file://`, and `localhost` ≠ `127.0.0.1` to Google).
 3. OAuth consent screen in **Testing** mode + add yourself as a test user (zero verification needed).
-4. Scope used: `drive.file` (least privilege). The app lists a folder's `.md` children via the folder id.
+4. Scope used: `drive.file` (least privilege). The app recursively lists Markdown files below the folder id.
 5. Enable the **Google Drive API** for the project.
 
 ### GitHub — fine-grained PAT (no OAuth App)
@@ -59,9 +58,9 @@ the token is just pasted rather than obtained via OAuth. No `config.js` entry, n
 > Set a short expiry and re-paste when it lapses.
 
 ## Deploy (GitHub Pages)
-
-`.github/workflows/pages.yml` builds on push to `main`, assembles `dist-spa/` (`index.html` +
-`config.js` if present + `assets/`), and publishes. Enable Pages → Source: **GitHub Actions** in repo settings.
+`.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,
+and publishes `dist-spa/` (`index.html`, `config.js`, `llms.txt`, and `assets/`).
+Enable Pages → Source: **GitHub Actions** in repository settings.
 
 After deploy, register the Pages origin as the Google **Authorized JS origin** (step 2 above) and
 run one round-trip on the live site (auth → list → open → edit → save → persist).

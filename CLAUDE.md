@@ -1,146 +1,45 @@
-# CLAUDE.md
+# Glint contributor guide
 
-@AGENTS.md
+## Product
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-Glint is a self-contained Markdown server with server-side math rendering (KaTeX) and zero external API dependencies. It serves markdown files from a directory with live reload, inline editing, authentication, and interactive widgets.
+Glint is a static Markdown wiki plus a single-file HTML renderer. The SPA uses `StorageAdapter` implementations for local folders, Google Drive, GitHub, and an in-memory fake backend. It renders Markdown in the browser with the shared remark/rehype pipeline; it has no Glint server, user database, or live-reload channel.
 
 ## Commands
 
 ```bash
-npm run dev           # Development with hot reload (tsx watch)
-npm run build         # Full build: TypeScript compile + bundle clients
-npm run bundle        # Rebuild only client bundles (faster)
-npm test              # Run tests (Node.js native test runner)
-npm start             # Run compiled server
-
-glint serve [path]    # Start server on a directory
-glint render <file>   # Render one .md file to a self-contained HTML file
+npm run build       # Type-check and bundle editor, renderer, and SPA
+npm test            # Run the Node test suite
+npm run dev         # Build, stage dist-spa/, and serve http://localhost:8080
+npm run stage:spa   # Assemble the GitHub Pages deploy root
+npm run bundle      # Rebuild browser assets without type-checking
+npm run start       # Alias for npm run dev
+glint render FILE   # Render one Markdown file to self-contained HTML
+glint skill         # Print the Markdown extension reference
 ```
-
-### Running a Single Test
-
-```bash
-tsx --test src/tests/parser.test.ts
-```
-
-> **Note:** `npm test` may hang at the end due to server/storage test files keeping a process open. Run individual test files directly when that matters.
 
 ## Architecture
 
-### Tech Stack
+- `src/pipeline.ts` is the shared Markdown processor. Keep render behavior here rather than creating a second renderer.
+- `src/browser.ts` exports the browser-safe `GlintRender` bundle used by `src/spa/app.ts`.
+- `src/spa/storage/types.ts` defines the adapter seam. `id` is the backend read/write key, `path` is source-root-relative for navigation, and `version` is the backend concurrency token.
+- `src/spa/editor/session.ts` edits one document section and saves through the active adapter. Conflicts and expired authentication are explicit states.
+- `src/render.ts` and `src/cli.ts` retain the standalone `glint render` surface; it produces one portable HTML file.
+- `assets/` contains checked-in CSS and generated browser bundles. `npm run build` regenerates the bundles.
 
-- **Runtime:** Node.js (ESM)
-- **Server:** Fastify with cookie auth
-- **Markdown:** unified ecosystem (remark → rehype pipeline)
-- **Editor:** CodeMirror 6 with vim mode
-- **Build:** TypeScript (strict mode) + esbuild for client bundles
-- **Config:** Zod schema validation over TOML (`glint.toml` or `.glint/config.toml`, parsed by `smol-toml`)
+## SPA development
 
-### Unified Pipeline
+Use a hash route while running `npm run dev`:
 
-The markdown processing pipeline in `server.ts` follows a specific order:
+- `#/fake` — in-memory demo; use it for browser smoke tests.
+- `#/local` — local directory via the File System Access API (Chromium/Edge).
+- `#/drive/<folderId>` — Drive folder; needs `window.GLINT_CONFIG.driveClientId` in `src/spa/config.js`.
+- `#/gh/<owner>/<repo>/<path>` — GitHub subtree; prompts for a fine-grained token and stores it in browser local storage.
 
-```
-remark-parse → remark-math → remark-gfm → remark-glint-widgets
-  → remark-glint-citations → remark-wiki-link-glint → remark-mermaid-glint
-  → remark-rehype(raw) → rehype-source-lines → rehype-raw
-  → rehype-glint-image → rehype-glint-citations → rehype-katex
-  → rehype-highlight → rehype-glint-code-blocks → rehype-glint-sections
-  → rehype-slug → rehype-autolink-headings
-  → rehype-extract-headings → rehype-stringify
-```
+The deploy root is `dist-spa/`: `index.html`, `config.js`, `llms.txt`, and `assets/`. `.github/workflows/pages.yml` stages this same layout before publishing.
 
-**Plugin ordering matters:**
-- `remark-math` runs early to protect math delimiters from other processing
-- `rehype-source-lines` must run before `rehype-raw` to tag elements with line numbers
-- Widgets emit MDAST `html` nodes which `rehype-raw` parses into HAST
+## Change rules
 
-### Key Design Decisions
-
-1. **Source line mapping** — `data-source-line` attributes on DOM elements enable inline editing. The editor uses these to know which source lines to extract/replace.
-
-2. **Widget system** — Tasks and comments are parsed during remark phase via `remark-glint-widgets.ts`, which dispatches to handlers in `src/widgets/`.
-
-3. **Auxiliary file storage** — Images live in `{article}.md.assets/` folders alongside markdown files, keeping diffs clean.
-
-4. **LRU caching** — Rendered HTML is cached by file path, invalidated on mtime change.
-
-5. **Storage providers** — `StorageManager` supports multiple providers (Local, Git) with prefix-based mounts. Git provider auto-commits and syncs. Providers implement `StorageProvider` interface in `src/storage/types.ts`.
-
-### Directory Layout
-
-```
-src/
-├── cli.ts                    # Commander CLI entry point
-├── server.ts                 # Main Fastify server + unified pipeline
-├── renderer.ts               # HTML page template generator
-├── config.ts                 # Zod schema for glint.toml / .glint/config.toml
-├── renderer/                 # Modular page rendering (head, sidebar, scripts, etc.)
-├── server/
-│   ├── auth.ts              # bcrypt password auth + session cookies
-│   ├── sse.ts               # Server-Sent Events for hot reload
-│   └── routes/              # API endpoints (api.ts, auth.ts, git.ts, tasks.ts)
-├── widgets/                  # Widget handlers (task.ts, comment.ts)
-├── tasks/                    # Task scanning and parsing
-├── client/                   # Frontend modules (bundled to assets/)
-├── utils/                    # Shared utilities (fs-utils.ts, errors.ts)
-└── [remark/rehype plugins]   # Custom markdown processing plugins
-```
-
-### REST API
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/source/*` | GET | Fetch raw markdown + content hash |
-| `/api/save` | POST | Save edited content (optimistic locking via hash) |
-| `/api/upload` | POST | Upload image to `.assets/` folder |
-| `/api/tasks` | GET | Aggregated task list from all files |
-| `/tasks` | GET | Task dashboard page |
-| `/api/journal/*` | GET/POST | Journal entries |
-| `/api/documents/*` | GET/POST | Document CRUD |
-| `/api/git/*` | POST | Git operations (commit, sync) |
-| `/f/*` | GET | File serving (`?raw=true` for raw markdown) |
-
-## Widget System
-
-### Task Widget
-
-Syntax: `- [state] description (metadata)`
-
-States: `[ ]` open, `[x]` done, `[/]` progress, `[w]` waiting, `[b]` blocked, `[c]` cancelled
-
-Metadata: `#priority`, `@assignee`, `due:YYYY-MM-DD`, `scheduled:YYYY-MM-DD`, `created:YYYY-MM-DD`, `completed:YYYY-MM-DD`
-
-### Comment Widget
-
-Syntax: ` ```comment ` fenced code block with `author@YYYY-MM-DD:HH:MM message` entries
-
-Flags: `#resolved`, `#important`, `summary: Title`
-
-### Adding a New Widget
-
-1. Create `src/widgets/{name}.ts` implementing `WidgetHandler`
-2. Register in `src/widgets/index.ts`
-3. Handle client-side interactions in `src/client/` module
-
-## Issue Tracking
-
-Issues are tracked in GitHub Issues. Use the `gh` CLI:
-
-```bash
-gh issue list --state open          # All open issues
-gh issue view <number>              # Full issue details
-gh issue create --title "..." --body "..." [--blocked-by=]
-gh issue close <number> --comment "..."
-gh issue edit <number> --add-label "ready-for-agent"
-```
-
-**NOTE**: `gh` has new --blocked-by features for create and edit. Use those instead of labels for tracking blocking dependencies.
-
-## Citations
-
-When adding citations to a Glint document, use inline `[[#ref:id]]` syntax referencing items in a `## References` section. Format: `- [ref:id] "Title" Author (Year) URL`
+- Preserve source-root-relative `FileMeta.path` values. Folder navigation, wiki rendering, and all adapters rely on it.
+- Keep storage adapters backend-native: do not add a proxy or a Glint credential store.
+- Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/fake` in a browser.
+- Update `README.md`, `docs/spa-setup.md`, and `glint skill` when changing user-facing routes, storage behavior, or Markdown syntax.

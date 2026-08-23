@@ -11,8 +11,10 @@ export class FakeAdapter implements StorageAdapter {
     constructor(initial: { name: string; content: string }[] = []) {
         for (const it of initial) {
             const id = `f${++this.seq}`;
+            const path = it.name;
+            const name = path.split('/').pop()!;
             this.entries.set(id, {
-                meta: { id, name: it.name, path: it.name, version: '1' },
+                meta: { id, name, path, version: '1' },
                 content: it.content, v: 1,
             });
         }

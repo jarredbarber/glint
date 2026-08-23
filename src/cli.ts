@@ -58,7 +58,7 @@ description: Reference for Glint-flavored Markdown extensions (math, diagrams, t
 
 # Glint Markdown Extensions
 
-Glint renders standard Markdown plus the extensions below. Use this as a reference when writing or editing documents served by \`glint serve\`.
+Glint renders standard Markdown plus the extensions below. Use this as a reference when writing content for the static SPA or the \`glint render\` command.
 
 ## Math (KaTeX)
 
@@ -150,10 +150,6 @@ Optional \`summary: Title\` sets the thread title.
 
 Standard GFM is fully supported: tables, strikethrough (\`~~text~~\`), task checkboxes in lists, fenced code blocks with syntax highlighting, and autolinked URLs.
 
-## Images
-
-Images can be stored alongside the document in a \`{filename}.md.assets/\` folder.
-The editor supports drag-and-drop and paste-to-upload when running in server mode.
 `;
 
 program

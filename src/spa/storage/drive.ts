@@ -23,11 +23,13 @@ declare const google: {
     };
 };
 
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
 const driveFileListSchema = z.object({
     files: z.array(z.object({
         id: z.string(),
         name: z.string(),
-        modifiedTime: z.string(),
+        mimeType: z.string(),
+        modifiedTime: z.string().optional(),
     })).default([]),
     nextPageToken: z.string().optional(),
 });
@@ -97,22 +99,32 @@ export class DriveAdapter implements StorageAdapter {
         return r;
     }
 
-    async list(): Promise<FileMeta[]> {
-        const q = encodeURIComponent(`'${this.folderId}' in parents and name contains '.md' and trashed = false`);
+    private async listFolder(folderId: string, prefix: string, visited: Set<string>): Promise<FileMeta[]> {
+        if (visited.has(folderId)) return [];
+        visited.add(folderId);
+        const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
         const files: FileMeta[] = [];
         let pageToken: string | undefined;
         do {
             const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
-            const response = await this.api(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,modifiedTime)&pageSize=100&orderBy=modifiedTime desc${token}`);
+            const response = await this.api(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,modifiedTime)&pageSize=100&orderBy=name${token}`);
             const page = driveFileListSchema.parse(await response.json());
             for (const file of page.files) {
-                if (file.name.endsWith('.md')) {
-                    files.push({ id: file.id, name: file.name, path: file.name, version: file.modifiedTime });
+                const path = prefix ? `${prefix}/${file.name}` : file.name;
+                if (file.mimeType === FOLDER_MIME_TYPE) {
+                    files.push(...await this.listFolder(file.id, path, visited));
+                } else if (file.name.endsWith('.md') && file.modifiedTime) {
+                    files.push({ id: file.id, name: file.name, path, version: file.modifiedTime });
                 }
             }
             pageToken = page.nextPageToken;
         } while (pageToken);
         return files;
+    }
+
+    async list(): Promise<FileMeta[]> {
+        const files = await this.listFolder(this.folderId, '', new Set());
+        return files.sort((a, b) => a.path.localeCompare(b.path));
     }
 
     async read(id: string) {
@@ -133,7 +145,7 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async create(name: string, content: string): Promise<FileMeta> {
-        if ((await this.list()).some((file) => file.name === name)) {
+        if ((await this.list()).some((file) => file.path === name)) {
             throw new Error(`file already exists: ${name}`);
         }
         const boundary = `glint-${crypto.randomUUID()}`;

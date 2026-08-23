@@ -26,8 +26,7 @@ export const AVAILABLE_THEMES = [
     'tokyo-night'
 ] as const;
 
-// Server-side config (port/host/storage providers) was removed with `glint serve`.
-// What remains drives the render pipeline: theme, base file, and LaTeX macros.
+// Render configuration shared by the CLI renderer and the browser pipeline.
 const ConfigSchema = z.object({
     theme: z.string().default('nord'),
     baseFile: z.string().default('README.md'),

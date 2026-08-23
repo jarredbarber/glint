@@ -6,8 +6,8 @@ test('lists every Drive API page before returning Markdown files', async () => {
     const adapter = new DriveAdapter('folder', 'client');
     const paths: string[] = [];
     const pages = [
-        { files: [{ id: 'first', name: 'First.md', modifiedTime: '1' }], nextPageToken: 'next-page' },
-        { files: [{ id: 'second', name: 'Second.md', modifiedTime: '2' }] },
+        { files: [{ id: 'first', name: 'First.md', mimeType: 'text/markdown', modifiedTime: '1' }], nextPageToken: 'next-page' },
+        { files: [{ id: 'second', name: 'Second.md', mimeType: 'text/markdown', modifiedTime: '2' }] },
     ];
     Object.defineProperty(adapter, 'api', {
         value: async (path: string) => {
@@ -20,6 +20,29 @@ test('lists every Drive API page before returning Markdown files', async () => {
 
     assert.deepEqual(files.map((file) => file.name), ['First.md', 'Second.md']);
     assert.match(paths[1]!, /pageToken=next-page/);
+});
+
+test('recursively lists Drive folders with source-relative paths', async () => {
+    const adapter = new DriveAdapter('root', 'client');
+    const responses = new Map([
+        ['root', { files: [
+            { id: 'notes', name: 'Notes', mimeType: 'application/vnd.google-apps.folder' },
+            { id: 'home', name: 'Home.md', mimeType: 'text/markdown', modifiedTime: '1' },
+        ] }],
+        ['notes', { files: [
+            { id: 'draft', name: 'Draft.md', mimeType: 'text/markdown', modifiedTime: '2' },
+        ] }],
+    ]);
+    Object.defineProperty(adapter, 'api', {
+        value: async (path: string) => new Response(JSON.stringify(
+            responses.get(decodeURIComponent(path).match(/'([^']+)'/)?.[1] ?? ''),
+        )),
+    });
+
+    assert.deepEqual(await adapter.list(), [
+        { id: 'home', name: 'Home.md', path: 'Home.md', version: '1' },
+        { id: 'draft', name: 'Draft.md', path: 'Notes/Draft.md', version: '2' },
+    ]);
 });
 
 test('uses an interactive GIS request initially and a no-prompt request for silent reauthentication', async (t) => {

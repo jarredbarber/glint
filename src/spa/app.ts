@@ -6,6 +6,9 @@ import { DriveAdapter } from './storage/drive.js';
 import { GitHubAdapter } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
+import { buildFileTree, TreeNode } from './file-tree.js';
+import { escapeHtml } from '../utils/html.js';
+import { appendCommentBlock, appendCommentReply, formatCommentEntry } from './comment-authoring.js';
 
 // Public Drive OAuth client ID, injected via an optional /config.js that sets
 // window.GLINT_CONFIG = { driveClientId }. Client IDs are public. (GitHub uses a
@@ -28,6 +31,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
         case 'fake': return new FakeAdapter([
             { name: 'Home.md', content: '# Home\n\nSee [[Notes]].\n\n## Intro\n\nWelcome.' },
             { name: 'Notes.md', content: '## Notes\n\nHello from notes.' },
+            { name: 'Guides/Welcome.md', content: '## Welcome\n\nA nested page.' },
         ]);
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
@@ -54,6 +58,7 @@ let files: FileMeta[] = [];
 let adapter: StorageAdapter;
 const contentCache = new Map<string, string>();
 let searchGeneration = 0;
+const expandedFolders = new Set<string>();
 
 // Extract the target filename from a wiki-link href (`/f/Target.md`).
 function wikiTargetFromHref(href: string): string {
@@ -73,6 +78,7 @@ async function openFile(id: string) {
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = html;
     wireWikiLinks();
+    wireCommentActions();
     renderSidebar();
 }
 
@@ -150,7 +156,7 @@ async function renderSearch(query: string): Promise<void> {
         if (matchesWikiSearch(query, file.name, content)) matches.push(file);
     }
     if (generation !== searchGeneration) return;
-    results.innerHTML = matches.map((file) => `<a href="#" data-id="${file.id}">${file.name}</a>`).join('');
+    results.innerHTML = matches.map((file) => `<a href="#" data-id="${escapeHtml(file.id)}">${escapeHtml(file.name)}</a>`).join('');
     results.querySelectorAll<HTMLElement>('a[data-id]').forEach((link) =>
         link.addEventListener('click', (event) => {
             event.preventDefault();
@@ -178,12 +184,60 @@ function wireWikiLinks() {
     });
 }
 
+async function saveComment(update: (content: string, entry: string) => string): Promise<void> {
+    const id = currentFileId;
+    if (!id) return;
+    const message = prompt('Comment:')?.trim();
+    if (!message) return;
+    try {
+        const { content, version } = await adapter.read(id);
+        const entry = formatCommentEntry(adapter.identity().name, message);
+        const next = update(content, entry);
+        await adapter.write(id, next, version);
+        contentCache.set(id, next);
+        await openFile(id);
+    } catch (error) {
+        alert(`Could not save comment: ${(error as Error).message}`);
+    }
+}
+
+function wireCommentActions(): void {
+    document.querySelectorAll<HTMLButtonElement>('.glint-comment .btn-reply').forEach((button) => {
+        button.addEventListener('click', () => {
+            const sourceLine = Number(button.closest<HTMLElement>('.glint-comment')?.dataset.sourceLine);
+            if (sourceLine) void saveComment((content, entry) => appendCommentReply(content, sourceLine, entry));
+        });
+    });
+}
+
+function installCommentShortcut(): void {
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'c' || event.metaKey || event.ctrlKey || event.altKey) return;
+        const target = event.target as HTMLElement;
+        if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+        if (!currentFileId) return;
+        event.preventDefault();
+        void saveComment(appendCommentBlock);
+    });
+}
+
+function renderFileTree(nodes: TreeNode[]): string {
+    return nodes.map((node) => {
+        if (node.kind === 'file') {
+            const active = node.file.id === currentFileId ? ' aria-current="page"' : '';
+            return `<li><a href="#" data-id="${escapeHtml(node.file.id)}"${active}>${escapeHtml(node.name)}</a></li>`;
+        }
+        const open = expandedFolders.has(node.path) ? ' open' : '';
+        return `<li><details data-folder-path="${escapeHtml(node.path)}"${open}><summary>${escapeHtml(node.name)}</summary><ul>${renderFileTree(node.children)}</ul></details></li>`;
+    }).join('');
+}
+
 function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
     const deleteAction = currentFileId ? '<button data-delete-page>Delete page</button>' : '';
     const exportAction = currentFileId ? '<button data-export-page>Export HTML</button>' : '';
-    nav.innerHTML = `<div class="spa-sidebar-controls"><input data-search placeholder="Search pages" aria-label="Search pages"><div data-search-results></div><button data-new-page>New page</button>${exportAction}${deleteAction}</div><div class="spa-page-list">${files.map((f) => `<a href="#" data-id="${f.id}">${f.name}</a>`).join('')}</div>`;
+    nav.innerHTML = `<div class="spa-sidebar-controls"><input data-search placeholder="Search pages" aria-label="Search pages"><div data-search-results></div><button data-new-page>New page</button>${exportAction}${deleteAction}</div><div class="spa-page-list"><ul>${renderFileTree(buildFileTree(files))}</ul></div>`;
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         const name = prompt('Page name (.md is optional):');
         if (name !== null) void createPage(name);
@@ -193,6 +247,12 @@ function renderSidebar() {
     nav.querySelector<HTMLInputElement>('[data-search]')?.addEventListener('input', (event) => {
         void renderSearch((event.target as HTMLInputElement).value);
     });
+    nav.querySelectorAll<HTMLDetailsElement>('details[data-folder-path]').forEach((details) =>
+        details.addEventListener('toggle', () => {
+            const path = details.dataset.folderPath!;
+            if (details.open) expandedFolders.add(path);
+            else expandedFolders.delete(path);
+        }));
     nav.querySelectorAll<HTMLElement>('a[data-id]').forEach((a) =>
         a.addEventListener('click', (e) => {
             e.preventDefault();
@@ -294,9 +354,11 @@ export async function boot(): Promise<void> {
     if (!route) { renderLanding(); return; }   // bare URL → backend picker, not the demo
     adapter = pickAdapter(route.backend, route.rest);
     await adapter.auth();
+    document.body.dataset.access = 'edit';
     files = await adapter.list();
     renderSidebar();
     installEditorShortcuts(adapter, () => currentFileId);
+    installCommentShortcut();
     if (files.length) await openFile(files[0].id);
 }
 

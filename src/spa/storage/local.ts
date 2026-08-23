@@ -62,23 +62,40 @@ export class LocalAdapter implements StorageAdapter {
 
     async list(): Promise<FileMeta[]> {
         const out: FileMeta[] = [];
-        for await (const [name, handle] of this.need().entries()) {
-            if (handle.kind === 'file' && name.endsWith('.md')) {
-                const f = await handle.getFile();
-                out.push({ id: name, name, path: name, version: String(f.lastModified) });
+        const visit = async (dir: DirHandle, prefix = ''): Promise<void> => {
+            for await (const [name, handle] of dir.entries()) {
+                const path = prefix ? `${prefix}/${name}` : name;
+                if (handle.kind === 'directory') {
+                    await visit(handle, path);
+                } else if (handle.kind === 'file' && name.endsWith('.md')) {
+                    const file = await handle.getFile();
+                    out.push({ id: path, name, path, version: String(file.lastModified) });
+                }
             }
-        }
-        return out.sort((a, b) => a.name.localeCompare(b.name));
+        };
+        await visit(this.need());
+        return out.sort((a, b) => a.path.localeCompare(b.path));
+    }
+
+    private async parentFor(path: string): Promise<{ dir: DirHandle; name: string }> {
+        const parts = path.split('/').filter(Boolean);
+        const name = parts.pop();
+        if (!name) throw new Error('file path is required');
+        let dir = this.need();
+        for (const part of parts) dir = await dir.getDirectoryHandle(part);
+        return { dir, name };
     }
 
     async read(id: string) {
-        const fh = await this.need().getFileHandle(id);
+        const { dir, name } = await this.parentFor(id);
+        const fh = await dir.getFileHandle(name);
         const f = await fh.getFile();
         return { content: await f.text(), version: String(f.lastModified) };
     }
 
     async write(id: string, content: string, version: string) {
-        const fh = await this.need().getFileHandle(id, { create: true });
+        const { dir, name } = await this.parentFor(id);
+        const fh = await dir.getFileHandle(name, { create: true });
         const current = String((await fh.getFile()).lastModified);
         if (current !== version) throw new ConflictError();
         const w = await fh.createWritable();
@@ -110,6 +127,7 @@ export class LocalAdapter implements StorageAdapter {
     }
 
     async delete(id: string): Promise<void> {
-        await this.need().removeEntry(id);
+        const { dir, name } = await this.parentFor(id);
+        await dir.removeEntry(name);
     }
 }

@@ -1,8 +1,6 @@
 import { escapeHtml } from './utils/html.js';
 
-// The file tree type + static renderer. `buildFileTree` (which walked a
-// StorageManager) was removed with the server; the SPA builds its own tree
-// from an adapter's list(). The single-file `render` CLI passes an empty tree.
+// File tree model + HTML renderer for the standalone `glint render` document.
 export interface FileNode {
     name: string;
     path: string;
