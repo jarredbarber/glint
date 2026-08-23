@@ -1,4 +1,7 @@
-// GitHub backend: OAuth device flow (no client secret → works from static) + Contents API.
+// GitHub backend: fine-grained PAT (pasted once, cached in localStorage) + Contents API.
+// Device flow was dropped: github.com/login/* sends no CORS headers, so token
+// acquisition is browser-blocked. api.github.com does allow CORS, so read/write
+// with a token works from the static page — the PAT is the zero-server path.
 import { StorageAdapter, FileMeta, ConflictError } from './types.js';
 
 const API = 'https://api.github.com';
@@ -22,17 +25,21 @@ export class GitHubAdapter implements StorageAdapter {
         private repo: string,
         private path: string,
         private ref: string,
-        private clientId: string,
-    ) {
-        if (!clientId) throw new Error('GitHub backend needs an OAuth App client ID (GLINT_CONFIG.githubClientId).');
-    }
+    ) {}
 
     async auth(): Promise<void> {
         const cached = localStorage.getItem(TOKEN_KEY);
         if (cached && (await this.validate(cached))) { this.token = cached; return; }
-        this.token = await this.deviceFlow();
-        localStorage.setItem(TOKEN_KEY, this.token);
-        await this.validate(this.token);
+        const pat = prompt(
+            'Paste a GitHub token with Contents read/write on this repo.\n' +
+            'Fine-grained PAT (Repository access → Contents: Read and write), or a classic token with the "repo" scope.\n' +
+            'Create one at github.com/settings/tokens'
+        );
+        const token = pat?.trim();
+        if (!token) throw new Error('GitHub token required.');
+        if (!(await this.validate(token))) throw new Error('Token is invalid or lacks access to this repo.');
+        this.token = token;
+        localStorage.setItem(TOKEN_KEY, token);
     }
 
     private async validate(token: string): Promise<boolean> {
@@ -43,30 +50,6 @@ export class GitHubAdapter implements StorageAdapter {
             this.userName = u.name || u.login || this.userName;
             return true;
         } catch { return false; }
-    }
-
-    private async deviceFlow(): Promise<string> {
-        const codeRes = await fetch('https://github.com/login/device/code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ client_id: this.clientId, scope: 'repo' }),
-        }).then((r) => r.json());
-        const { device_code, user_code, verification_uri, interval } = codeRes;
-
-        // Surface the code to the user (v1: alert is fine).
-        alert(`Open ${verification_uri} and enter code:\n\n${user_code}\n\nThen return here — this dialog polls until you authorize.`);
-
-        const pollEvery = ((interval ?? 5) + 1) * 1000;
-        for (;;) {
-            await new Promise((r) => setTimeout(r, pollEvery));
-            const tok = await fetch('https://github.com/login/oauth/access_token', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ client_id: this.clientId, device_code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code' }),
-            }).then((r) => r.json());
-            if (tok.access_token) return tok.access_token;
-            if (tok.error && tok.error !== 'authorization_pending' && tok.error !== 'slow_down') {
-                throw new Error(`GitHub device flow: ${tok.error}`);
-            }
-        }
     }
 
     identity() { return { name: this.userName }; }

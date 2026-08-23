@@ -6,9 +6,10 @@ import { DriveAdapter } from './storage/drive.js';
 import { GitHubAdapter } from './storage/github.js';
 import { resolveWikiLink } from './wiki-links.js';
 
-// Public OAuth client IDs, injected via an optional /config.js that sets
-// window.GLINT_CONFIG = { driveClientId, githubClientId }. Client IDs are public.
-const CFG: { driveClientId?: string; githubClientId?: string } = (window as any).GLINT_CONFIG ?? {};
+// Public Drive OAuth client ID, injected via an optional /config.js that sets
+// window.GLINT_CONFIG = { driveClientId }. Client IDs are public. (GitHub uses a
+// pasted PAT, not an OAuth client — see storage/github.ts.)
+const CFG: { driveClientId?: string } = (window as any).GLINT_CONFIG ?? {};
 import { installEditorShortcuts } from './editor/session.js';
 
 declare const GlintRender: { renderMarkdown(src: string, opts?: any): Promise<string> };
@@ -41,7 +42,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             let path = pathParts.join('/');
             const at = path.lastIndexOf('@');
             if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
-            return new GitHubAdapter(owner, repo, path, ref, CFG.githubClientId ?? '');
+            return new GitHubAdapter(owner, repo, path, ref);
         }
         default: throw new Error(`unknown backend: ${backend}`);
     }

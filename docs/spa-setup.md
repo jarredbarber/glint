@@ -9,7 +9,7 @@ becomes a wiki. No server, no Glint user database — access control is the back
 |---------|-----------|-------|
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
-| GitHub repo | `#/gh/<owner>/<repo>/<path>` (optional `...@<ref>`) | `githubClientId` |
+| GitHub repo | `#/gh/<owner>/<repo>/<path>` (optional `...@<ref>`) | a pasted fine-grained PAT |
 | Demo (in-memory) | `#/fake` | nothing |
 
 ## Local dev
@@ -43,12 +43,20 @@ Commit `config.js` to enable Drive/GitHub on the deployed site (client IDs are p
 4. Scope used: `drive.file` (least privilege). The app lists a folder's `.md` children via the folder id.
 5. Enable the **Google Drive API** for the project.
 
-### GitHub
+### GitHub — fine-grained PAT (no OAuth App)
 
-1. Settings → Developer settings → **OAuth Apps** → New. Enable **Device Flow**.
-2. Copy the **Client ID** (`Iv1...`). No client secret is used (device flow → works from static).
-3. On first `#/gh/...` load the app shows a device code + `github.com/login/device`; authorize, and the
-   token is cached in `localStorage`. Commits are attributed to the authenticated user. Scope: `repo`.
+Device flow was dropped: `github.com/login/*` sends no CORS headers, so a browser can't acquire the
+token. `api.github.com` *does* allow CORS, so read/write with a token works from the static page —
+the token is just pasted rather than obtained via OAuth. No `config.js` entry, no server, no proxy.
+
+1. github.com → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
+2. **Repository access:** only the repo(s) you'll edit. **Permissions → Contents: Read and write.**
+   (A classic token with the `repo` scope also works.)
+3. On first `#/gh/...` load the app prompts for the token, validates it against `api.github.com/user`,
+   and caches it in `localStorage`. Commits are attributed to the token's user.
+
+> The token lives only in the browser's `localStorage` (never committed, never sent anywhere but GitHub).
+> Set a short expiry and re-paste when it lapses.
 
 ## Deploy (GitHub Pages)
 
