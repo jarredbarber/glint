@@ -11,6 +11,9 @@
 <body>
   <nav class="sidebar"></nav>
   <main class="content"><div class="content-wrapper"></div></main>
+  <!-- Optional: sets window.GLINT_CONFIG = { driveClientId, githubClientId }.
+       Absent on the fake/local backends; a 404 here is harmless. See config.example.js. -->
+  <script src="./config.js"></script>
   <script src="./assets/glint-render.bundle.js"></script>
   <script src="./assets/editor.bundle.js"></script>
   <script type="module" src="./assets/spa.bundle.js"></script>
