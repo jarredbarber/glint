@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+@AGENTS.md
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -132,10 +134,12 @@ Issues are tracked in GitHub Issues. Use the `gh` CLI:
 ```bash
 gh issue list --state open          # All open issues
 gh issue view <number>              # Full issue details
-gh issue create --title "..." --body "..."
+gh issue create --title "..." --body "..." [--blocked-by=]
 gh issue close <number> --comment "..."
 gh issue edit <number> --add-label "ready-for-agent"
 ```
+
+**NOTE**: `gh` has new --blocked-by features for create and edit. Use those instead of labels for tracking blocking dependencies.
 
 ## Citations
 
