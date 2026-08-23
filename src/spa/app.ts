@@ -83,8 +83,33 @@ function renderSidebar() {
         a.addEventListener('click', (e) => { e.preventDefault(); void openFile(a.dataset.id!); }));
 }
 
+function renderLanding(): void {
+    const local = localSupported()
+        ? `<li><a href="#/local">Local folder</a> <span class="dim">— pick a directory on this machine</span></li>`
+        : `<li class="dim">Local folder — needs a Chromium-based browser</li>`;
+    (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `
+        <h1>Glint</h1>
+        <p>Open a workspace:</p>
+        <ul class="glint-landing">
+            ${local}
+            <li>Google Drive: <input id="lp-drive" placeholder="folder id" size="30"> <button data-go="drive">Open</button></li>
+            <li>GitHub: <input id="lp-gh" placeholder="owner/repo/path" size="30"> <button data-go="gh">Open</button></li>
+        </ul>
+        <p class="dim">Or append a route to the URL: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, <code>#/gh/owner/repo/path</code>.</p>`;
+    const goTo = (hash: string) => { location.hash = hash; location.reload(); };
+    document.querySelector('[data-go="drive"]')?.addEventListener('click', () => {
+        const id = (document.getElementById('lp-drive') as HTMLInputElement).value.trim();
+        if (id) goTo(`#/drive/${encodeURIComponent(id)}`);
+    });
+    document.querySelector('[data-go="gh"]')?.addEventListener('click', () => {
+        const p = (document.getElementById('lp-gh') as HTMLInputElement).value.trim().replace(/^\/+/, '');
+        if (p) goTo(`#/gh/${p}`);
+    });
+}
+
 export async function boot(): Promise<void> {
-    const route = parseRoute(location.hash) ?? { backend: 'fake', rest: [] };
+    const route = parseRoute(location.hash);
+    if (!route) { renderLanding(); return; }   // bare URL → backend picker, not the demo
     adapter = pickAdapter(route.backend, route.rest);
     await adapter.auth();
     files = await adapter.list();
