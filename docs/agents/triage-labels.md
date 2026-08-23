@@ -2,33 +2,53 @@
 
 The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Agent needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human information            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| Label in mattpocock/skills | Label in our tracker | Meaning                                    |
+| -------------------------- | -------------------- | ------------------------------------------ |
+| `needs-triage`             | `needs-triage`       | Agent needs to evaluate this issue         |
+| `needs-info`               | `needs-info`         | Waiting on reporter for more information   |
+| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent    |
+| `ready-for-human`          | `ready-for-human`    | Awaiting human review or decision          |
+| `wontfix`                  | `wontfix`            | Will not be actioned                       |
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-Edit the right-hand column to match whatever vocabulary you actually use.
-
 ## Human vs. Agent
 
-Nearly all tasks are eventually done by agents. All design and review tasks should be ready-for-agent instead of ready-for-human. Ignore skills that say otherwise.
+Nearly all tasks are done by agents, including design, review, and research. The upstream triage skill says `ready-for-human` means "needs human implementation" — in this project it means **"agent completed work, human needs to review or decide."**
 
-Humans are needed for a handful of things:
+### When to escalate to `ready-for-human`
 
-1. Making discrete high level decisions about the project's overall focus.
-2. Approving the outputs of design tasks.
-3. Approving follow-up work from review tasks.
+Move an issue to `ready-for-human` **only** when the agent cannot verify its own work:
 
-Review, design, and research (tasks that are questions) tasks should be processed by agents and then moved to `ready-for-human` for inspection.
+- **UI changes** — agent can't see the result
+- **Auth-gated or credential-dependent work** — agent can't access the service
+- **Subjective decisions** — no objective acceptance criteria exist
+- **Product-level decisions** — project direction, priorities, what to build next
 
-Follow up work from review and design tasks:
+### When NOT to escalate
 
-1. Create a new issue marked `needs-approval` containing the proposed follow up tasks.
-2. Human approves and moves to ready-for-agent -> agent picks up, reads any feedback comments, and triages follow-up tasks into their own issues (most of which should be ready-for-agent).
+Do not escalate for:
 
+- Implementation choices (library, pattern, code structure)
+- Refactoring that preserves behavior
+- Bug fixes with clear reproduction and testable acceptance criteria
+- Adding config keys, API endpoints, or features where the spec is unambiguous
+- Any task where the agent can run tests or otherwise verify the result
 
+**If the acceptance criteria are testable and the agent can verify them, just do the work and close the issue.**
+
+### Who can escalate
+
+Both the triaging agent and the implementing agent can move issues to `ready-for-human`. Triage catches obvious cases (design tasks, ambiguous scope). The implementing agent escalates if it discovers a judgment call mid-flight. But the bar is "I literally cannot verify this," not "the maintainer might have an opinion."
+
+### The checkpoint flow
+
+When an agent moves an issue to `ready-for-human`, it posts a checkpoint brief (see `workflows/issue-lifecycle.md` for the template). The human responds:
+
+- **Approve:** comment "approved" or move to `ready-for-agent`. Agent picks up and executes.
+- **Revise:** comment with feedback and move to `ready-for-agent`. Agent reworks based on the comment.
+- **Reject:** close the issue.
+
+### Straightforward tasks
+
+Not every task needs human gating. If the issue has clear acceptance criteria and the agent can verify its work, the agent completes the task and closes the issue directly. No checkpoint, no `ready-for-human`.
