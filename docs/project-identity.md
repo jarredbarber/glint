@@ -4,13 +4,15 @@
 
 ## One sentence
 
-**Glint is a self-contained Markdown rendering engine, exposed through three thin surfaces.**
+**Glint renders *technical* Markdown — math, diagrams, citations — into self-contained output, delivered through three thin surfaces.**
 
-Everything that isn't the rendering engine or a thin surface over it is a candidate for deletion.
+Two axes define it. **Purpose:** technical and scholarly authoring — that's *why* the pipeline has KaTeX, mermaid, and citations instead of a blog theme system. **Packaging:** three thin surfaces (render / serve / embed) that all run the same pipeline. Purpose decides what features exist; packaging decides where they run. Everything that serves neither is a candidate for deletion.
 
 ## The one asset
 
 The `remark → rehype` pipeline is the whole product: server-side KaTeX, syntax highlighting, mermaid, wiki-links, citations, task/comment widgets, source-line mapping. It has no external API dependencies and produces self-contained output. That is the thing worth defending. Every surface below is just a different way to feed markdown in and get rendered HTML out.
+
+**The razor:** a proposed pipeline feature is in-scope only if it serves technical or long-form authoring. Math, diagrams, callouts, definition lists, footnotes, citations, cross-references → yes. Blog templating, social embeds, comment servers, analytics → no. When in doubt, ask what a person writing a paper, a spec, or research notes needs.
 
 ## The three surfaces (and nothing else)
 
@@ -24,6 +26,7 @@ Render is the floor (pipeline only). Serve is the ceiling (pipeline + statefulne
 
 ## Tenets
 
+0. **Technical writing is the domain.** The feature set exists to serve math, diagrams, citations, cross-references, and structured long-form docs. This is the identity, not an accident of what got built. Apply the razor above to every feature request.
 1. **Zero external render dependencies.** No calls to a math API, no CDN at render time. Server-side or bust. This is the differentiator; never trade it away.
 2. **Self-contained output.** `glint render` produces one file that works offline forever. The Chrome extension inherits the same constraint.
 3. **The pipeline is shared, not forked.** All three surfaces run the *same* remark/rehype stages. A feature added to the pipeline (a new widget, a new callout) shows up everywhere for free. If a feature only makes sense on one surface, it lives on that surface, not in the pipeline.
