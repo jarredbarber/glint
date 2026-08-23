@@ -52,7 +52,10 @@ export function createProcessor(config: GlintConfig, linkValidator: (path: strin
         .use(rehypeGlintImage)
         .use(rehypeGlintCitations)
         .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
-        .use(rehypeHighlight, { detect: true })
+        // detect:false — only highlight fences with an explicit language. Auto-
+        // detection guesses badly on unlabeled blocks (ascii tables, output dumps),
+        // e.g. tagging aligned text as "markdown" and coloring its punctuation.
+        .use(rehypeHighlight, { detect: false })
         .use(rehypeGlintCodeBlocks)
         .use(rehypeSlug)
         .use(rehypeExtractHeadings)

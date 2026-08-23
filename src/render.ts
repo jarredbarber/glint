@@ -11,6 +11,7 @@ import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
 import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
+import { contentBehaviorInit, contentBehaviorLoaders } from './renderer/content-behavior.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 /**
@@ -81,6 +82,24 @@ export function inlineImages(html: string, dataByUrl: Map<string, string>): stri
     );
 }
 
+/**
+ * Maps GitHub Primer color tokens (which host github-markdown.css reads to style
+ * tables, code, borders, links) onto Glint's theme variables. Injected into the
+ * `--body-only` fragment so an embedding host renders base elements in Glint's
+ * palette — see issue #17. Scoped to `.markdown-body`, the host's own wrapper.
+ */
+const GITHUB_PRIMER_BRIDGE = `.markdown-body{
+--color-canvas-default:var(--bg-color);
+--color-canvas-subtle:var(--bg-dim);
+--color-fg-default:var(--text-color);
+--color-fg-muted:var(--text-dim);
+--color-fg-subtle:var(--text-dim);
+--color-border-default:var(--border-color);
+--color-border-muted:var(--border-color);
+--color-neutral-muted:var(--bg-highlight);
+--color-accent-fg:var(--blue);
+}`;
+
 const MIME_BY_EXT: Record<string, string> = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
@@ -120,6 +139,16 @@ export interface RenderMarkdownOptions {
     theme?: string;
     /** KaTeX version for the CDN stylesheet. Resolved from the install if omitted. */
     katexVersion?: string;
+    /**
+     * When true, emit a body fragment for embedding in an external page template
+     * (VimR's Markdown preview) instead of a full-page document: inlined CSS,
+     * KaTeX CDN link, conditional mermaid/abcjs loaders, and inline widget
+     * interaction. The fragment forces Glint's own theme colors so it reads as a
+     * self-contained island; pair with `theme: 'nvim'` to instead inherit the
+     * host editor's colorscheme. VimR substitutes this verbatim into its own
+     * `<body class="markdown-body">`.
+     */
+    bodyOnly?: boolean;
 }
 
 /**
@@ -210,13 +239,16 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     return html;
 }
 
-/** Render a raw markdown string to a full static HTML document. */
+/** Render a raw markdown string to a full static HTML document (or a VimR fragment when nvim). */
 export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<string> {
     const fileDir = opts.fileDir ?? process.cwd();
     const config = await loadConfig(fileDir);
     if (opts.theme) config.theme = opts.theme;
 
-    const { content, title: fmTitle, frontmatter, contentStartLine } = parseMarkdown(opts.markdown);
+    const { content, frontmatter, contentStartLine, title: fmTitle } = parseMarkdown(
+        opts.markdown,
+        opts.bodyOnly ? false : true  // ponytail: keep H1 in the fragment — VimR has no other title
+    );
     const currentPath = 'stdin.md';
 
     const processor = createProcessor(config, () => false);
@@ -224,7 +256,82 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
     file.data.contentStartLine = contentStartLine;
     file.data.filePath = currentPath;
     const vfile = await processor.process(file);
-    const headings = (vfile.data.headings as HeadingNode[]) || [];
+
+    const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
+    const repoAssets = path.join(import.meta.dirname, '..', 'assets');
+    const cssFiles: [string, string][] = [
+        ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
+        ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
+        [`/assets/themes/${config.theme}.css`, path.join(repoAssets, 'themes', `${config.theme}.css`)],
+    ];
+
+    if (opts.bodyOnly) {
+        // Body fragment: inlined CSS + KaTeX + raw pipeline output, for embedding
+        // in an external template. VimR substitutes it into its own
+        // <body class="markdown-body">.
+        const cssParts: string[] = [];
+        for (const [, fsPath] of cssFiles) {
+            try { cssParts.push(await fs.readFile(fsPath, 'utf8')); } catch { /* skip */ }
+        }
+        // Reset layout.css's full-page app-shell rules (html/body 100vh + overflow:hidden
+        // + flex) that break VimR's document flow — both html AND body need the
+        // height/overflow reset or the page can't scroll — and force Glint's own
+        // theme colors over the host's `.markdown-body` (which outranks a bare
+        // `body` selector) so the fragment reads as a self-contained themed island.
+        // With `--theme=nvim` these vars resolve to the editor's colorscheme, so
+        // the same rule instead makes the fragment match its host.
+        cssParts.push('html,body{height:auto!important;overflow:visible!important;}body{display:block!important;max-width:none!important;padding:1rem 1.25rem!important;background:var(--bg-color)!important;color:var(--text-color)!important;}');
+        // Drive the host's github-markdown.css from Glint's palette (issue #17):
+        // it styles base elements (tables, code, borders) from GitHub Primer tokens,
+        // and its `.markdown-body …` rules out-specify ours. Rather than fight those
+        // selectors, we set the tokens — github then renders base elements in Glint's
+        // colors via its own rules. Scoped to `.markdown-body` and emitted after
+        // github-markdown (head), so it wins by source order at equal specificity.
+        cssParts.push(GITHUB_PRIMER_BRIDGE);
+        const katexLink = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@${katexVersion}/dist/katex.min.css">`;
+        // Glint's fonts (layout.css asks for Inter / JetBrains Mono). VimR's own
+        // template doesn't load them, so without this code falls back to the
+        // platform default monospace. Body text still follows VimR's `.markdown-body`
+        // font, which outranks layout.css by specificity — this only fixes the gaps.
+        const fontLinks = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;700&display=swap" rel="stylesheet">`;
+        const styleBlock = cssParts.length ? `<style>${cssParts.join('\n')}</style>` : '';
+
+        let body = String(vfile);
+        body = body.replace(/\sdata-glint-src="[^"]*"/gi, '');
+
+        // Inline widget interaction (comment/code collapse). This is fragment-only:
+        // VimR loads from file:// so the app's /assets bundles can't be linked, and
+        // the read-only page has no comment-collapse handler of its own to share.
+        // Container class is `.glint-comment` (widgets/comment.ts) — NOT
+        // `.glint-comment-block`; the assertion in render.test.ts guards the drift.
+        const widgetScript = `<script>
+document.addEventListener('click',function(e){
+  var t=e.target.closest('.comment-collapse-toggle');
+  if(t){var b=t.closest('.glint-comment');if(b){var c=b.getAttribute('data-collapsed')==='true';b.setAttribute('data-collapsed',c?'false':'true');}}
+  var cc=e.target.closest('.code-collapse-toggle');
+  if(cc){var w=cc.closest('.code-block-wrapper');if(w){w.classList.toggle('collapsed');}}
+});
+</script>`;
+
+        // Mermaid / abcjs: shared loaders + init (renderer/content-behavior.ts),
+        // gated so plain documents pull no CDN libraries.
+        const clientScripts = `${widgetScript}\n${contentBehaviorLoaders(body)}\n${contentBehaviorInit()}`;
+        // Render the article header (title + frontmatter metadata) matching the full Glint page.
+        const { renderMetadata } = await import('./renderer/metadata.js');
+        const { escapeHtml } = await import('./utils/html.js');
+        // Only use an *explicit* frontmatter title for the header. `fmTitle` also
+        // falls back to the first H1, but stripH1 is false here (we keep the H1 in
+        // the body), so using the fallback would render that H1 twice.
+        const explicitTitle = typeof frontmatter.title === 'string' ? frontmatter.title : null;
+        const titleHtml = explicitTitle ? `<h1>${escapeHtml(explicitTitle)}</h1>\n` : '';
+        const metaHtml = renderMetadata(frontmatter);
+        const headerHtml = (titleHtml || metaHtml)
+            ? `<header class="article-header">${titleHtml}${metaHtml}<div class="title-accent"></div></header>\n`
+            : '';
+        return `${fontLinks}\n${styleBlock}\n${katexLink}\n${clientScripts}\n${headerHtml}${body}`;
+    }
+
+    const headings = (vfile.data.headings as HeadingNode[]) ?? [];
     const title = fmTitle ?? 'Document';
 
     let html = renderer.renderHtml({
@@ -239,18 +346,11 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
         standalone: true,
     });
 
-    const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
     html = rewriteStaticHtml(html);
     html = stripInternalLinks(html);
     html = applyKatexCdn(html, katexVersion);
 
-    const repoAssets = path.join(import.meta.dirname, '..', 'assets');
     const cssByHref = new Map<string, string>();
-    const cssFiles: [string, string][] = [
-        ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
-        ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
-        [`/assets/themes/${config.theme}.css`, path.join(repoAssets, 'themes', `${config.theme}.css`)],
-    ];
     for (const [href, fsPath] of cssFiles) {
         try { cssByHref.set(href, await fs.readFile(fsPath, 'utf8')); } catch { /* skip */ }
     }

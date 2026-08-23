@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stripScripts, inlineStylesheets, inlineImages } from '../render.js';
+import { stripScripts, inlineStylesheets, inlineImages, renderMarkdown } from '../render.js';
 
 test('stripScripts removes inline <script>...</script> blocks', () => {
     const html = '<p>hi</p><script>alert(1)</script><p>bye</p>';
@@ -116,4 +116,47 @@ t2('renderFile keeps mermaid JS only when the page has a diagram', async () => {
     assert.match(diagram, /mermaid\.initialize/, 'mermaid init kept');
     // Only mermaid JS survives — no app bundles.
     assert.ok(!/\.bundle\.js/.test(diagram), 'no app bundles kept');
+});
+
+// --- body-only fragment (VimR embedding) ---
+
+test('body-only fragment: comment toggle selector matches the class comment.ts emits', async () => {
+    const md = '# T\n\n```comment\nme@2026-01-01:10:00 hi\n```\n';
+    const out = await renderMarkdown({ markdown: md, bodyOnly: true });
+    // The emitted comment container and the toggle handler must agree on the
+    // class, or clicking the toggle silently no-ops (the .glint-comment-block bug).
+    const cls = out.match(/class="([^"]*\bglint-comment\b[^"]*)"/);
+    assert.ok(cls, 'comment markup carries a glint-comment class');
+    assert.match(out, /closest\('\.glint-comment'\)/, 'toggle targets that same class');
+});
+
+test('body-only fragment: forces Glint theme colors, no colorscheme bridge by default', async () => {
+    const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
+    assert.match(out, /background:var\(--bg-color\)!important/, 'forces Glint bg over the host');
+    // Default theme (nord) must NOT reference the host editor variables.
+    assert.ok(!/var\(--nvim-color/.test(out), 'no --nvim-* bridge under the default theme');
+});
+
+test('body-only fragment: --theme=nvim inherits the host colorscheme via the theme file', async () => {
+    const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true, theme: 'nvim' });
+    assert.match(out, /--text-color: ?var\(--nvim-color/, 'nvim theme aliases text to the host fg');
+    assert.match(out, /--green: ?var\(--nvim-string-color/, 'accents borrow the host syntax colors');
+    assert.match(out, /color-mix\(in srgb/, 'surfaces synthesized with color-mix');
+});
+
+test('body-only fragment: drives github-markdown Primer tokens from Glint vars (issue #17)', async () => {
+    const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
+    // Scoped to the host wrapper, mapping Primer tokens onto Glint's palette so
+    // github-markdown renders tables/code/borders in Glint's colors.
+    assert.match(out, /\.markdown-body\{[^}]*--color-canvas-default:var\(--bg-color\)/s, 'canvas → --bg-color');
+    assert.match(out, /--color-fg-default:var\(--text-color\)/, 'fg → --text-color');
+    assert.match(out, /--color-border-default:var\(--border-color\)/, 'border → --border-color');
+});
+
+test('body-only fragment: CDN libs are gated on content', async () => {
+    const plain = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
+    assert.ok(!/jsdelivr\.net\/npm\/(mermaid|abcjs)/.test(plain), 'no CDN libs for a plain doc');
+    const diagram = await renderMarkdown({ markdown: '# T\n\n```mermaid\ngraph TD;A-->B;\n```\n', bodyOnly: true });
+    assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader pulled when used');
+    assert.match(diagram, /themeConfigs/, 'shared init emitted');
 });

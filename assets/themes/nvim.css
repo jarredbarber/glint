@@ -1,0 +1,27 @@
+/* nvim — a dynamic theme that inherits the host editor's colorscheme.
+ *
+ * VimR injects its Neovim colorscheme as `--nvim-*` custom properties. This
+ * theme re-points Glint's palette at those, so a `--body-only --theme=nvim`
+ * fragment adopts the editor's colors. Each value carries the nord default as a
+ * fallback, so this theme degrades to nord anywhere `--nvim-*` isn't defined
+ * (standalone render, `glint serve`). Surfaces VimR doesn't expose (dim /
+ * highlight backgrounds, dim text) are synthesized with color-mix by blending
+ * its foreground and background. Accents borrow VimR's syntax-highlight colors
+ * by role — "closest" is by role, not exact hue, so an unusual colorscheme may
+ * tint a widget slightly off; cosmetic only. */
+:root {
+    --text-color: var(--nvim-color, #eceff4);
+    --text-dim: color-mix(in srgb, var(--nvim-color, #eceff4) 60%, var(--nvim-background-color, #2e3440));
+    --bg-color: var(--nvim-background-color, #2e3440);
+    --bg-dim: color-mix(in srgb, var(--nvim-background-color, #2e3440) 90%, var(--nvim-color, #eceff4));
+    --bg-highlight: color-mix(in srgb, var(--nvim-background-color, #2e3440) 82%, var(--nvim-color, #eceff4));
+    --border-color: var(--nvim-hr-color, #434c5e);
+    --code-bg: var(--nvim-code-background-color, #3b4252);
+    --blue: var(--nvim-link-color, #81a1c1);
+    --green: var(--nvim-string-color, #a3be8c);
+    --red: var(--nvim-statement-color, #bf616a);
+    --yellow: var(--nvim-type-color, #ebcb8b);
+    --orange: var(--nvim-number-color, #d08770);
+    --purple: var(--nvim-constant-color, #b48ead);
+    --aqua: var(--nvim-special-color, #88c0d0);
+}
