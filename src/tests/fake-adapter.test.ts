@@ -27,3 +27,25 @@ test('write with stale version throws ConflictError', async () => {
     await a.write(f.id, '# B', version);
     await assert.rejects(() => a.write(f.id, '# C', version), ConflictError);
 });
+
+test('create returns a readable new page without overwriting existing content', async () => {
+    const a = new FakeAdapter([{ name: 'Existing.md', content: '# Existing' }]);
+    const created = await a.create('New.md', '# New');
+
+    assert.equal(created.name, 'New.md');
+    assert.equal((await a.read(created.id)).content, '# New');
+    await assert.rejects(() => a.create('Existing.md', '# Replacement'));
+    assert.equal((await a.read((await a.list()).find((f) => f.name === 'Existing.md')!.id)).content, '# Existing');
+});
+
+test('delete removes only the selected page and does not reuse its ID', async () => {
+    const a = new FakeAdapter([{ name: 'Keep.md', content: '# Keep' }]);
+    const removed = await a.create('Remove.md', '# Remove');
+    await a.delete(removed.id);
+
+    await assert.rejects(() => a.read(removed.id));
+    assert.equal((await a.list()).map((f) => f.name).join(','), 'Keep.md');
+
+    const later = await a.create('Later.md', '# Later');
+    assert.notEqual(later.id, removed.id);
+});

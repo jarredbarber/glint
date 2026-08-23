@@ -32,4 +32,18 @@ export class FakeAdapter implements StorageAdapter {
         e.v += 1; e.content = content; e.meta.version = String(e.v);
         return { version: String(e.v) };
     }
+
+    async create(name: string, content: string): Promise<FileMeta> {
+        if ([...this.entries.values()].some((entry) => entry.meta.name === name)) {
+            throw new Error(`file already exists: ${name}`);
+        }
+        const id = `f${++this.seq}`;
+        const meta = { id, name, path: name, version: '1' };
+        this.entries.set(id, { meta, content, v: 1 });
+        return { ...meta };
+    }
+
+    async delete(id: string): Promise<void> {
+        if (!this.entries.delete(id)) throw new Error(`no such file: ${id}`);
+    }
 }

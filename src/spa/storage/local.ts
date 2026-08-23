@@ -86,4 +86,30 @@ export class LocalAdapter implements StorageAdapter {
         await w.close();
         return { version: String((await fh.getFile()).lastModified) };
     }
+
+    async create(name: string, content: string): Promise<FileMeta> {
+        const dir = this.need();
+        try {
+            await dir.getFileHandle(name);
+            throw new Error(`file already exists: ${name}`);
+        } catch (error) {
+            if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error;
+        }
+
+        const fh = await dir.getFileHandle(name, { create: true });
+        try {
+            const writable = await fh.createWritable();
+            await writable.write(content);
+            await writable.close();
+        } catch (error) {
+            await dir.removeEntry(name).catch(() => {});
+            throw error;
+        }
+        const file = await fh.getFile();
+        return { id: name, name, path: name, version: String(file.lastModified) };
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.need().removeEntry(id);
+    }
 }

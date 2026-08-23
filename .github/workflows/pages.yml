@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir -p dist-spa
           cp src/spa/index.html dist-spa/
+          cp src/spa/llms.txt dist-spa/
           # Optional client-id config (commit src/spa/config.js to enable Drive/GitHub).
           [ -f src/spa/config.js ] && cp src/spa/config.js dist-spa/ || true
           cp -r assets dist-spa/assets

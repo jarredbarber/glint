@@ -9,6 +9,7 @@ import { StorageAdapter, ConflictError } from '../storage/types.js';
 let active: any = null;                 // GlintEditor instance
 let container: HTMLElement | null = null;
 let hidden: HTMLElement[] = [];
+let editorGeneration = 0;
 
 export function getCurrentSection(headerOffset = 0): HTMLElement | null {
     const wrapper = document.querySelector('.content-wrapper') ?? document.body;
@@ -20,6 +21,7 @@ export function getCurrentSection(headerOffset = 0): HTMLElement | null {
 }
 
 export function closeSectionEditor(): void {
+    editorGeneration += 1;
     if (active) { active.destroy(); active = null; }
     if (container) { container.remove(); container = null; }
     hidden.forEach((el) => (el.style.display = ''));
@@ -27,10 +29,11 @@ export function closeSectionEditor(): void {
 }
 
 export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement): Promise<void> {
-    if (active && !confirm('Discard the open editor?')) return;
     closeSectionEditor();
+    const generation = editorGeneration;
 
     const { content, version } = await adapter.read(fileId);
+    if (generation !== editorGeneration) return;
     const lines = content.split('\n');
     const eof = lines.length + 1;
     const { startLine, endLine } = getSectionRange(section, eof);
@@ -47,7 +50,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
         closeSectionEditor();
         throw new Error('Editor not loaded');
     }
-    active = new (window as any).GlintEditor(container, {
+    const editor = new (window as any).GlintEditor(container, {
         initialValue: sectionText,
         vimMode: true,
         onSave: async (edited: string) => {
@@ -56,17 +59,28 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
             try {
                 await adapter.write(fileId, next.join('\n'), version);
                 location.reload();
+                return true;
             } catch (e) {
                 if (e instanceof ConflictError) {
-                    alert('This file changed on the backend. Reloading to show the latest.');
-                    location.reload();
+                    const notice = document.createElement('p');
+                    notice.className = 'glint-editor-save-conflict';
+                    notice.textContent = 'Save conflict. Your changes are still in the editor. Copy them, refresh, then reapply.';
+                    container?.appendChild(notice);
                 } else {
                     alert(`Save failed: ${(e as Error).message}`);
                 }
+                return false;
             }
         },
-        onCancel: closeSectionEditor,
+        onCancel: () => {
+            if (generation === editorGeneration) closeSectionEditor();
+        },
     });
+    if (generation !== editorGeneration) {
+        editor.destroy();
+        return;
+    }
+    active = editor;
 }
 
 export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null): void {

@@ -9,6 +9,8 @@ export interface StorageAdapter {
     list(): Promise<FileMeta[]>;
     read(id: string): Promise<{ content: string; version: string }>;
     write(id: string, content: string, version: string): Promise<{ version: string }>;
+    create(name: string, content: string): Promise<FileMeta>;
+    delete(id: string): Promise<void>;
 }
 
 export class ConflictError extends Error {

@@ -10,3 +10,15 @@ export function resolveWikiLink(name: string, files: FileMeta[]): FileMeta | nul
     }
     return null;
 }
+
+export function normalizePageName(input: string): string | null {
+    const stem = input.trim().normalize('NFC').replace(/\.md$/i, '');
+    if (!stem || stem === '.' || stem === '..' || /[<>:"/\\|?*#\x00-\x1F]/.test(stem)) return null;
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem)) return null;
+    return `${stem}.md`;
+}
+
+export function matchesWikiSearch(query: string, title: string, content: string): boolean {
+    const needle = query.trim().toLocaleLowerCase();
+    return !needle || title.toLocaleLowerCase().includes(needle) || content.toLocaleLowerCase().includes(needle);
+}

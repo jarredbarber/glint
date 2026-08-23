@@ -3,13 +3,35 @@
 // Scope is `drive.file` (least privilege) per spec; if folder-child listing comes
 // back empty under drive.file, widen SCOPE to `drive.readonly` + `drive.file` or
 // `drive` (the documented tradeoff — spec §Risks) — a one-line change here.
+import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError } from './types.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com';
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
-declare const google: any;
+declare const google: {
+    accounts: {
+        oauth2: {
+            initTokenClient(options: {
+                client_id: string;
+                scope: string;
+                callback(response: unknown): void;
+            }): { requestAccessToken(): void };
+        };
+    };
+};
+
+const driveFileListSchema = z.object({
+    files: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        modifiedTime: z.string(),
+    })).default([]),
+    nextPageToken: z.string().optional(),
+});
+
+const tokenResponseSchema = z.object({ access_token: z.string().optional() });
 
 function loadScript(src: string): Promise<void> {
     return new Promise((res, rej) => {
@@ -35,8 +57,12 @@ export class DriveAdapter implements StorageAdapter {
         this.token = await new Promise<string>((resolve, reject) => {
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: this.clientId,
+                callback: (response: unknown) => {
+                    const parsed = tokenResponseSchema.safeParse(response);
+                    if (parsed.success && parsed.data.access_token) resolve(parsed.data.access_token);
+                    else reject(new Error('no access token'));
+                },
                 scope: SCOPE,
-                callback: (resp: any) => resp.access_token ? resolve(resp.access_token) : reject(new Error('no access token')),
             });
             client.requestAccessToken();
         });
@@ -62,11 +88,20 @@ export class DriveAdapter implements StorageAdapter {
 
     async list(): Promise<FileMeta[]> {
         const q = encodeURIComponent(`'${this.folderId}' in parents and name contains '.md' and trashed = false`);
-        const r = await this.api(`/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&pageSize=100&orderBy=modifiedTime desc`);
-        const { files } = await r.json();
-        return (files as any[])
-            .filter((f) => f.name.endsWith('.md'))
-            .map((f) => ({ id: f.id, name: f.name, path: f.name, version: f.modifiedTime }));
+        const files: FileMeta[] = [];
+        let pageToken: string | undefined;
+        do {
+            const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+            const response = await this.api(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,modifiedTime)&pageSize=100&orderBy=modifiedTime desc${token}`);
+            const page = driveFileListSchema.parse(await response.json());
+            for (const file of page.files) {
+                if (file.name.endsWith('.md')) {
+                    files.push({ id: file.id, name: file.name, path: file.name, version: file.modifiedTime });
+                }
+            }
+            pageToken = page.nextPageToken;
+        } while (pageToken);
+        return files;
     }
 
     async read(id: string) {
@@ -84,5 +119,25 @@ export class DriveAdapter implements StorageAdapter {
             body: content,
         });
         return { version: (await r.json()).modifiedTime };
+    }
+
+    async create(name: string, content: string): Promise<FileMeta> {
+        if ((await this.list()).some((file) => file.name === name)) {
+            throw new Error(`file already exists: ${name}`);
+        }
+        const boundary = `glint-${crypto.randomUUID()}`;
+        const metadata = JSON.stringify({ name, mimeType: 'text/markdown', parents: [this.folderId] });
+        const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n${content}\r\n--${boundary}--`;
+        const response = await this.api('/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime', {
+            method: 'POST',
+            headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+            body,
+        });
+        const created = await response.json();
+        return { id: created.id, name: created.name, path: created.name, version: created.modifiedTime };
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.api(`/drive/v3/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
     }
 }

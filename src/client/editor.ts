@@ -115,7 +115,7 @@ interface GlintEditorOptions {
     initialValue?: string;
     initialLine?: number; // 1-indexed line to scroll to on load
     height?: string;
-    onSave?: (content: string) => void;
+    onSave?: (content: string) => boolean | Promise<boolean>;
     onCancel?: () => void;
     vimMode?: boolean;
     language?: string;
@@ -258,12 +258,12 @@ class GlintEditor {
             // Helper to get current editor instance
             const getCurrentEditor = (): GlintEditor | null => (window as any).__glintCurrentEditor;
 
-            // Define :w for Save
-            const saveFn = () => {
+            const saveFn = async (): Promise<boolean> => {
                 const editor = getCurrentEditor();
                 if (editor?.options.onSave) {
-                    editor.options.onSave(editor.getValue());
+                    return (await editor.options.onSave(editor.getValue())) ?? true;
                 }
+                return false;
             };
 
             Vim.defineEx("write", "w", saveFn);
@@ -280,11 +280,8 @@ class GlintEditor {
             Vim.defineEx("quit", "q", quitFn);
             Vim.defineEx("Quit", "Q", quitFn);
 
-            // Define :wq and :x for Save and Quit
-            const saveAndQuitFn = () => {
-                saveFn();
-                // Usually onSave reloads the page, but let's be safe and quit too if it doesn't
-                quitFn();
+            const saveAndQuitFn = async () => {
+                if (await saveFn()) quitFn();
             };
 
             Vim.defineEx("wq", "wq", saveAndQuitFn);

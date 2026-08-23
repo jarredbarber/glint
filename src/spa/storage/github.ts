@@ -95,4 +95,31 @@ export class GitHubAdapter implements StorageAdapter {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         return { version: (await r.json()).content.sha };
     }
+
+    async create(name: string, content: string): Promise<FileMeta> {
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(name))}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                message: `Create ${name} via Glint`,
+                content: toB64(content),
+                branch: this.ref,
+            }),
+        });
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        const { content: created } = await r.json();
+        return { id: created.name, name: created.name, path: created.path, version: created.sha };
+    }
+
+    async delete(id: string): Promise<void> {
+        const { version } = await this.read(id);
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(id))}`, {
+            method: 'DELETE',
+            body: JSON.stringify({
+                message: `Delete ${id} via Glint`,
+                sha: version,
+                branch: this.ref,
+            }),
+        });
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+    }
 }
