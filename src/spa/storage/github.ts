@@ -2,7 +2,7 @@
 // Device flow was dropped: github.com/login/* sends no CORS headers, so token
 // acquisition is browser-blocked. api.github.com does allow CORS, so read/write
 // with a token works from the static page — the PAT is the zero-server path.
-import { StorageAdapter, FileMeta, ConflictError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
 
 const API = 'https://api.github.com';
 const TOKEN_KEY = 'glint-gh-token';
@@ -40,6 +40,12 @@ export class GitHubAdapter implements StorageAdapter {
         if (!(await this.validate(token))) throw new Error('Token is invalid or lacks access to this repo.');
         this.token = token;
         localStorage.setItem(TOKEN_KEY, token);
+    }
+
+    async reauthenticate(): Promise<void> {
+        if (!this.token || !(await this.validate(this.token))) {
+            throw new AuthExpiredError('GitHub authentication expired');
+        }
     }
 
     private async validate(token: string): Promise<boolean> {
@@ -92,6 +98,7 @@ export class GitHubAdapter implements StorageAdapter {
             }),
         });
         if (r.status === 409) throw new ConflictError();
+        if (r.status === 401) throw new AuthExpiredError('GitHub authentication expired');
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         return { version: (await r.json()).content.sha };
     }

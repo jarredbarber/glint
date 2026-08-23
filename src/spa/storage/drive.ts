@@ -4,7 +4,7 @@
 // back empty under drive.file, widen SCOPE to `drive.readonly` + `drive.file` or
 // `drive` (the documented tradeoff — spec §Risks) — a one-line change here.
 import { z } from 'zod';
-import { StorageAdapter, FileMeta, ConflictError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com';
@@ -17,7 +17,8 @@ declare const google: {
                 client_id: string;
                 scope: string;
                 callback(response: unknown): void;
-            }): { requestAccessToken(): void };
+                error_callback(error: { type: string }): void;
+            }): { requestAccessToken(options?: { prompt?: string }): void };
         };
     };
 };
@@ -53,24 +54,33 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async auth(): Promise<void> {
-        await loadScript(GIS_SRC);
-        this.token = await new Promise<string>((resolve, reject) => {
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: this.clientId,
-                callback: (response: unknown) => {
-                    const parsed = tokenResponseSchema.safeParse(response);
-                    if (parsed.success && parsed.data.access_token) resolve(parsed.data.access_token);
-                    else reject(new Error('no access token'));
-                },
-                scope: SCOPE,
-            });
-            client.requestAccessToken();
-        });
+        this.token = await this.requestToken('consent');
         // Best-effort display name (userinfo is outside drive scope; ignore failures).
         try {
             const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: this.headers() });
             if (r.ok) this.userName = (await r.json()).name ?? this.userName;
         } catch { /* non-fatal */ }
+    }
+
+    async reauthenticate(): Promise<void> {
+        this.token = await this.requestToken('none');
+    }
+
+    private async requestToken(prompt: string): Promise<string> {
+        await loadScript(GIS_SRC);
+        return new Promise<string>((resolve, reject) => {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: this.clientId,
+                callback: (response: unknown) => {
+                    const parsed = tokenResponseSchema.safeParse(response);
+                    if (parsed.success && parsed.data.access_token) resolve(parsed.data.access_token);
+                    else reject(new AuthExpiredError('Drive authentication expired'));
+                },
+                error_callback: () => reject(new AuthExpiredError('Drive authentication expired')),
+                scope: SCOPE,
+            });
+            client.requestAccessToken({ prompt });
+        });
     }
 
     identity() { return { name: this.userName }; }
@@ -82,6 +92,7 @@ export class DriveAdapter implements StorageAdapter {
 
     private async api(path: string, opts: RequestInit = {}): Promise<Response> {
         const r = await fetch(API + path, { ...opts, headers: { ...this.headers(), ...(opts.headers || {}) } });
+        if (r.status === 401) throw new AuthExpiredError('Drive authentication expired');
         if (!r.ok) throw new Error(`Drive ${r.status}: ${await r.text()}`);
         return r;
     }

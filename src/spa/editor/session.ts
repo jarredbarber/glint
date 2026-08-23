@@ -4,7 +4,7 @@
 // edit, save, and confirm the section re-renders with no neighbor clobbered.
 // getSectionRange's boundary math is unit-tested (section-range.test.ts).
 import { getSectionRange } from './section-range.js';
-import { StorageAdapter, ConflictError } from '../storage/types.js';
+import { StorageAdapter, AuthExpiredError, ConflictError } from '../storage/types.js';
 
 let active: any = null;                 // GlintEditor instance
 let container: HTMLElement | null = null;
@@ -26,6 +26,39 @@ export function closeSectionEditor(): void {
     if (container) { container.remove(); container = null; }
     hidden.forEach((el) => (el.style.display = ''));
     hidden = [];
+}
+
+function showConflictNotice(): void {
+    const notice = document.createElement('p');
+    notice.className = 'glint-editor-save-conflict';
+    notice.textContent = 'Save conflict. Your changes are still in the editor. Copy them, refresh, then reapply.';
+    container?.appendChild(notice);
+}
+
+function showReconnectNotice(adapter: StorageAdapter): void {
+    const notice = document.createElement('p');
+    notice.className = 'glint-editor-save-auth';
+    const message = document.createElement('span');
+    message.textContent = 'Your connection expired. Your changes are still in the editor.';
+    const reconnect = document.createElement('button');
+    reconnect.className = 'glint-editor-reconnect';
+    reconnect.textContent = 'Reconnect';
+    reconnect.addEventListener('click', () => {
+        void adapter.auth().then(
+            () => {
+                message.textContent = 'Reconnected. Save again.';
+                reconnect.remove();
+            },
+            () => { message.textContent = 'Reconnect failed. Your changes are still in the editor.'; },
+        );
+    });
+    notice.appendChild(message);
+    notice.appendChild(reconnect);
+    container?.appendChild(notice);
+}
+
+function isAuthExpired(error: unknown): boolean {
+    return error instanceof AuthExpiredError || (error instanceof Error && error.name === 'AuthExpiredError');
 }
 
 export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement): Promise<void> {
@@ -56,16 +89,38 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
         onSave: async (edited: string) => {
             const next = [...lines];
             next.splice(startLine - 1, endLine - startLine, edited);
+            const write = () => adapter.write(fileId, next.join('\n'), version);
             try {
-                await adapter.write(fileId, next.join('\n'), version);
+                await write();
                 location.reload();
                 return true;
             } catch (e) {
                 if (e instanceof ConflictError) {
-                    const notice = document.createElement('p');
-                    notice.className = 'glint-editor-save-conflict';
-                    notice.textContent = 'Save conflict. Your changes are still in the editor. Copy them, refresh, then reapply.';
-                    container?.appendChild(notice);
+                    showConflictNotice();
+                } else if (isAuthExpired(e)) {
+                    if (!adapter.reauthenticate) {
+                        showReconnectNotice(adapter);
+                        return false;
+                    }
+                    try {
+                        await adapter.reauthenticate();
+                    } catch {
+                        showReconnectNotice(adapter);
+                        return false;
+                    }
+                    try {
+                        await write();
+                        location.reload();
+                        return true;
+                    } catch (retryError) {
+                        if (retryError instanceof ConflictError) {
+                            showConflictNotice();
+                        } else if (isAuthExpired(retryError)) {
+                            showReconnectNotice(adapter);
+                        } else {
+                            alert(`Save failed: ${(retryError as Error).message}`);
+                        }
+                    }
                 } else {
                     alert(`Save failed: ${(e as Error).message}`);
                 }

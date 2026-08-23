@@ -5,12 +5,20 @@ export interface FileMeta { id: string; name: string; path: string; version: str
 
 export interface StorageAdapter {
     auth(): Promise<void>;
+    reauthenticate?(): Promise<void>;
     identity(): { name: string };
     list(): Promise<FileMeta[]>;
     read(id: string): Promise<{ content: string; version: string }>;
     write(id: string, content: string, version: string): Promise<{ version: string }>;
     create(name: string, content: string): Promise<FileMeta>;
     delete(id: string): Promise<void>;
+}
+
+export class AuthExpiredError extends Error {
+    constructor(message = 'authentication expired') {
+        super(message);
+        this.name = 'AuthExpiredError';
+    }
 }
 
 export class ConflictError extends Error {
