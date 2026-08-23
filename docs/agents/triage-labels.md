@@ -43,7 +43,13 @@ Both the triaging agent and the implementing agent can move issues to `ready-for
 
 ### The checkpoint flow
 
-When an agent moves an issue to `ready-for-human`, it posts a checkpoint brief (see `workflows/issue-lifecycle.md` for the template). The human responds:
+When an agent moves an issue to `ready-for-human`, it posts a checkpoint brief (see `workflows/issue-lifecycle.md` for the full template). Key rules:
+
+- **Include the session link** so the maintainer can `--continue` the session to ask follow-up questions.
+- **Design artifacts live in the issue comment, not in repo files.** The checkpoint comment is self-contained — the reviewer should never need to open another file to understand the work or make a decision.
+- **No "Recommendation: Approve."** The agent wrote the work; of course it recommends approval. Instead, show **key decisions** (what was chosen over what and why) and **risks** so the reviewer can spot wrong turns fast.
+
+The human responds:
 
 - **Approve:** comment "approved" or move to `ready-for-agent`. Agent picks up and executes.
 - **Revise:** comment with feedback and move to `ready-for-agent`. Agent reworks based on the comment.
