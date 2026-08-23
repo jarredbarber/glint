@@ -8,3 +8,6 @@ assets/*.bundle.js.map
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Agent handoff scratch doc (not tracked)
+HANDOFF.md
