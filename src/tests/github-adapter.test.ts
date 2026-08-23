@@ -44,3 +44,40 @@ test('silently validates a cached GitHub token and reserves PAT entry for intera
     await adapter.auth();
     assert.equal(prompts, 1);
 });
+
+test('caches GitHub file content until a directory refresh reports a new blob SHA', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    let fileReads = 0;
+    let listVersion = 'sha-1';
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string) => {
+            if (url.includes('?ref=main') && !url.includes('note.md')) {
+                return new Response(JSON.stringify([{
+                    type: 'file', name: 'note.md', path: 'note.md', sha: listVersion,
+                }]));
+            }
+            fileReads += 1;
+            const content = listVersion === 'sha-1' ? 'first' : 'second';
+            return new Response(JSON.stringify({
+                content: btoa(content),
+                sha: listVersion,
+            }));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main');
+    await adapter.list();
+    assert.deepEqual(await adapter.read('note.md'), { content: 'first', version: 'sha-1' });
+    assert.deepEqual(await adapter.read('note.md'), { content: 'first', version: 'sha-1' });
+    assert.equal(fileReads, 1);
+
+    listVersion = 'sha-2';
+    await adapter.list();
+    assert.deepEqual(await adapter.read('note.md'), { content: 'second', version: 'sha-2' });
+    assert.equal(fileReads, 2);
+});

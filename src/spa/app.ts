@@ -4,6 +4,7 @@ import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { DriveAdapter } from './storage/drive.js';
 import { GitHubAdapter } from './storage/github.js';
+import { createStandaloneHtml } from './export.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 
 // Public Drive OAuth client ID, injected via an optional /config.js that sets
@@ -62,8 +63,12 @@ function wikiTargetFromHref(href: string): string {
 
 async function openFile(id: string) {
     currentFileId = id;
-    const { content } = await adapter.read(id);
-    contentCache.set(id, content);
+    let content = contentCache.get(id);
+    if (content === undefined) {
+        const read = await adapter.read(id);
+        content = read.content;
+        contentCache.set(id, content);
+    }
     const knownPaths = files.map((f) => f.name);
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = html;
@@ -112,6 +117,24 @@ async function deleteCurrentPage(): Promise<void> {
     }
 }
 
+async function exportCurrentPage(): Promise<void> {
+    const id = currentFileId;
+    const page = files.find((file) => file.id === id);
+    if (!id || !page) return;
+    let content = contentCache.get(id);
+    if (content === undefined) {
+        content = (await adapter.read(id)).content;
+        contentCache.set(id, content);
+    }
+    const html = await GlintRender.renderMarkdown(content, { knownPaths: files.map((file) => file.name) });
+    const url = URL.createObjectURL(new Blob([createStandaloneHtml(page.name, html)], { type: 'text/html;charset=utf-8' }));
+    const download = document.createElement('a');
+    download.href = url;
+    download.download = page.name.replace(/\.md$/i, '') + '.html';
+    download.click();
+    URL.revokeObjectURL(url);
+}
+
 async function renderSearch(query: string): Promise<void> {
     const generation = ++searchGeneration;
     const results = document.querySelector<HTMLElement>('[data-search-results]');
@@ -129,7 +152,11 @@ async function renderSearch(query: string): Promise<void> {
     if (generation !== searchGeneration) return;
     results.innerHTML = matches.map((file) => `<a href="#" data-id="${file.id}">${file.name}</a>`).join('');
     results.querySelectorAll<HTMLElement>('a[data-id]').forEach((link) =>
-        link.addEventListener('click', (event) => { event.preventDefault(); void openFile(link.dataset.id!); }));
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeMobileSidebar();
+            void openFile(link.dataset.id!);
+        }));
 }
 
 function wireWikiLinks() {
@@ -152,43 +179,114 @@ function wireWikiLinks() {
 }
 
 function renderSidebar() {
+    document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
     const deleteAction = currentFileId ? '<button data-delete-page>Delete page</button>' : '';
-    nav.innerHTML = `<input data-search placeholder="Search pages"><div data-search-results></div><button data-new-page>New page</button>${deleteAction}${files.map((f) => `<a href="#" data-id="${f.id}">${f.name}</a>`).join('')}`;
+    const exportAction = currentFileId ? '<button data-export-page>Export HTML</button>' : '';
+    nav.innerHTML = `<div class="spa-sidebar-controls"><input data-search placeholder="Search pages" aria-label="Search pages"><div data-search-results></div><button data-new-page>New page</button>${exportAction}${deleteAction}</div><div class="spa-page-list">${files.map((f) => `<a href="#" data-id="${f.id}">${f.name}</a>`).join('')}</div>`;
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         const name = prompt('Page name (.md is optional):');
         if (name !== null) void createPage(name);
     });
+    nav.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
     nav.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());
     nav.querySelector<HTMLInputElement>('[data-search]')?.addEventListener('input', (event) => {
         void renderSearch((event.target as HTMLInputElement).value);
     });
     nav.querySelectorAll<HTMLElement>('a[data-id]').forEach((a) =>
-        a.addEventListener('click', (e) => { e.preventDefault(); void openFile(a.dataset.id!); }));
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeMobileSidebar();
+            void openFile(a.dataset.id!);
+        }));
 }
 
 function renderLanding(): void {
+    document.body.classList.add('glint-landing');
     const local = localSupported()
-        ? `<li><a href="#/local">Local folder</a> <span class="dim">— pick a directory on this machine</span></li>`
-        : `<li class="dim">Local folder — needs a Chromium-based browser</li>`;
+        ? `<a class="glint-source-card" href="#/local"><strong>Local folder</strong><span>Open Markdown from this device.</span></a>`
+        : `<div class="glint-source-card disabled"><strong>Local folder</strong><span>Needs a Chromium-based browser.</span></div>`;
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `
-        <h1>Glint</h1>
-        <p>Open a workspace:</p>
-        <ul class="glint-landing">
-            ${local}
-            <li>Google Drive: <input id="lp-drive" placeholder="folder id" size="30"> <button data-go="drive">Open</button></li>
-            <li>GitHub: <input id="lp-gh" placeholder="owner/repo/path" size="30"> <button data-go="gh">Open</button></li>
-        </ul>
-        <p class="dim">Or append a route to the URL: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, <code>#/gh/owner/repo/path</code>.</p>`;
+        <section class="glint-landing-shell">
+            <p class="glint-eyebrow">Markdown, kept close</p>
+            <h1>Glint</h1>
+            <p class="glint-intro">Read and edit a folder of Markdown without moving it into another workspace.</p>
+            <div class="glint-source-grid">
+                ${local}
+                <form class="glint-source-card" data-source-form="drive">
+                    <strong>Google Drive</strong><span>Open a shared folder by ID.</span>
+                    <label for="lp-drive">Folder ID</label>
+                    <input id="lp-drive" placeholder="1a2b..." autocomplete="off">
+                    <button>Open Drive folder</button>
+                </form>
+                <form class="glint-source-card" data-source-form="gh">
+                    <strong>GitHub</strong><span>Open a repository folder with a personal token.</span>
+                    <label for="lp-gh">Repository path</label>
+                    <input id="lp-gh" placeholder="owner/repo/path" autocomplete="off">
+                    <button>Open GitHub folder</button>
+                </form>
+            </div>
+            <p class="glint-route-help">Direct routes also work: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, or <code>#/gh/owner/repo/path</code>.</p>
+        </section>`;
     const goTo = (hash: string) => { location.hash = hash; location.reload(); };
-    document.querySelector('[data-go="drive"]')?.addEventListener('click', () => {
+    document.querySelector<HTMLFormElement>('[data-source-form="drive"]')?.addEventListener('submit', (event) => {
+        event.preventDefault();
         const id = (document.getElementById('lp-drive') as HTMLInputElement).value.trim();
         if (id) goTo(`#/drive/${encodeURIComponent(id)}`);
     });
-    document.querySelector('[data-go="gh"]')?.addEventListener('click', () => {
-        const p = (document.getElementById('lp-gh') as HTMLInputElement).value.trim().replace(/^\/+/, '');
-        if (p) goTo(`#/gh/${p}`);
+    document.querySelector<HTMLFormElement>('[data-source-form="gh"]')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const path = (document.getElementById('lp-gh') as HTMLInputElement).value.trim().replace(/^\/+/, '');
+        if (path) goTo(`#/gh/${path}`);
     });
+}
+
+function closeMobileSidebar(): void {
+    document.body.classList.remove('sidebar-open');
+    document.querySelector<HTMLButtonElement>('.mobile-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function wireMobileSidebar(): void {
+    const toggle = document.querySelector<HTMLButtonElement>('.mobile-toggle');
+    const overlay = document.querySelector<HTMLElement>('.mobile-overlay');
+    toggle?.addEventListener('click', () => {
+        const open = document.body.classList.toggle('sidebar-open');
+        toggle.setAttribute('aria-expanded', String(open));
+    });
+    overlay?.addEventListener('click', closeMobileSidebar);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeMobileSidebar();
+    });
+}
+
+async function refreshFilesOnFocus(): Promise<void> {
+    const id = currentFileId;
+    if (!id) return;
+    const previous = new Map(files.map((file) => [file.id, file]));
+    try {
+        const refreshed = await adapter.list();
+        const refreshedById = new Map(refreshed.map((file) => [file.id, file]));
+        for (const file of refreshed) {
+            if (previous.get(file.id)?.version !== file.version) contentCache.delete(file.id);
+        }
+        for (const file of previous.values()) {
+            if (!refreshedById.has(file.id)) contentCache.delete(file.id);
+        }
+        files = refreshed;
+        const current = previous.get(id);
+        const replacement = refreshedById.get(id);
+        if (!replacement) {
+            currentFileId = null;
+            (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = '';
+            renderSidebar();
+        } else if (current?.version !== replacement.version) {
+            await openFile(id);
+        } else {
+            renderSidebar();
+        }
+    } catch {
+        // Keep the last successful view when the backend is temporarily unavailable.
+    }
 }
 
 export async function boot(): Promise<void> {
@@ -202,6 +300,8 @@ export async function boot(): Promise<void> {
     if (files.length) await openFile(files[0].id);
 }
 
-window.addEventListener('DOMContentLoaded', () => void boot());
-// Refetch-on-focus replaces SSE live-reload.
-window.addEventListener('focus', () => { if (currentFileId) void openFile(currentFileId); });
+window.addEventListener('DOMContentLoaded', () => {
+    wireMobileSidebar();
+    void boot();
+});
+window.addEventListener('focus', () => void refreshFilesOnFocus());

@@ -680,6 +680,202 @@ details:not([open]) .sidebar-header::after {
     /* Ensure last section can scroll to top */
 }
 
+/* SPA shell */
+.spa-sidebar-controls,
+.spa-page-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+}
+
+.spa-sidebar-controls {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.spa-sidebar-controls input {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    color: var(--text-color);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+}
+
+.spa-sidebar-controls button {
+    padding: 0.45rem 0.65rem;
+    color: var(--text-color);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.spa-sidebar-controls button:hover,
+.spa-sidebar-controls button:focus-visible {
+    background: var(--bg-highlight);
+    outline: none;
+}
+
+.spa-sidebar-controls [data-search-results] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.spa-page-list {
+    overflow-y: auto;
+}
+
+.spa-page-list a,
+.spa-sidebar-controls [data-search-results] a {
+    overflow-wrap: anywhere;
+}
+
+.glint-landing .sidebar,
+.glint-landing .mobile-toggle,
+.glint-landing .mobile-overlay {
+    display: none !important;
+}
+
+.glint-landing .content-wrapper {
+    max-width: 64rem;
+    min-height: 100%;
+    display: grid;
+    align-items: center;
+}
+
+.glint-landing-shell {
+    max-width: 56rem;
+    padding: 2rem 0;
+}
+
+.glint-eyebrow {
+    margin-bottom: 0.5rem;
+    color: var(--aqua);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.glint-landing-shell h1 {
+    max-width: 12ch;
+    margin: 0;
+    font-size: clamp(3rem, 10vw, 6.5rem);
+    letter-spacing: -0.06em;
+    line-height: 0.85;
+}
+
+.glint-intro {
+    max-width: 35rem;
+    margin: 1.75rem 0 2.5rem;
+    color: var(--text-dim);
+    font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+}
+
+.glint-source-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.glint-source-card {
+    display: flex;
+    min-height: 13rem;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1.1rem;
+    color: var(--text-color);
+    background: var(--bg-dim);
+    border: 1px solid var(--border-color);
+    border-radius: 0.35rem;
+    text-decoration: none;
+}
+
+.glint-source-card:not(.disabled):hover,
+.glint-source-card:not(.disabled):focus-within {
+    border-color: var(--aqua);
+    background: var(--bg-highlight);
+}
+
+.glint-source-card strong {
+    color: var(--aqua);
+    font-size: 1.05rem;
+}
+
+.glint-source-card span,
+.glint-source-card label {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+.glint-source-card label {
+    margin-top: auto;
+}
+
+.glint-source-card input,
+.glint-source-card button {
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    color: var(--text-color);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.2rem;
+    font: inherit;
+}
+
+.glint-source-card button {
+    border-color: var(--aqua);
+    color: var(--aqua);
+    cursor: pointer;
+}
+
+.glint-source-card button:hover,
+.glint-source-card button:focus-visible {
+    color: var(--bg-color);
+    background: var(--aqua);
+    outline: none;
+}
+
+.glint-source-card.disabled {
+    opacity: 0.55;
+}
+
+.glint-route-help {
+    margin-top: 1.25rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .content { padding: 0; }
+
+    .content-wrapper {
+        min-height: 100%;
+        padding: 4.5rem 1.25rem 3rem;
+    }
+
+    .mobile-toggle {
+        background: var(--bg-dim);
+        color: var(--text-color);
+    }
+
+    .glint-landing .content-wrapper {
+        padding-top: 2rem;
+    }
+
+    .glint-source-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .glint-source-card {
+        min-height: auto;
+    }
+}
+
 /* Scroll offset for anchor links to account for sticky headers */
 .content-wrapper .glint-section h2[id],
 .content-wrapper .glint-section h3[id],

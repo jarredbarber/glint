@@ -2,11 +2,28 @@
 // Device flow was dropped: github.com/login/* sends no CORS headers, so token
 // acquisition is browser-blocked. api.github.com does allow CORS, so read/write
 // with a token works from the static page — the PAT is the zero-server path.
+import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
 
 const API = 'https://api.github.com';
 const TOKEN_KEY = 'glint-gh-token';
 
+
+interface CachedRead {
+    content: string;
+    version: string;
+}
+
+const githubListSchema = z.array(z.object({
+    type: z.string(),
+    name: z.string(),
+    path: z.string(),
+    sha: z.string(),
+}));
+const githubReadSchema = z.object({ content: z.string(), sha: z.string() });
+const githubMutationSchema = z.object({
+    content: z.object({ name: z.string(), path: z.string(), sha: z.string() }),
+});
 // UTF-8-safe base64 (GitHub Contents API is base64).
 function toB64(s: string): string {
     return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
@@ -19,6 +36,9 @@ function fromB64(b: string): string {
 export class GitHubAdapter implements StorageAdapter {
     private token: string | null = null;
     private userName = 'GitHub User';
+    private reads = new Map<string, CachedRead>();
+    private listedVersions = new Map<string, string>();
+
 
     constructor(
         private owner: string,
@@ -74,17 +94,28 @@ export class GitHubAdapter implements StorageAdapter {
     async list(): Promise<FileMeta[]> {
         const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.path)}?ref=${encodeURIComponent(this.ref)}`);
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        const items = await r.json();
-        return (items as any[])
-            .filter((it) => it.type === 'file' && it.name.endsWith('.md'))
-            .map((it) => ({ id: it.name, name: it.name, path: it.path, version: it.sha }));
+        const items = githubListSchema.parse(await r.json());
+        const files = items
+            .filter((item) => item.type === 'file' && item.name.endsWith('.md'))
+            .map((item) => ({ id: item.name, name: item.name, path: item.path, version: item.sha }));
+        this.listedVersions = new Map(files.map((file) => [file.id, file.version]));
+        for (const id of this.reads.keys()) {
+            if (!this.listedVersions.has(id)) this.reads.delete(id);
+        }
+        return files;
     }
 
     async read(id: string) {
+        const cached = this.reads.get(id);
+        const listedVersion = this.listedVersions.get(id);
+        if (cached && (!listedVersion || cached.version === listedVersion)) return cached;
         const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(id))}?ref=${encodeURIComponent(this.ref)}`);
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        const j = await r.json();
-        return { content: fromB64(j.content), version: j.sha };
+        const j = githubReadSchema.parse(await r.json());
+        const read = { content: fromB64(j.content), version: j.sha };
+        this.reads.set(id, read);
+        this.listedVersions.set(id, read.version);
+        return read;
     }
 
     async write(id: string, content: string, version: string) {
@@ -100,7 +131,10 @@ export class GitHubAdapter implements StorageAdapter {
         if (r.status === 409) throw new ConflictError();
         if (r.status === 401) throw new AuthExpiredError('GitHub authentication expired');
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        return { version: (await r.json()).content.sha };
+        const nextVersion = githubMutationSchema.parse(await r.json()).content.sha;
+        this.reads.set(id, { content, version: nextVersion });
+        this.listedVersions.set(id, nextVersion);
+        return { version: nextVersion };
     }
 
     async create(name: string, content: string): Promise<FileMeta> {
@@ -113,8 +147,11 @@ export class GitHubAdapter implements StorageAdapter {
             }),
         });
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        const { content: created } = await r.json();
-        return { id: created.name, name: created.name, path: created.path, version: created.sha };
+        const created = githubMutationSchema.parse(await r.json()).content;
+        const file = { id: created.name, name: created.name, path: created.path, version: created.sha };
+        this.reads.set(file.id, { content, version: file.version });
+        this.listedVersions.set(file.id, file.version);
+        return file;
     }
 
     async delete(id: string): Promise<void> {
@@ -128,5 +165,7 @@ export class GitHubAdapter implements StorageAdapter {
             }),
         });
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        this.reads.delete(id);
+        this.listedVersions.delete(id);
     }
 }
