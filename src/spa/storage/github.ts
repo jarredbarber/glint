@@ -73,12 +73,12 @@ export class GitHubAdapter implements StorageAdapter {
     }
 
     async auth(): Promise<void> {
-        if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); await this.detectPush(); return; }
+        if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); await this.probeRepo(); return; }
         clearCachedGitHubToken();
         let error: string | undefined;
         for (;;) {
             const choice = this.authPrompt
-                ? await this.authPrompt({ owner: this.owner, repo: this.repo, ref: this.ref, hasOAuth: !!this.oauth, error })
+                ? await this.authPrompt({ owner: this.owner, repo: this.repo, ref: this.ref || 'default branch', hasOAuth: !!this.oauth, error })
                 : null;
             if (!choice) throw new Error('GitHub token required.');
             if (choice.kind === 'oauth') {
@@ -87,7 +87,7 @@ export class GitHubAdapter implements StorageAdapter {
                 continue;
             }
             const token = choice.token.trim();
-            if (token && (await this.validate(token))) { this.token = token; cacheGitHubToken(token); await this.detectPush(); return; }
+            if (token && (await this.validate(token))) { this.token = token; cacheGitHubToken(token); await this.probeRepo(); return; }
             error = 'That token is invalid or lacks access to this repo.';
         }
     }
@@ -109,12 +109,19 @@ export class GitHubAdapter implements StorageAdapter {
         } catch { return false; }
     }
 
-    // GitHub reports write access as repo `permissions.push` on the fine-grained token.
-    private async detectPush(): Promise<void> {
+    // One repo fetch that yields both write access (`permissions.push`) and the default
+    // branch. When no ref was given in the URL (this.ref is ''), adopt the repo's default
+    // branch instead of assuming `main` (#64: repos on `master` etc). An explicit @ref wins.
+    private async probeRepo(): Promise<void> {
         try {
             const r = await this.gh(`/repos/${this.owner}/${this.repo}`);
-            if (r.ok) this.canPush = !!(await r.json())?.permissions?.push;
+            if (r.ok) {
+                const j = await r.json();
+                this.canPush = !!j?.permissions?.push;
+                if (!this.ref) this.ref = j?.default_branch || 'main';
+            }
         } catch { /* keep optimistic default; a write will 403 if wrong */ }
+        if (!this.ref) this.ref = 'main';   // fallback if the probe failed
     }
 
     capabilities() { return { canEdit: this.canPush, canComment: false }; }

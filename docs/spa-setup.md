@@ -10,6 +10,8 @@ becomes a wiki. No server, no Glint user database — access control is the back
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
 | GitHub repo | `#/gh/<owner>/<repo>/<path>@<ref>` | GitHub OAuth or an explicit fine-grained PAT |
+
+`@<ref>` is optional; omit it and Glint uses the repo's default branch (`main`, `master`, or whatever it is — #64). An explicit `@<ref>` pins that branch.
 | Demo (in-memory) | `#/demo` | nothing |
 | Single file | `#/s/<source>/<path>` | same as the underlying source |
 

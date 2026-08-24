@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseSingleRoute, buildShareRoute } from '../spa/single-route.js';
 
-test('parseSingleRoute reads gh owner/repo/path with default ref', () => {
+test('parseSingleRoute reads gh owner/repo/path; no @ref means auto-detect', () => {
     assert.deepEqual(parseSingleRoute(['gh', 'jarredbarber', 'glint', 'docs', 'spa-setup.md']),
-        { backend: 'gh', owner: 'jarredbarber', repo: 'glint', ref: 'main', path: 'docs/spa-setup.md' });
+        { backend: 'gh', owner: 'jarredbarber', repo: 'glint', ref: '', path: 'docs/spa-setup.md' });
 });
 
 test('parseSingleRoute honors an explicit @ref', () => {

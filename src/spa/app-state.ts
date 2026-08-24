@@ -53,10 +53,17 @@ export function normalizeProjectRoute(route: string): string | null {
     const repo = parts[2]?.trim().toLowerCase();
     const tail = parts.slice(3).join('/');
     const at = tail.lastIndexOf('@');
-    const ref = (at < 0 ? 'main' : tail.slice(at + 1)).trim();
+    // No @ref = auto-detect the repo's default branch (#64); keep it out of the route so
+    // it stays distinct from an explicit @main pin.
+    const ref = (at < 0 ? '' : tail.slice(at + 1)).trim();
     const path = (at < 0 ? tail : tail.slice(0, at)).split('/').filter((part) => part && part !== '.');
-    if (!owner || !repo || !ref || path.includes('..')) return null;
-    return `#/gh/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${path.map(encodeURIComponent).join('/')}@${encodeURIComponent(ref)}`;
+    if (!owner || !repo || (at >= 0 && !ref) || path.includes('..')) return null;
+    const sub = path.map(encodeURIComponent).join('/');
+    const prefix = `#/gh/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+    // @ref stays on the path portion so pickAdapter's lastIndexOf('@') finds it even when
+    // the path is empty (`#/gh/o/r/@ref`). No ref = a clean auto-detect route.
+    if (ref) return `${prefix}/${sub}@${encodeURIComponent(ref)}`;
+    return sub ? `${prefix}/${sub}` : prefix;
 }
 
 function validatedState(value: unknown, themes: readonly string[]): PersistedStateV1 | null {

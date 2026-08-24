@@ -111,6 +111,54 @@ test('recursively lists repository folders using source-relative file IDs', asyn
         { id: 'notes/Draft.md', name: 'Draft.md', path: 'notes/Draft.md', version: 'draft-sha' },
     ]);
 });
+test('auto-detects the repo default branch when no ref is given (#64)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const refs: string[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string) => {
+            if (url.endsWith('/user')) return new Response(JSON.stringify({ login: 'octocat' }));
+            // The repo probe carries the default branch; a repo on `master`, not `main`.
+            if (url.endsWith('/repos/owner/repo')) return new Response(JSON.stringify({ permissions: { push: true }, default_branch: 'master' }));
+            const m = url.match(/[?&]ref=([^&]+)/);
+            if (m) refs.push(decodeURIComponent(m[1]));
+            return new Response(JSON.stringify([{ type: 'file', name: 'Home.md', path: 'Home.md', sha: 's1' }]));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+    // Empty ref = auto-detect.
+    const adapter = new GitHubAdapter('owner', 'repo', '', '', undefined, 'tok');
+    await adapter.auth();
+    await adapter.list();
+    assert.deepEqual(refs, ['master']);
+});
+
+test('an explicit ref is not overridden by the default branch (#64)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const refs: string[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string) => {
+            if (url.endsWith('/user')) return new Response(JSON.stringify({ login: 'octocat' }));
+            if (url.endsWith('/repos/owner/repo')) return new Response(JSON.stringify({ permissions: { push: true }, default_branch: 'master' }));
+            const m = url.match(/[?&]ref=([^&]+)/);
+            if (m) refs.push(decodeURIComponent(m[1]));
+            return new Response(JSON.stringify([]));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'develop', undefined, 'tok');
+    await adapter.auth();
+    await adapter.list();
+    assert.deepEqual(refs, ['develop']);
+});
+
 test('reports read-only when the token lacks push on the repo (#59)', async (t) => {
     const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
     t.after(() => {

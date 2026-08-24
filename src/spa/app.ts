@@ -219,9 +219,10 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             return new DriveAdapter(rest[0], CFG.driveClientId ?? '');
         case 'gh':
         case 'github': {
-            // #/gh/owner/repo/path...  (optional @ref on the last segment)
+            // #/gh/owner/repo/path...  (optional @ref on the last segment). No @ref means
+            // auto-detect the repo's default branch (#64), passed as '' to the adapter.
             const [owner, repo, ...pathParts] = rest;
-            let ref = 'main';
+            let ref = '';
             let path = pathParts.join('/');
             const at = path.lastIndexOf('@');
             if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }

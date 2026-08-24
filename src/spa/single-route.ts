@@ -11,10 +11,10 @@ export function parseSingleRoute(rest: string[]): { backend: string; owner?: str
     const args = rest.slice(1);
     if (backend === 'gh' || backend === 'github') {
         const [owner, repo, ...pathParts] = args;
-        let ref = 'main';
+        let ref = '';   // '' = auto-detect the repo's default branch (#64)
         let path = pathParts.join('/');
         const at = path.lastIndexOf('@');
-        if (at !== -1) { ref = path.slice(at + 1) || 'main'; path = path.slice(0, at); }
+        if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
         if (!owner || !repo || !path) throw new Error('Single-file link needs owner/repo/path.');
         return { backend: 'gh', owner, repo, ref, path };
     }

@@ -12,12 +12,18 @@ class MemoryStorage {
 }
 
 test('normalizes and deduplicates direct source routes', () => {
-    assert.equal(normalizeProjectRoute('#/gh/Owner/Repo/a/./b'), '#/gh/owner/repo/a/b@main');
+    // No @ref = auto-detect the default branch (#64), kept out of the route.
+    assert.equal(normalizeProjectRoute('#/gh/Owner/Repo/a/./b'), '#/gh/owner/repo/a/b');
+    assert.equal(normalizeProjectRoute('#/gh/owner/repo'), '#/gh/owner/repo');
+    assert.equal(normalizeProjectRoute('#/gh/owner/repo/docs@master'), '#/gh/owner/repo/docs@master');
     assert.equal(normalizeProjectRoute('#/gh/owner/repo/a/../b@main'), null);
     const state = addProject(DEFAULT_STATE, 'Repo', '#/gh/Owner/Repo/docs');
-    const duplicate = addProject(state, 'Changed name', '#/gh/owner/repo/docs@main');
+    const duplicate = addProject(state, 'Changed name', '#/gh/owner/repo/docs');
     assert.equal(duplicate.projects.length, 1);
-    assert.equal(duplicate.settings.activeProjectRoute, '#/gh/owner/repo/docs@main');
+    assert.equal(duplicate.settings.activeProjectRoute, '#/gh/owner/repo/docs');
+    // An explicit @main pin is a distinct route from the auto-detect form.
+    const pinned = addProject(duplicate, 'Pinned', '#/gh/owner/repo/docs@main');
+    assert.equal(pinned.projects.length, 2);
 });
 
 test('loads an exact valid V1 record and resets invalid state', () => {
