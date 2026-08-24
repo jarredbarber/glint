@@ -68,7 +68,7 @@ export class LocalAdapter implements StorageAdapter {
                 const path = prefix ? `${prefix}/${name}` : name;
                 if (handle.kind === 'directory') {
                     await visit(handle, path);
-                } else if (handle.kind === 'file' && name.endsWith('.md')) {
+                } else if (handle.kind === 'file' && /\.(md|markdown|mdown|mkd)$/i.test(name)) {
                     const file = await handle.getFile();
                     out.push({ id: path, name, path, version: String(file.lastModified) });
                 }

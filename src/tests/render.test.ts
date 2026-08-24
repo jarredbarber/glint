@@ -154,5 +154,5 @@ test('body-only fragment: CDN libs are gated on content', async () => {
     assert.ok(!/jsdelivr\.net\/npm\/(mermaid|abcjs)/.test(plain), 'no CDN libs for a plain doc');
     const diagram = await renderMarkdown({ markdown: '# T\n\n```mermaid\ngraph TD;A-->B;\n```\n', bodyOnly: true });
     assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader pulled when used');
-    assert.match(diagram, /themeConfigs/, 'shared init emitted');
+    assert.match(diagram, /mermaidInitOptions\(\)/, 'shared palette-driven init emitted');
 });

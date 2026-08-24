@@ -492,9 +492,11 @@
 [data-skin] .glint-compose-actions button[type="submit"] { background: var(--text-color); color: var(--bg-color); border-color: var(--text-color); font-weight: 600; }
 [data-skin] .glint-compose-cancel { background: transparent; color: var(--text-dim); }
 
-[data-skin] .glint-discussion-controls { margin-top: 3rem; padding-top: 1rem; border-top: var(--skin-rule) solid var(--border-color); display: flex; align-items: center; gap: 1rem; }
-[data-skin] .glint-discussion-controls h2 { font-family: var(--skin-display); font-size: 1.1rem; margin: 0; border: none; color: var(--text-color); }
-[data-skin] .glint-discussion-controls button { padding: 0.4rem 0.9rem; font: inherit; cursor: pointer; background: transparent; color: var(--text-color); border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm); }
+[data-skin] .glint-discussion-controls { margin-top: 3rem; padding-top: 1rem; border-top: var(--skin-rule) solid var(--border-color); display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+[data-skin] .glint-discussion-controls h2 { font-family: var(--skin-display); font-size: 1.1rem; margin: 0 auto 0 0; border: none; color: var(--text-color); }
+[data-skin] .glint-discussion-controls button { padding: 0.4rem 0.9rem; font: inherit; font-size: 0.85rem; cursor: pointer; background: transparent; color: var(--text-color); border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm); }
+[data-skin] .glint-discussion-controls button:hover { background: var(--bg-highlight); }
+[data-skin] .glint-toggle-resolved { color: var(--text-dim); }
 [data-skin] .glint-discussion {
     margin: 0.75rem 0;
     padding: 0.9rem 1rem;
@@ -703,14 +705,17 @@
 
 /* Comment rail, a column beside the page when the setting is "rail". The rail
  * element carries a [hidden] attribute the JS clears when there are comments. */
-[data-comments="rail"] .glint-content-body {
+/* body:not(.glint-landing): the rail layout is for open documents only — Settings
+   and Landing render in the same .glint-content-body and must not get the two-column
+   shift (#8). */
+[data-comments="rail"] body:not(.glint-landing) .glint-content-body {
     display: flex;
     align-items: flex-start;
     gap: 2.5rem;
     max-width: 72rem;
     margin: 0 auto;
 }
-[data-comments="rail"] .glint-content-body .content-wrapper { margin: 0; max-width: none; flex: 1; min-width: 0; }
+[data-comments="rail"] body:not(.glint-landing) .glint-content-body .content-wrapper { margin: 0; max-width: none; flex: 1; min-width: 0; }
 [data-skin] .glint-comment-rail {
     flex: 0 0 20rem;
     position: sticky;

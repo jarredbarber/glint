@@ -1,5 +1,18 @@
 /* Layout - Sidebar + Content */
 :root {
+    /* Palette aliases: older UI colours referenced vars no theme defines
+       (--accent-color, --bg-primary, --text-primary, …), so they fell back to
+       hardcoded Nord values and clashed with every other palette — e.g. the
+       near-unreadable light-purple citations. Map them onto the real theme vars
+       so all colour flows through the active palette (only these orphans; vars
+       like --bg-secondary are already theme-defined). */
+    --accent-color: var(--link-color, var(--blue));
+    --accent-color-bright: var(--link-color, var(--blue));
+    --bg-primary: var(--bg-color);
+    --text-primary: var(--text-color);
+    --text-secondary: var(--text-dim);
+    --hover-bg: var(--bg-highlight);
+
     /* Widget base */
     --widget-bg: var(--bg-secondary);
     --widget-radius: 6px;

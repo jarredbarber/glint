@@ -65,6 +65,46 @@ function sourceDetail(route: string): string {
     if (sourceKind(route) !== 'gh') return '';
     return decodeURIComponent(route.slice(5)).replace(/@main$/, '');
 }
+// The backend's own URL, for opening the original source in a new tab (#1). Local
+// folders have no addressable URL, so they return '' and stay in-app.
+function sourceUrl(route: string): string {
+    if (route.startsWith('#/drive/')) {
+        return `https://drive.google.com/drive/folders/${route.slice('#/drive/'.length)}`;
+    }
+    const parsed = parseRoute(route);
+    if (parsed && (parsed.backend === 'gh' || parsed.backend === 'github')) {
+        const [owner, repo, ...pathParts] = parsed.rest;
+        if (!owner || !repo) return '';
+        let ref = 'main';
+        let path = pathParts.join('/');
+        const at = path.lastIndexOf('@');
+        if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
+        const suffix = path ? `/tree/${ref}/${path}` : `/tree/${ref}`;
+        return `https://github.com/${owner}/${repo}${suffix}`;
+    }
+    return '';
+}
+
+// Landing inputs accept either the short form or a pasted URL (#5).
+// Drive: a folder id, or a .../folders/<id> URL.
+export function parseDriveInput(raw: string): string {
+    const value = raw.trim();
+    return value.match(/\/folders\/([^/?#]+)/)?.[1] ?? value;
+}
+// GitHub: `owner/repo/path@ref`, or a github.com/owner/repo[/tree|blob/ref/path] URL.
+// Returns the `#/gh/<...>` route tail (owner/repo/path optionally @ref).
+export function parseGitHubInput(raw: string): string {
+    const value = raw.trim();
+    const url = value.match(/github\.com\/([^/]+)\/([^/]+)(?:\/(?:tree|blob)\/([^/]+)((?:\/[^?#]*)?))?/);
+    if (url) {
+        const [, owner, repo, ref, path] = url;
+        const repoName = repo.replace(/\.git$/, '');
+        const clean = (path ?? '').replace(/^\/+|\/+$/g, '');
+        const base = clean ? `${owner}/${repoName}/${clean}` : `${owner}/${repoName}`;
+        return ref && ref !== 'main' ? `${base}@${ref}` : base;
+    }
+    return value.replace(/^\/+/, '');
+}
 
 export function parseRoute(hash: string): { backend: string; rest: string[] } | null {
     const m = hash.replace(/^#\/?/, '');
@@ -978,7 +1018,7 @@ function renderSidebar() {
     nav.innerHTML = `
         <header class="glint-brand">
             <button class="glint-brand-home" data-go-landing title="Home" aria-label="Home"><span class="glint-brand-mark">${ICON.mark}</span><span class="glint-wordmark">Glint</span></button>
-            <button class="glint-brand-project" data-go-project title="Open project home">${escapeHtml(activeProjectName())}</button>
+            <button class="glint-brand-project" data-go-project title="Open source in a new tab">${escapeHtml(activeProjectName())}</button>
         </header>
         <div class="glint-sidebar-top">
             ${projectSwitcher()}
@@ -998,7 +1038,12 @@ function renderSidebar() {
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
     nav.querySelector('[data-go-project]')?.addEventListener('click', () => {
         const route = appState.settings.activeProjectRoute;
-        if (route) location.hash = route;
+        if (!route) return;
+        // Open the original backend (GitHub/Drive) in a new tab; local has no URL, so
+        // fall back to the in-app project home (#1).
+        const url = sourceUrl(route);
+        if (url) window.open(url, '_blank', 'noopener');
+        else location.hash = route;
     });
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         void promptText('New page name (.md is optional)').then((name) => {
@@ -1066,7 +1111,6 @@ function renderLanding(): void {
                             <button>Open GitHub folder</button>
                         </form>
                     </div>
-                    <p class="glint-route-help">Direct routes also work: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, or <code>#/gh/owner/repo/path@ref</code>.</p>
                 </section>
             </div>
         </section>`;
@@ -1074,12 +1118,12 @@ function renderLanding(): void {
     const goTo = (hash: string) => { location.hash = hash; };
     document.querySelector<HTMLFormElement>('[data-source-form="drive"]')?.addEventListener('submit', (event) => {
         event.preventDefault();
-        const id = (document.getElementById('lp-drive') as HTMLInputElement).value.trim();
+        const id = parseDriveInput((document.getElementById('lp-drive') as HTMLInputElement).value);
         if (id) goTo(`#/drive/${encodeURIComponent(id)}`);
     });
     document.querySelector<HTMLFormElement>('[data-source-form="gh"]')?.addEventListener('submit', (event) => {
         event.preventDefault();
-        const path = (document.getElementById('lp-gh') as HTMLInputElement).value.trim().replace(/^\/+/, '');
+        const path = parseGitHubInput((document.getElementById('lp-gh') as HTMLInputElement).value);
         if (path) goTo(`#/gh/${path}`);
     });
 }
@@ -1106,6 +1150,11 @@ function wireMobileSidebar(): void {
 }
 
 async function refreshFilesOnFocus(): Promise<void> {
+    // Only refresh while viewing a document. On Settings/Landing there is no file
+    // view to update, and rebuilding the sidebar there strands it beside the wrong
+    // page (#7). currentFileId can still hold the last-opened file, so gate on route.
+    const route = parseRoute(location.hash);
+    if (!route || route.backend === 'settings') return;
     const id = currentFileId;
     if (!id) return;
     const previous = new Map(files.map((file) => [file.id, file]));

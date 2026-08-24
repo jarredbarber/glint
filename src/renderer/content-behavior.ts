@@ -8,93 +8,66 @@ export const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid
 export const ABCJS_CDN = 'https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js';
 export const ABCJS_CSS = 'https://cdn.jsdelivr.net/npm/abcjs@6/abcjs-audio.css';
 
-interface MermaidThemeConfig {
-    base: string;
-    primary: string;
-    secondary: string;
-    tertiary: string;
-    text: string;
-    nodeText: string;
-    bg: string;
+// Mermaid theming reads the *active palette's* CSS custom properties (defined on
+// :root by every theme file) instead of a hand-maintained per-theme table. That
+// keeps diagrams coherent with all palettes — including ones no table covered —
+// and means there is only one place colours live. These helpers are self-contained
+// and browser-only: the SPA imports them, and the standalone script below embeds
+// their source via .toString(), so the two paths cannot drift.
+function paletteVar(name: string, fallback: string): string {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
 }
-
-// Single source of truth for mermaid theming, shared by the emitted standalone
-// script (below) and the SPA runtime draw ({@link drawContentBehaviors}). Keep
-// it here so the two paths can't drift — a stale copy is how this file's header
-// warns things went wrong before.
-const THEME_CONFIGS: Record<string, MermaidThemeConfig> = {
-    'default': { base: 'default', primary: '#0366d6', secondary: '#1b7c83', tertiary: '#6f42c1', text: '#24292e', nodeText: '#ffffff', bg: '#ffffff' },
-    'everforest-dark': { base: 'dark', primary: '#a7c080', secondary: '#dbbc7f', tertiary: '#e67e80', text: '#d3c6aa', nodeText: '#2d353b', bg: '#2d353b' },
-    'nord': { base: 'dark', primary: '#88c0d0', secondary: '#81a1c1', tertiary: '#b48ead', text: '#eceff4', nodeText: '#2e3440', bg: '#2e3440' },
-    'gruvbox-dark': { base: 'dark', primary: '#b8bb26', secondary: '#fabd2f', tertiary: '#fb4934', text: '#ebdbb2', nodeText: '#282828', bg: '#282828' },
-    'catppuccin-mocha': { base: 'dark', primary: '#89b4fa', secondary: '#f5c2e7', tertiary: '#f38ba8', text: '#cdd6f4', nodeText: '#1e1e2e', bg: '#1e1e2e' },
-    'solarized-light': { base: 'default', primary: '#268bd2', secondary: '#2aa198', tertiary: '#d33682', text: '#657b83', nodeText: '#ffffff', bg: '#fdf6e3' },
-    'tokyo-night': { base: 'dark', primary: '#7aa2f7', secondary: '#9ece6a', tertiary: '#bb9af7', text: '#c0caf5', nodeText: '#1a1b26', bg: '#1a1b26' },
-    'rose-pine': { base: 'dark', primary: '#c4a7e7', secondary: '#9ccfd8', tertiary: '#eb6f92', text: '#e0def4', nodeText: '#191724', bg: '#191724' },
-    'dracula': { base: 'dark', primary: '#bd93f9', secondary: '#50fa7b', tertiary: '#ff79c6', text: '#f8f8f2', nodeText: '#282a36', bg: '#282a36' },
-    'one-dark': { base: 'dark', primary: '#61afef', secondary: '#98c379', tertiary: '#c678dd', text: '#abb2bf', nodeText: '#282c34', bg: '#282c34' },
-    'kanagawa': { base: 'dark', primary: '#7e9cd8', secondary: '#98bb6c', tertiary: '#957fb8', text: '#dcd7ba', nodeText: '#1f1f28', bg: '#1f1f28' },
-    'github-light': { base: 'default', primary: '#0969da', secondary: '#1a7f37', tertiary: '#8250df', text: '#1f2328', nodeText: '#ffffff', bg: '#ffffff' },
-};
-
-function mermaidConfigFor(theme: string): MermaidThemeConfig {
-    return THEME_CONFIGS[theme] ?? THEME_CONFIGS['nord'];
+function paletteIsDark(): boolean {
+    const hex = paletteVar('--bg-color', '#ffffff').replace('#', '');
+    const n = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
-
-function mermaidInitOptions(config: MermaidThemeConfig): Record<string, unknown> {
+function mermaidInitOptions(): Record<string, unknown> {
+    const text = paletteVar('--text-color', '#24292e');
+    const bg = paletteVar('--bg-color', '#ffffff');
     return {
-        theme: config.base,
+        theme: 'base',
         securityLevel: 'loose',
         themeVariables: {
+            darkMode: paletteIsDark(),
             fontFamily: '"Inter", sans-serif',
-            primaryColor: config.primary,
-            primaryTextColor: config.nodeText,
-            primaryBorderColor: config.primary,
-            lineColor: config.text,
-            secondaryColor: config.secondary,
-            tertiaryColor: config.tertiary,
-            background: config.bg,
-            mainBkg: config.bg,
-            textColor: config.text,
+            background: bg,
+            mainBkg: paletteVar('--bg-highlight', bg),
+            primaryColor: paletteVar('--bg-highlight', bg),
+            primaryTextColor: text,
+            primaryBorderColor: paletteVar('--blue', text),
+            secondaryColor: paletteVar('--bg-dim', bg),
+            secondaryBorderColor: paletteVar('--purple', text),
+            tertiaryColor: paletteVar('--bg-secondary', bg),
+            tertiaryBorderColor: paletteVar('--green', text),
+            lineColor: paletteVar('--text-dim', text),
+            textColor: text,
+            nodeTextColor: text,
         },
     };
 }
 
 /**
  * A `<script>` that draws mermaid diagrams and abcjs scores on DOMContentLoaded.
- * Theme is read from the body class at runtime and falls back to nord when the
- * class isn't a known theme (e.g. inside VimR, where body is `.markdown-body`).
- * Requires the CDN loaders from {@link contentBehaviorLoaders} to be present.
+ * Colours come from the active palette's CSS variables at runtime (see the
+ * mermaid helpers above, embedded here via .toString() so the standalone page
+ * and the SPA share one implementation). Requires the CDN loaders from
+ * {@link contentBehaviorLoaders} to be present.
  */
 export function contentBehaviorInit(): string {
     return `<script>
+    ${paletteVar.toString()}
+    ${paletteIsDark.toString()}
+    ${mermaidInitOptions.toString()}
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof mermaid !== 'undefined') {
-            var bodyClass = document.body.className;
-            var theme = bodyClass.split(' ')[0] || 'nord';
-            var themeConfigs = ${JSON.stringify(THEME_CONFIGS)};
-            var config = themeConfigs[theme] || themeConfigs['nord'];
-            mermaid.initialize({
-                startOnLoad: true,
-                theme: config.base,
-                securityLevel: 'loose',
-                themeVariables: {
-                    fontFamily: '"Inter", sans-serif',
-                    primaryColor: config.primary,
-                    primaryTextColor: config.nodeText,
-                    primaryBorderColor: config.primary,
-                    lineColor: config.text,
-                    secondaryColor: config.secondary,
-                    tertiaryColor: config.tertiary,
-                    background: config.bg,
-                    mainBkg: config.bg,
-                    textColor: config.text
-                }
-            });
+            mermaid.initialize(Object.assign({ startOnLoad: true }, mermaidInitOptions()));
         }
 
         if (typeof ABCJS !== 'undefined') {
-            var isDark = document.body.className.split(' ')[0] !== 'default' && document.body.className.split(' ')[0] !== 'solarized-light' && document.body.className.split(' ')[0] !== 'github-light';
+            var isDark = paletteIsDark();
             document.querySelectorAll('.abcjs-notation').forEach(function(el) {
                 var abc = el.getAttribute('data-abc') || '';
                 var tune = ABCJS.renderAbc(el, abc, {
@@ -171,22 +144,14 @@ function loadStyleOnce(href: string): void {
     document.head.appendChild(l);
 }
 
-function currentTheme(): string {
-    return (document.body.className.split(' ')[0] || 'default');
-}
-
-let mermaidInitialized = false;
-
 async function drawMermaid(root: ParentNode): Promise<void> {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>('.mermaid:not([data-processed])'));
     if (nodes.length === 0) return;
     await loadScriptOnce(MERMAID_CDN);
     const mermaid = (window as unknown as { mermaid?: any }).mermaid;
     if (!mermaid) return;
-    if (!mermaidInitialized) {
-        mermaid.initialize({ startOnLoad: false, ...mermaidInitOptions(mermaidConfigFor(currentTheme())) });
-        mermaidInitialized = true;
-    }
+    // Re-initialize each draw so a palette change since the last diagram takes effect.
+    mermaid.initialize({ startOnLoad: false, ...mermaidInitOptions() });
     try {
         await mermaid.run({ nodes });
     } catch (err) {
@@ -201,8 +166,7 @@ async function drawAbc(root: ParentNode): Promise<void> {
     await loadScriptOnce(ABCJS_CDN);
     const ABCJS = (window as unknown as { ABCJS?: any }).ABCJS;
     if (!ABCJS) return;
-    const theme = currentTheme();
-    const isDark = theme !== 'default' && theme !== 'solarized-light' && theme !== 'github-light';
+    const isDark = paletteIsDark();
     for (const el of nodes) {
         el.setAttribute('data-processed', 'true');
         const abc = el.getAttribute('data-abc') || '';

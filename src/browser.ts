@@ -1,6 +1,7 @@
 import { VFile } from 'vfile';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor, type GlintConfig } from './pipeline.js';
+import { escapeHtml } from './utils/html.js';
 
 export { drawContentBehaviors } from './renderer/content-behavior.js';
 
@@ -39,11 +40,15 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
     const knownSet = new Set(opts.knownPaths ?? []);
     const processor = createProcessor(config, (p) => knownSet.has(p));
 
-    const { content, contentStartLine } = parseMarkdown(source);
+    // parseMarkdown strips the frontmatter and the leading H1, returning the title
+    // separately. The standalone renderer prints that title in its page template; the
+    // SPA injects this HTML raw, so re-emit the title as an <h1> or it vanishes (#9).
+    const { content, title, contentStartLine } = parseMarkdown(source);
     const file = new VFile({ value: content });
     file.data.contentStartLine = contentStartLine;
     if (opts.baseUrl) file.data.baseUrl = opts.baseUrl;
 
     const result = await processor.process(file);
-    return String(result);
+    const heading = title ? `<h1 class="glint-doc-title">${escapeHtml(title)}</h1>` : '';
+    return heading + String(result);
 }
