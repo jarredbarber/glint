@@ -321,6 +321,7 @@
     margin: 0 0 0.75rem;
 }
 [data-skin] .glint-setting-note { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.9rem; }
+[data-skin] .glint-error-msg { color: var(--red); font-family: var(--skin-ui); margin: 0; }
 [data-skin] .glint-field { display: block; margin-top: 1rem; }
 [data-skin] .glint-field select {
     display: block;

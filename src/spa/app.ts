@@ -905,8 +905,15 @@ export async function boot(): Promise<void> {
         files = await adapter.list();
     } catch (error) {
         document.body.classList.add('glint-landing');
-        (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell"><h1 tabindex="-1">Could not open source</h1><p role="alert">${escapeHtml((error as Error).message)}</p><p><a href="#">Back to Projects</a></p></section>`;
-        (document.querySelector('h1') as HTMLElement).focus();
+        const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
+        wrapper.innerHTML = `<section class="glint-landing-shell glint-settings">
+            <header class="glint-page-head">
+                <div><p class="glint-eyebrow">Source</p><h1 tabindex="-1">Could not open source</h1></div>
+                <button class="glint-ghost-btn" data-back-landing>${ICON.close}<span>Back to projects</span></button>
+            </header>
+            <p class="glint-error-msg" role="alert">${escapeHtml((error as Error).message)}</p></section>`;
+        wrapper.querySelector('[data-back-landing]')?.addEventListener('click', () => { location.hash = ''; });
+        (wrapper.querySelector('h1') as HTMLElement).focus();
         return;
     }
     rememberCurrentProject();
