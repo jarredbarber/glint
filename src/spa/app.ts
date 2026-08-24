@@ -24,6 +24,21 @@ import { installEditorShortcuts } from './editor/session.js';
 
 declare const GlintRender: { renderMarkdown(src: string, opts?: any): Promise<string> };
 
+// Inline single-colour icons (stroke = currentColor) for the app chrome. Kept here so
+// the sidebar markup below reads as structure, not paths.
+const ICON = {
+    mark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v3M12 18v3M4.2 6.3l2.1 2.1M17.7 15.6l2.1 2.1M3 12h3M18 12h3M4.2 17.7l2.1-2.1M17.7 8.4l2.1-2.1"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>',
+    caret: '<svg class="glint-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5H10l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h3.4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg>',
+    source: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>',
+    export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+} as const;
+
 export function parseRoute(hash: string): { backend: string; rest: string[] } | null {
     const m = hash.replace(/^#\/?/, '');
     if (!m) return null;
@@ -191,9 +206,14 @@ function rememberCurrentProject(): void {
     persistState();
 }
 
-function projectControls(): string {
+function activeProjectName(): string {
+    const active = appState.projects.find((project) => project.route === appState.settings.activeProjectRoute);
+    return active?.name ?? 'Workspace';
+}
+
+function projectSwitcher(): string {
     const options = appState.projects.map((project) => `<option value="${escapeHtml(project.route)}"${project.route === appState.settings.activeProjectRoute ? ' selected' : ''}>${escapeHtml(project.name)} — ${escapeHtml(sourceSummary(project.route))}</option>`).join('');
-    return `<label>Project <select data-project-switch><option value="">Choose a Project</option>${options}</select></label><button data-open-source>Open source</button><button data-settings>Settings</button>`;
+    return `<div class="glint-switcher">${ICON.source}<select data-project-switch aria-label="Switch project"><option value="">Choose a project…</option>${options}</select></div>`;
 }
 
 function wireProjectControls(root: ParentNode): void {
@@ -556,19 +576,38 @@ function renderFileTree(nodes: TreeNode[]): string {
     return nodes.map((node) => {
         if (node.kind === 'file') {
             const active = node.file.id === currentFileId ? ' aria-current="page"' : '';
-            return `<li><a href="#" data-id="${escapeHtml(node.file.id)}"${active}>${escapeHtml(node.name)}</a></li>`;
+            // The leader span is the Almanac dotted rule between title and folio; hidden in Reader.
+            return `<li><a class="glint-tree-file" href="#" data-id="${escapeHtml(node.file.id)}"${active}>${ICON.file}<span class="glint-tree-label">${escapeHtml(node.name)}</span><span class="glint-leader"></span></a></li>`;
         }
         const open = expandedFolders.has(node.path) ? ' open' : '';
-        return `<li><details data-folder-path="${escapeHtml(node.path)}"${open}><summary>${escapeHtml(node.name)}</summary><ul>${renderFileTree(node.children)}</ul></details></li>`;
+        return `<li><details class="glint-tree-folder" data-folder-path="${escapeHtml(node.path)}"${open}><summary>${ICON.caret}${ICON.folder}<span class="glint-tree-label">${escapeHtml(node.name)}</span></summary><ul>${renderFileTree(node.children)}</ul></details></li>`;
     }).join('');
 }
 
 function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
-    const deleteAction = currentFileId ? '<button data-delete-page>Delete page</button>' : '';
-    const exportAction = currentFileId ? '<button data-export-page>Export HTML</button>' : '';
-    nav.innerHTML = `<div class="spa-sidebar-controls">${projectControls()}<input data-search placeholder="Search pages" aria-label="Search pages"><div data-search-results></div><button data-new-page>New page</button>${exportAction}${deleteAction}</div><div class="spa-page-list"><ul>${renderFileTree(buildFileTree(files))}</ul></div>`;
+    const pageActions = currentFileId
+        ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button><button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>`
+        : '';
+    nav.innerHTML = `
+        <header class="glint-brand">
+            <span class="glint-brand-mark">${ICON.mark}</span>
+            <span class="glint-wordmark">Glint</span>
+            <span class="glint-brand-project">${escapeHtml(activeProjectName())}</span>
+        </header>
+        <div class="glint-sidebar-top">
+            ${projectSwitcher()}
+            <div class="glint-search">${ICON.search}<input data-search placeholder="Search pages" aria-label="Search pages"><kbd>⌘K</kbd></div>
+            <div class="glint-search-results" data-search-results></div>
+        </div>
+        <nav class="glint-tree spa-page-list" aria-label="Files"><ul>${renderFileTree(buildFileTree(files))}</ul></nav>
+        <footer class="glint-sidebar-footer">
+            <button class="glint-primary" data-new-page>${ICON.plus}<span>New page</span></button>
+            ${pageActions}
+            <button class="glint-icon-btn" data-open-source title="Open another source" aria-label="Open another source">${ICON.source}</button>
+            <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
+        </footer>`;
     wireProjectControls(nav);
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         const name = prompt('Page name (.md is optional):');
