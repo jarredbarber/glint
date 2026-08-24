@@ -88,6 +88,49 @@ test('auth tries a silent grant first and falls back to interactive when it fail
     assert.deepEqual(requests, [{ prompt: 'none' }, { prompt: '' }]);
 });
 
+test('auth reuses an unexpired cached token and skips the GIS request; drops an expired one', async (t) => {
+    const descriptors = Object.fromEntries(
+        ['document', 'google', 'fetch', 'localStorage'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+    );
+    const store = new Map<string, string>();
+    let requestCount = 0;
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: {
+            getItem: (k: string) => store.get(k) ?? null,
+            setItem: (k: string, v: string) => void store.set(k, v),
+            removeItem: (k: string) => void store.delete(k),
+        },
+    });
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { querySelector: () => ({}) } });
+    Object.defineProperty(globalThis, 'google', {
+        configurable: true,
+        value: { accounts: { oauth2: { initTokenClient: ({ callback }: { callback: (r: unknown) => void }) => ({
+            requestAccessToken: () => { requestCount += 1; callback({ access_token: 'fresh', expires_in: 3600 }); },
+        }) } } },
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async () => new Response('', { status: 403 }) });
+    t.after(() => {
+        for (const [name, descriptor] of Object.entries(descriptors)) {
+            if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+            else Reflect.deleteProperty(globalThis, name);
+        }
+    });
+
+    const key = 'glint.drive.token.client';
+
+    // Unexpired cached token: no GIS request at all.
+    store.set(key, JSON.stringify({ token: 'cached', expiresAt: Date.now() + 3_600_000 }));
+    await new DriveAdapter('folder', 'client').auth();
+    assert.equal(requestCount, 0);
+
+    // Expired cached token: dropped, then a fresh token minted and re-cached.
+    store.set(key, JSON.stringify({ token: 'stale', expiresAt: Date.now() - 1 }));
+    await new DriveAdapter('folder', 'client').auth();
+    assert.equal(requestCount, 1);
+    assert.equal(JSON.parse(store.get(key)!).token, 'fresh');
+});
+
 test('rejects silent reauthentication when GIS reports a popup error', async (t) => {
     const descriptors = Object.fromEntries(
         ['document', 'google'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),

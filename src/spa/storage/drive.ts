@@ -34,7 +34,8 @@ const driveFileListSchema = z.object({
     nextPageToken: z.string().optional(),
 });
 
-const tokenResponseSchema = z.object({ access_token: z.string().optional() });
+const tokenResponseSchema = z.object({ access_token: z.string().optional(), expires_in: z.number().optional() });
+const cachedTokenSchema = z.object({ token: z.string(), expiresAt: z.number() });
 
 const driveAnchorSchema = z.object({
     version: z.literal(1),
@@ -85,14 +86,45 @@ export class DriveAdapter implements StorageAdapter {
         if (!clientId) throw new Error('Drive backend needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
     }
 
-    async auth(): Promise<void> {
-        // ponytail: try a silent grant first (no popup when a Google session already
-        // granted access), fall back to an interactive prompt only when needed (#37).
-        // Token stays memory-only — silent reuse relies on Google's session, not storage.
+    // ponytail: Drive tokens are drive.file-scoped and ~1h-lived, so persisting them
+    // in localStorage skips the popup on every load/route click (#37). This deliberately
+    // relaxes the #32/#38 no-storage rule — the real exfil control is the CSP, not token lifetime.
+    private get storageKey(): string { return `glint.drive.token.${this.clientId}`; }
+
+    private loadCachedToken(): string | null {
         try {
-            this.token = await this.requestToken('none');
-        } catch {
-            this.token = await this.requestToken('');
+            const raw = localStorage.getItem(this.storageKey);
+            if (!raw) return null;
+            const parsed = cachedTokenSchema.safeParse(JSON.parse(raw));
+            // 60s skew so a token about to expire isn't handed to a request mid-flight.
+            if (parsed.success && parsed.data.expiresAt - 60_000 > Date.now()) return parsed.data.token;
+            localStorage.removeItem(this.storageKey);
+        } catch { /* no/blocked storage — fall through to interactive auth */ }
+        return null;
+    }
+
+    private cacheToken(token: string, expiresAt: number): void {
+        this.token = token;
+        try { localStorage.setItem(this.storageKey, JSON.stringify({ token, expiresAt })); } catch { /* non-fatal */ }
+    }
+
+    private clearCachedToken(): void {
+        this.token = null;
+        try { localStorage.removeItem(this.storageKey); } catch { /* non-fatal */ }
+    }
+
+    async auth(): Promise<void> {
+        const cached = this.loadCachedToken();
+        if (cached) {
+            this.token = cached;
+        } else {
+            // Silent grant first (no popup when a Google session already granted access),
+            // interactive only when the silent request fails.
+            try {
+                await this.mintToken('none');
+            } catch {
+                await this.mintToken('');
+            }
         }
         // Best-effort display name (userinfo is outside drive scope; ignore failures).
         try {
@@ -102,18 +134,25 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async reauthenticate(): Promise<void> {
-        this.token = await this.requestToken('none');
+        await this.mintToken('none');
     }
 
-    private async requestToken(prompt: string): Promise<string> {
+    private async mintToken(prompt: string): Promise<void> {
+        const { token, expiresAt } = await this.requestToken(prompt);
+        this.cacheToken(token, expiresAt);
+    }
+
+    private async requestToken(prompt: string): Promise<{ token: string; expiresAt: number }> {
         await loadScript(GIS_SRC);
-        return new Promise<string>((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: this.clientId,
                 callback: (response: unknown) => {
                     const parsed = tokenResponseSchema.safeParse(response);
-                    if (parsed.success && parsed.data.access_token) resolve(parsed.data.access_token);
-                    else reject(new AuthExpiredError('Drive authentication expired'));
+                    if (parsed.success && parsed.data.access_token) {
+                        const ttl = (parsed.data.expires_in ?? 3600) * 1000;
+                        resolve({ token: parsed.data.access_token, expiresAt: Date.now() + ttl });
+                    } else reject(new AuthExpiredError('Drive authentication expired'));
                 },
                 error_callback: () => reject(new AuthExpiredError('Drive authentication expired')),
                 scope: SCOPE,
@@ -131,7 +170,7 @@ export class DriveAdapter implements StorageAdapter {
 
     private async api(path: string, opts: RequestInit = {}): Promise<Response> {
         const r = await fetch(API + path, { ...opts, headers: { ...this.headers(), ...(opts.headers || {}) } });
-        if (r.status === 401) throw new AuthExpiredError('Drive authentication expired');
+        if (r.status === 401) { this.clearCachedToken(); throw new AuthExpiredError('Drive authentication expired'); }
         if (!r.ok) throw new Error(`Drive ${r.status}: ${await r.text()}`);
         return r;
     }
