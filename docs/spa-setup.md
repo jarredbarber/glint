@@ -51,11 +51,40 @@ Commit `config.js` to enable Drive/GitHub on the deployed site. Client IDs and W
 
 GitHub's authorization-code exchange needs an OAuth App secret, so the SPA redirects through the narrow Cloudflare Worker in `src/github-oauth-worker.ts`. The SPA sends repository traffic directly to `api.github.com`; the Worker only accepts `POST /exchange` from configured origins and never stores/proxies GitHub data.
 
-1. Create a GitHub OAuth App. Its callback URL must exactly equal `githubRedirectUri`; the app requests the broad `repo` scope.
-2. Deploy the Worker with `wrangler deploy --config wrangler.github-oauth.toml`.
-3. Configure `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_OAUTH_REDIRECT_URI`, and `GITHUB_OAUTH_ALLOWED_ORIGINS` on the Worker. `GITHUB_OAUTH_ALLOWED_ORIGINS` is a comma-separated exact list such as `https://<user>.github.io,http://localhost:8080`.
-4. Add the public client ID, Worker origin, and callback URL to `config.js`. Do not add the secret.
-5. The sign-in screen explains that OAuth grants broad `repo` access. Choosing the explicit fallback prompts for a repository-selected fine-grained PAT with Contents read/write.
+**1. Create the GitHub OAuth App** (Settings → Developer settings → OAuth Apps → New).
+
+| Field | Value |
+|-------|-------|
+| Homepage URL | your SPA origin, e.g. `https://<user>.github.io/glint/` |
+| **Authorization callback URL** | must exactly equal `githubRedirectUri` — the deployed SPA URL, e.g. `https://<user>.github.io/glint/` (include the trailing path; GitHub matches it exactly) |
+
+Register the client ID; generate a client secret. The app requests the broad `repo` scope.
+
+**2. Deploy the Worker and set its config** (from the repo root):
+
+```bash
+wrangler deploy --config wrangler.github-oauth.toml
+# Client secret — secret, never committed or echoed:
+wrangler secret put GITHUB_OAUTH_CLIENT_SECRET --config wrangler.github-oauth.toml
+# The three non-secret values (also via secret put so nothing lands in the committed toml):
+wrangler secret put GITHUB_OAUTH_CLIENT_ID       --config wrangler.github-oauth.toml
+wrangler secret put GITHUB_OAUTH_REDIRECT_URI    --config wrangler.github-oauth.toml   # == the callback URL from step 1
+wrangler secret put GITHUB_OAUTH_ALLOWED_ORIGINS --config wrangler.github-oauth.toml   # comma-separated exact origins
+```
+
+`GITHUB_OAUTH_ALLOWED_ORIGINS` is an exact-match list with no trailing slash, e.g. `https://<user>.github.io,http://localhost:8080`. `deploy` prints the Worker origin (`https://glint-github-oauth.<account>.workers.dev`) — that is `githubOAuthWorkerOrigin`.
+
+**3. Wire the public values into `config.js`** (client ID, Worker origin, callback URL — never the secret):
+
+```js
+githubClientId: '<oauth app client id>',
+githubOAuthWorkerOrigin: 'https://glint-github-oauth.<account>.workers.dev',
+githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
+```
+
+**4. Smoke test on the live site:** open a `#/gh/...` route → **Sign in with GitHub** → approve → confirm list/read/edit/save. The sign-in screen states up front that OAuth grants broad `repo` access; **Use a personal access token instead** is the fallback and prompts for a repository-selected fine-grained PAT with Contents read/write.
+
+Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
 OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs.
 
