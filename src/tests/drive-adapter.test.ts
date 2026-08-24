@@ -45,6 +45,39 @@ test('recursively lists Drive folders with source-relative paths', async () => {
     ]);
 });
 
+test('resolving a discussion posts a reply action, not a PATCH on resolved', async () => {
+    const adapter = new DriveAdapter('folder', 'client');
+    const calls: { path: string; init?: RequestInit }[] = [];
+    Object.defineProperty(adapter, 'api', {
+        value: async (path: string, init?: RequestInit) => {
+            calls.push({ path, init });
+            return new Response(JSON.stringify({ id: 'reply1', action: 'resolve' }));
+        },
+    });
+
+    await adapter.discussions!.setResolved('file1', 'comment1', true);
+
+    assert.equal(calls.length, 1);
+    assert.match(calls[0]!.path, /\/comments\/comment1\/replies/);
+    assert.equal(calls[0]!.init?.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[0]!.init!.body as string), { action: 'resolve' });
+});
+
+test('reopening a discussion posts the reopen action', async () => {
+    const adapter = new DriveAdapter('folder', 'client');
+    let body: unknown;
+    Object.defineProperty(adapter, 'api', {
+        value: async (_path: string, init?: RequestInit) => {
+            body = JSON.parse(init!.body as string);
+            return new Response(JSON.stringify({ id: 'reply2', action: 'reopen' }));
+        },
+    });
+
+    await adapter.discussions!.setResolved('file1', 'comment1', false);
+
+    assert.deepEqual(body, { action: 'reopen' });
+});
+
 test('auth tries a silent grant first and falls back to interactive when it fails', async (t) => {
     const descriptors = Object.fromEntries(
         ['document', 'google', 'fetch'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),

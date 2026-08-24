@@ -292,10 +292,12 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     private async setDiscussionResolved(fileId: string, discussionId: string, resolved: boolean): Promise<void> {
-        await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments/${encodeURIComponent(discussionId)}`, {
-            method: 'PATCH',
+        // Drive's `resolved` is output-only — PATCHing it 400s. A comment is
+        // resolved/reopened by creating a reply with the matching action.
+        await this.api(`/drive/v3/files/${encodeURIComponent(fileId)}/comments/${encodeURIComponent(discussionId)}/replies?fields=id,action`, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resolved }),
+            body: JSON.stringify({ action: resolved ? 'resolve' : 'reopen' }),
         });
     }
 }
