@@ -1,5 +1,5 @@
 // Glint SPA app shell: routing → adapter → auth → list → render + sidebar + editor.
-import { StorageAdapter, FileMeta } from './storage/types.js';
+import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { DriveAdapter } from './storage/drive.js';
@@ -81,6 +81,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             { name: 'Notes.md', content: '## Notes\n\nHello from notes.' },
             { name: 'Guides/Welcome.md', content: '## Welcome\n\nA nested page.' },
             { name: 'Diagrams.md', content: '# Diagrams\n\n```mermaid\ngraph TD\n  A[Start] --> B{Works?}\n  B -->|Yes| C[Ship]\n  B -->|No| A\n```\n\n## A tune\n\n```abc\nX:1\nT:Scale\nK:C\nCDEF GABc\n```\n' },
+            { name: 'Tasks.md', content: '# Tasks\n\n- [ ] Write the docs\n- [/] Ship the SPA\n- [x] Fix mermaid\n- [b] Waiting on review\n' },
         ]);
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
@@ -390,6 +391,7 @@ async function openFile(id: string) {
     wrapper.innerHTML = html;
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
     wireWikiLinks();
+    wireTaskCheckboxes();
     await renderDiscussions(content);
     renderContentBar();
     renderSidebar();
@@ -516,6 +518,83 @@ function wireWikiLinks() {
             if (pageName && confirm(`“${pageName}” does not exist. Create it?`)) {
                 void createPage(pageName);
             }
+        });
+    });
+}
+
+// Task checkboxes: pre-SPA these were click-to-change-state; the behavior lived in
+// the retired serve client and was never rebuilt (#48). The widget still renders
+// `.glint-task-check` on a `.glint-task` li carrying `data-source-line`, so a click
+// opens a state picker and rewrites that line's marker through the active adapter.
+const TASK_STATES: { key: string; marker: string; label: string }[] = [
+    { key: 'open', marker: ' ', label: '🟦 Open' },
+    { key: 'progress', marker: '/', label: '🏃 In progress' },
+    { key: 'done', marker: 'x', label: '✅ Done' },
+    { key: 'waiting', marker: 'w', label: '⌛ Waiting' },
+    { key: 'blocked', marker: 'b', label: '⛔ Blocked' },
+    { key: 'cancelled', marker: 'c', label: '🚫 Cancelled' },
+];
+
+let taskPicker: HTMLElement | null = null;
+
+function closeTaskPicker(): void {
+    taskPicker?.remove();
+    taskPicker = null;
+    document.removeEventListener('click', closeTaskPicker);
+}
+
+function openTaskStatePicker(anchor: HTMLElement, line: number, currentState: string): void {
+    closeTaskPicker();
+    const menu = document.createElement('div');
+    menu.className = 'glint-task-picker';
+    for (const state of TASK_STATES) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'glint-task-picker-item' + (state.key === currentState ? ' is-current' : '');
+        item.textContent = state.label;
+        item.addEventListener('click', () => { closeTaskPicker(); void setTaskState(line, state.marker); });
+        menu.appendChild(item);
+    }
+    document.body.appendChild(menu);
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.left}px`;
+    taskPicker = menu;
+    // Defer so this click doesn't immediately trigger the outside-click close.
+    setTimeout(() => document.addEventListener('click', closeTaskPicker), 0);
+}
+
+async function setTaskState(line: number, marker: string): Promise<void> {
+    const id = currentFileId;
+    if (!id) return;
+    try {
+        const { content, version } = await adapter.read(id);
+        const lines = content.split('\n');
+        const idx = line - 1;
+        if (idx < 0 || idx >= lines.length) { alert('Could not locate the task line to update.'); return; }
+        const updated = lines[idx].replace(/^(\s*[-*+]\s+)\[[ xX/wbc]\]/, `$1[${marker}]`);
+        if (updated === lines[idx]) { alert('Could not find a task marker on that line.'); return; }
+        lines[idx] = updated;
+        const newContent = lines.join('\n');
+        await adapter.write(id, newContent, version);
+        contentCache.set(id, newContent);
+        await openFile(id);
+    } catch (error) {
+        if (error instanceof ConflictError) alert('This page changed elsewhere. Reopen it and try again.');
+        else if (error instanceof AuthExpiredError) alert('Your connection expired. Reconnect and try again.');
+        else alert(`Could not update task: ${(error as Error).message}`);
+    }
+}
+
+function wireTaskCheckboxes(): void {
+    document.querySelectorAll<HTMLElement>('.glint-task-check').forEach((check) => {
+        check.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const task = check.closest<HTMLElement>('.glint-task');
+            const line = Number(task?.getAttribute('data-source-line'));
+            if (!task || !line) return;
+            openTaskStatePicker(check, line, task.getAttribute('data-state') || 'open');
         });
     });
 }

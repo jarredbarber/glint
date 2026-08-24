@@ -77,6 +77,52 @@ ul ul ul .glint-task {
     background: rgba(0, 0, 0, 0.02);
 }
 
+/* Interactive task checkbox + state picker (SPA) */
+.glint-task-check {
+    cursor: pointer;
+    user-select: none;
+}
+
+.glint-task-picker {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border-color, rgba(128, 128, 128, 0.35));
+    border-radius: 6px;
+    background: var(--bg-elev, #1f2430);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    font-size: 0.9rem;
+}
+
+.theme-light .glint-task-picker {
+    background: var(--bg-elev, #fff);
+}
+
+.glint-task-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.glint-task-picker-item:hover {
+    background: rgba(128, 128, 128, 0.18);
+}
+
+.glint-task-picker-item.is-current {
+    font-weight: 600;
+}
+
 /* Spacing fixes for task lists */
 ul.contains-task-list,
 ul:has(> .glint-task) {
