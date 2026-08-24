@@ -11,6 +11,9 @@ becomes a wiki. No server, no Glint user database — access control is the back
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
 | GitHub repo | `#/gh/<owner>/<repo>/<path>@<ref>` | GitHub OAuth or an explicit fine-grained PAT |
 | Demo (in-memory) | `#/demo` | nothing |
+| Single file | `#/s/<source>/<path>` | same as the underlying source |
+
+`#/s/...` renders one document read-only with no project tree (single-file sharing, #58). `#/s/gh/<owner>/<repo>/<path>@<ref>` reads the file directly (no recursive listing); the path is repo-root relative. `#/s/demo/<page>` shares a demo page. `local` and `drive` have no path-addressable single-file form. The sidebar page-actions **copy-link** button generates the `#/s/...` URL for the current page.
 
 ## Local dev
 

@@ -3030,13 +3030,15 @@ h6:hover .heading-edit-icon,
    SHARED VIEW STYLES
    ============================================ */
 
-/* Hide sidebar on shared pages */
-.sidebar.shared-view {
+/* Hide sidebar on shared pages. [data-skin] prefix to outspecify `[data-skin] .sidebar`. */
+.sidebar.shared-view,
+[data-skin] .sidebar.shared-view {
     display: none;
 }
 
 /* Adjust content width when sidebar is hidden */
-body.shared-view .content {
+body.shared-view .content,
+[data-skin] body.shared-view .content {
     margin-left: 0;
     max-width: 100%;
 }

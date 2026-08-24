@@ -10,6 +10,7 @@ import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
+import { parseSingleRoute, buildShareRoute } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
 // Public OAuth IDs and the Worker origin are deployment configuration; secrets never
@@ -45,6 +46,7 @@ const ICON = {
     drive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 3h8l5.5 9.5-4 6.9H6.5l-4-6.9zM8 3 2.5 12.5M16 3l-5.5 9.5M2.5 12.5h15"/></svg>',
     github: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>',
     local: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>',
 } as const;
 
 type SourceKind = 'local' | 'drive' | 'gh';
@@ -227,6 +229,17 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
         }
         default: throw new Error(`unknown backend: ${backend}`);
     }
+}
+
+// Single-file mode: an adapter plus the one file to open. gh reads the path directly
+// (no recursive listing); demo resolves the name through its listing (opaque fake ids).
+function pickSingle(rest: string[]): { adapter: StorageAdapter; fileId: string; resolveByPath?: string } {
+    const p = parseSingleRoute(rest);
+    if (p.backend === 'gh') {
+        const adapter = new GitHubAdapter(p.owner!, p.repo!, '', p.ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
+        return { adapter, fileId: p.path };
+    }
+    return { adapter: new FakeAdapter(DEMO_PAGES), fileId: '', resolveByPath: p.path };
 }
 
 const THEMES = ['ayu-dark', 'ayu-light', 'catppuccin-latte', 'catppuccin-mocha', 'default', 'dracula', 'everforest-dark', 'github-light', 'glint', 'gruvbox-dark', 'kanagawa', 'moonlight', 'nord', 'nvim', 'one-dark', 'rose-pine', 'rose-pine-dawn', 'solarized-light', 'tokyo-night'] as const;
@@ -616,6 +629,17 @@ async function deleteCurrentPage(): Promise<void> {
         }
     } catch (error) {
         alert(`Could not delete “${page.name}”: ${(error as Error).message}`);
+    }
+}
+
+// #58: copy an absolute single-file share URL to the clipboard.
+async function copyShareLink(route: string): Promise<void> {
+    const url = `${location.origin}${location.pathname}${route}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copied', 'success');
+    } catch {
+        void promptText('Shareable link', url);   // clipboard blocked: show it to copy manually
     }
 }
 
@@ -1012,8 +1036,9 @@ function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
     const canEdit = adapter.capabilities?.().canEdit ?? true;   // #59: hide write affordances when read-only
+    const shareRoute = currentFileId ? buildShareRoute(location.hash, files.find((f) => f.id === currentFileId)?.path ?? '') : null;
     const pageActions = currentFileId
-        ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button>${canEdit ? `<button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>` : ''}`
+        ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button>${shareRoute ? `<button class="glint-icon-btn" data-copy-link title="Copy shareable link" aria-label="Copy shareable link">${ICON.link}</button>` : ''}${canEdit ? `<button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>` : ''}`
         : '';
     nav.innerHTML = `
         <header class="glint-brand">
@@ -1051,6 +1076,7 @@ function renderSidebar() {
         });
     });
     nav.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
+    nav.querySelector('[data-copy-link]')?.addEventListener('click', () => { if (shareRoute) void copyShareLink(shareRoute); });
     nav.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());
     nav.querySelector<HTMLInputElement>('[data-search]')?.addEventListener('input', (event) => {
         void renderSearch((event.target as HTMLInputElement).value);
@@ -1187,9 +1213,49 @@ async function refreshFilesOnFocus(): Promise<void> {
     }
 }
 
+function showSourceError(error: Error): void {
+    document.body.classList.add('glint-landing');
+    const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
+    wrapper.innerHTML = `<section class="glint-landing-shell glint-settings">
+        <header class="glint-page-head">
+            <div><p class="glint-eyebrow">Source</p><h1 tabindex="-1">Could not open source</h1></div>
+            <button class="glint-ghost-btn" data-back-landing>${ICON.close}<span>Back to projects</span></button>
+        </header>
+        <p class="glint-error-msg" role="alert">${escapeHtml(error.message)}</p></section>`;
+    wrapper.querySelector('[data-back-landing]')?.addEventListener('click', () => { location.hash = ''; });
+    (wrapper.querySelector('h1') as HTMLElement).focus();
+}
+
+// #/s/<backend>/<address>: render one shared document, no project tree, read-only.
+async function bootSingle(rest: string[]): Promise<void> {
+    let single;
+    try { single = pickSingle(rest); } catch (error) { showSourceError(error as Error); return; }
+    adapter = single.adapter;
+    showLoading('Opening page…');
+    try {
+        await adapter.auth();
+        let id = single.fileId;
+        if (single.resolveByPath) {
+            const found = (await adapter.list()).find((f) => f.path === single.resolveByPath);
+            if (!found) throw new Error(`No page named “${single.resolveByPath}”.`);
+            id = found.id;
+        }
+        files = [];
+        document.body.classList.add('shared-view');
+        document.querySelector('.sidebar')?.classList.add('shared-view');
+        await openFile(id);
+    } catch (error) {
+        showSourceError(error as Error);
+    }
+}
+
 export async function boot(): Promise<void> {
     // A route change can leave a modal (e.g. a pending GitHub auth prompt) orphaned.
     document.querySelectorAll('.glint-modal-overlay').forEach((overlay) => overlay.remove());
+    // Reset per-view chrome so leaving single-file/read-only mode restores the project shell.
+    document.body.classList.remove('shared-view');
+    document.querySelector('.sidebar')?.classList.remove('shared-view');
+    delete document.body.dataset.access;
     let loaded;
     try {
         browserStorage = window.localStorage;
@@ -1221,6 +1287,7 @@ export async function boot(): Promise<void> {
     if (route?.backend !== 'settings') settingsReturn = location.hash;
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }
+    if (route.backend === 's') { await bootSingle(route.rest); return; }
     adapter = pickAdapter(route.backend, route.rest);
     showLoading('Opening project…');
     try {
@@ -1228,16 +1295,7 @@ export async function boot(): Promise<void> {
         document.body.dataset.access = 'edit';
         files = await adapter.list();
     } catch (error) {
-        document.body.classList.add('glint-landing');
-        const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
-        wrapper.innerHTML = `<section class="glint-landing-shell glint-settings">
-            <header class="glint-page-head">
-                <div><p class="glint-eyebrow">Source</p><h1 tabindex="-1">Could not open source</h1></div>
-                <button class="glint-ghost-btn" data-back-landing>${ICON.close}<span>Back to projects</span></button>
-            </header>
-            <p class="glint-error-msg" role="alert">${escapeHtml((error as Error).message)}</p></section>`;
-        wrapper.querySelector('[data-back-landing]')?.addEventListener('click', () => { location.hash = ''; });
-        (wrapper.querySelector('h1') as HTMLElement).focus();
+        showSourceError(error as Error);
         return;
     }
     rememberCurrentProject();

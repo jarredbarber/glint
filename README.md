@@ -27,6 +27,9 @@ npm run dev
 | Local folder | `#/local` | Chromium or Edge File System Access API |
 | Google Drive | `#/drive/<folderId>` | Public Drive OAuth client ID in `src/spa/config.js` |
 | GitHub | `#/gh/<owner>/<repo>/<path>` | Fine-grained GitHub token entered in the browser |
+| Single file | `#/s/<source>/<path>` | Same as the underlying source |
+
+A `#/s/...` route renders one document with no project tree (read-only), for sharing a single page: `#/s/gh/<owner>/<repo>/<path>@<ref>` or `#/s/demo/<page>`. The **copy-link** button in the sidebar page actions builds this URL for the current page (GitHub and demo sources).
 
 **Settings** (top of any workspace) exposes two independent appearance axes — a **skin** (Reader, warm editorial; or Almanac, printed field-guide) that sets layout and typography, and a **palette** (18 colour themes) that sets colour. Any skin renders under any palette, light or dark. A **Layout** section chooses where comments go — **inline** (anchored beneath the source line) or a **side rail** — and toggles an optional page **top bar** (breadcrumb, export, delete). Settings also holds the Vim-keybindings toggle and per-project management: saved projects carry an editable display **name** (rename there), so a long Drive folder ID never overflows the sidebar. Comments are written with an inline compose box, and GitHub credentials are entered through an in-app dialog and kept in memory only. Resolved comment threads collapse behind a "Show resolved" toggle so active discussion stays uncluttered. When a page has more than one heading, the sidebar shows an "On this page" outline that tracks your reading position. Read-only sources (for example a GitHub token without push access) hide the Save and page-editing controls.
 
