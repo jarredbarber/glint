@@ -381,6 +381,10 @@ ul.contains-task-list .glint-task {
     /* Offset from copy button */
 }
 
+/* CSS-driven label so it stays correct whether the block is open or collapsed. */
+.code-collapse-toggle::after { content: 'Collapse'; }
+.code-block-wrapper.collapsed .code-collapse-toggle::after { content: 'Expand'; }
+
 @keyframes popIn {
     from {
         opacity: 0;

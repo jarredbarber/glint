@@ -41,14 +41,15 @@ export function rehypeGlintCodeBlocks() {
                 children: [{ type: 'text', value: 'Copy' }]
             });
 
-            // Add Collapse toggle if long
+            // Add a collapse toggle for long blocks. Blocks render expanded by default;
+            // the label is CSS-driven (::after) so it reads correctly in either state.
             const isLong = lineCount > LINE_THRESHOLD;
             if (isLong) {
                 children.push({
                     type: 'element',
                     tagName: 'div',
                     properties: { className: ['code-collapse-toggle'] },
-                    children: [{ type: 'text', value: 'Expand' }]
+                    children: []
                 });
             }
 
@@ -56,7 +57,7 @@ export function rehypeGlintCodeBlocks() {
                 type: 'element',
                 tagName: 'div',
                 properties: {
-                    className: ['code-block-wrapper', isLong ? 'collapsible collapsed' : ''].filter(Boolean),
+                    className: ['code-block-wrapper', isLong ? 'collapsible' : ''].filter(Boolean),
                     'data-line-count': lineCount.toString()
                 },
                 children
