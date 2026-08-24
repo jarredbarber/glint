@@ -407,7 +407,7 @@
 [data-skin] .glint-compose-cancel { background: transparent; color: var(--text-dim); }
 
 [data-skin] .glint-discussion-controls { margin-top: 3rem; padding-top: 1rem; border-top: var(--skin-rule) solid var(--border-color); display: flex; align-items: center; gap: 1rem; }
-[data-skin] .glint-discussion-controls h2 { font-family: var(--skin-display); font-size: 1.1rem; margin: 0; border: none; }
+[data-skin] .glint-discussion-controls h2 { font-family: var(--skin-display); font-size: 1.1rem; margin: 0; border: none; color: var(--text-color); }
 [data-skin] .glint-discussion-controls button { padding: 0.4rem 0.9rem; font: inherit; cursor: pointer; background: transparent; color: var(--text-color); border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm); }
 [data-skin] .glint-discussion {
     margin: 0.75rem 0;
@@ -524,3 +524,72 @@
 [data-skin="almanac"] .glint-discussion { background: transparent; border: none; border-left: 3px solid var(--skin-accent); border-radius: 0; padding-left: 1rem; }
 [data-skin="almanac"] .glint-discussion-meta { font-variant: all-small-caps; letter-spacing: 0.06em; }
 [data-skin="almanac"] .glint-discussion-reply { font-style: italic; border-left-style: dotted; }
+
+/* ---- Configurable content bar + comment rail -------------------------- */
+/* Content top bar — off by default; shown only when the setting is on and a page
+ * is open (the JS toggles the [hidden] attribute). */
+.glint-content-bar { display: none; }
+[data-contentbar="on"] .glint-content-bar:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    padding: 0.6rem 1.5rem;
+    background: var(--bg-color);
+    border-bottom: var(--skin-rule) solid var(--border-color);
+    font-family: var(--skin-ui);
+}
+[data-skin] .glint-breadcrumb { display: flex; align-items: center; gap: 0.4rem; min-width: 0; font-size: 0.8rem; color: var(--text-dim); overflow: hidden; }
+[data-skin] .glint-breadcrumb > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-skin] .glint-crumb-sep { color: var(--text-dim); opacity: 0.6; }
+[data-skin] .glint-crumb-current { color: var(--text-color); font-weight: 600; }
+[data-skin] .glint-content-bar-actions { margin-left: auto; display: flex; gap: 0.4rem; flex-shrink: 0; }
+[data-skin] .glint-bar-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-size: 0.78rem;
+    background: transparent;
+    color: var(--text-dim);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    cursor: pointer;
+}
+[data-skin] .glint-bar-btn svg { width: 0.9em; height: 0.9em; }
+[data-skin] .glint-bar-btn:hover { color: var(--text-color); background: var(--bg-highlight); }
+/* When the bar carries the page actions, drop the duplicates from the sidebar footer. */
+[data-contentbar="on"] .glint-sidebar-footer [data-export-page],
+[data-contentbar="on"] .glint-sidebar-footer [data-delete-page] { display: none; }
+[data-skin="almanac"] .glint-content-bar { border-bottom-width: 1.5px; }
+[data-skin="almanac"] .glint-breadcrumb { font-variant: all-small-caps; letter-spacing: 0.06em; }
+
+/* Comment rail — a column beside the page when the setting is "rail". The rail
+ * element carries a [hidden] attribute the JS clears when there are comments. */
+[data-comments="rail"] .glint-content-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 2.5rem;
+    max-width: 72rem;
+    margin: 0 auto;
+}
+[data-comments="rail"] .glint-content-body .content-wrapper { margin: 0; max-width: none; flex: 1; min-width: 0; }
+[data-skin] .glint-comment-rail {
+    flex: 0 0 20rem;
+    position: sticky;
+    top: 1.5rem;
+    padding: 1.5rem 0 2rem;
+    font-family: var(--skin-ui);
+}
+[data-skin] .glint-comment-rail .glint-discussion-controls { margin-top: 0; }
+[data-skin] .glint-comment-rail .glint-discussion { margin: 0.6rem 0; }
+[data-skin] .glint-discussion-anchor { margin: 0 0 0.35rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+[data-skin="almanac"] .glint-discussion-anchor { font-variant: all-small-caps; text-transform: none; letter-spacing: 0.1em; }
+
+@media (max-width: 900px) {
+    [data-comments="rail"] .glint-content-body { flex-direction: column; }
+    [data-skin] .glint-comment-rail { position: static; flex-basis: auto; width: 100%; border-top: var(--skin-rule) solid var(--border-color); }
+}

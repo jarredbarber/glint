@@ -19,7 +19,13 @@
   <button class="mobile-toggle" type="button" aria-label="Open page navigation" aria-expanded="false">☰</button>
   <nav class="sidebar" aria-label="Pages"></nav>
   <div class="mobile-overlay" aria-hidden="true"></div>
-  <main class="content"><div class="content-wrapper"></div></main>
+  <main class="content">
+    <div class="glint-content-bar" hidden></div>
+    <div class="glint-content-body">
+      <div class="content-wrapper"></div>
+      <aside class="glint-comment-rail" aria-label="Comments" hidden></aside>
+    </div>
+  </main>
   <!-- Optional: sets window.GLINT_CONFIG = { driveClientId, githubClientId }.
        Absent on the fake/local backends; a 404 here is harmless. See config.example.js. -->
   <script src="./config.js"></script>

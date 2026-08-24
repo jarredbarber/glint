@@ -8,7 +8,7 @@ import { createStandaloneHtml } from './export.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
-import { addProject, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
+import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback } from './github-oauth.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
@@ -108,6 +108,20 @@ const SKIN_LABELS: Record<Skin, { title: string; blurb: string }> = {
     reader: { title: 'Reader', blurb: 'Warm editorial — serif prose, soft rounded controls.' },
     almanac: { title: 'Almanac', blurb: 'Printed field guide — ruled index, small caps, marginalia.' },
 };
+
+const COMMENT_LABELS: Record<CommentLayout, { title: string; blurb: string }> = {
+    inline: { title: 'Inline', blurb: 'Comments sit beneath the line they annotate.' },
+    rail: { title: 'Side rail', blurb: 'Comments collect in a column beside the page.' },
+};
+
+// Comment placement (inline vs. right rail) and the content top-bar are root
+// attributes the CSS keys off, applied the way applySkin swaps the skin.
+function applyCommentLayout(layout: CommentLayout): void {
+    document.documentElement.dataset.comments = layout;
+}
+function applyContentBar(on: boolean): void {
+    document.documentElement.dataset.contentbar = on ? 'on' : 'off';
+}
 
 // A single dismissible modal layer. Resolves via the caller's wiring; Escape / backdrop
 // click resolve with the fallback value.
@@ -229,6 +243,7 @@ function renderSettings(): void {
     document.body.classList.add('glint-landing');
     const skinCards = SKINS.map((skin) => `<button type="button" class="glint-skin-card${skin === appState.settings.skin ? ' selected' : ''}" data-skin-choice="${skin}"><strong>${escapeHtml(SKIN_LABELS[skin].title)}</strong><span>${escapeHtml(SKIN_LABELS[skin].blurb)}</span></button>`).join('');
     const themeOptions = THEMES.map((theme) => `<option value="${theme}"${theme === appState.settings.theme ? ' selected' : ''}>${theme}</option>`).join('');
+    const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-skin-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
     const rows = appState.projects.map((project, index) => `<li class="glint-project-row"><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(sourceSummary(project.route))}</span></span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`).join('');
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell glint-settings">
         <h1 tabindex="-1">Settings</h1>
@@ -237,6 +252,11 @@ function renderSettings(): void {
             <p class="glint-setting-note">Skin sets the layout &amp; type; palette sets the colours — independently.</p>
             <div class="glint-skin-grid">${skinCards}</div>
             <label class="glint-field">Palette <select data-theme>${themeOptions}</select></label>
+        </section>
+        <section class="glint-setting-group"><h2>Layout</h2>
+            <p class="glint-setting-note">Where comments go, and whether pages get a top bar.</p>
+            <div class="glint-skin-grid">${commentCards}</div>
+            <label class="glint-toggle"><input type="checkbox" data-content-bar${appState.settings.contentBar ? ' checked' : ''}> Show a page top bar (breadcrumb, export, delete)</label>
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
@@ -260,6 +280,21 @@ function renderSettings(): void {
         appState = { ...appState, settings: { ...appState.settings, theme: (event.target as HTMLSelectElement).value } };
         applyTheme(appState.settings.theme);
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, theme: previous } }; applyTheme(previous); renderSettings(); }
+    });
+    wrapper.querySelectorAll<HTMLButtonElement>('[data-comment-choice]').forEach((button) => button.addEventListener('click', () => {
+        const layout = button.dataset.commentChoice as CommentLayout;
+        const previous = appState.settings.commentLayout;
+        appState = { ...appState, settings: { ...appState.settings, commentLayout: layout } };
+        applyCommentLayout(layout);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, commentLayout: previous } }; applyCommentLayout(previous); }
+        renderSettings();
+    }));
+    wrapper.querySelector<HTMLInputElement>('[data-content-bar]')?.addEventListener('change', (event) => {
+        const previous = appState.settings.contentBar;
+        const on = (event.target as HTMLInputElement).checked;
+        appState = { ...appState, settings: { ...appState.settings, contentBar: on } };
+        applyContentBar(on);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, contentBar: previous } }; applyContentBar(previous); renderSettings(); }
     });
     wrapper.querySelector<HTMLInputElement>('[data-vim]')?.addEventListener('change', (event) => {
         const previous = appState.settings.vimMode;
@@ -287,6 +322,8 @@ function renderSettings(): void {
         appState = { version: 1, projects: [], settings: { ...DEFAULT_STATE.settings } };
         applySkin(appState.settings.skin);
         applyTheme(appState.settings.theme);
+        applyCommentLayout(appState.settings.commentLayout);
+        applyContentBar(appState.settings.contentBar);
         browserStorage?.removeItem(LEGACY_GITHUB_TOKEN_KEY);
         persistState();
         renderSettings();
@@ -314,7 +351,28 @@ async function openFile(id: string) {
     wrapper.innerHTML = html;
     wireWikiLinks();
     await renderDiscussions(content);
+    renderContentBar();
     renderSidebar();
+}
+
+// Optional content-area top bar: breadcrumb + page actions. Hidden by CSS unless the
+// content-bar setting is on; also hidden here when no page is open.
+function renderContentBar(): void {
+    const bar = document.querySelector<HTMLElement>('.glint-content-bar');
+    if (!bar) return;
+    const page = files.find((file) => file.id === currentFileId);
+    if (!page) { bar.hidden = true; bar.innerHTML = ''; return; }
+    const crumbs = page.path.split('/');
+    const name = crumbs.pop() ?? page.name;
+    const trail = crumbs.map((crumb) => `<span>${escapeHtml(crumb)}</span><span class="glint-crumb-sep">/</span>`).join('');
+    bar.innerHTML = `<div class="glint-breadcrumb">${trail}<span class="glint-crumb-current">${escapeHtml(name)}</span></div>
+        <div class="glint-content-bar-actions">
+            <button class="glint-bar-btn" data-export-page>${ICON.export}<span>Export</span></button>
+            <button class="glint-bar-btn" data-delete-page>${ICON.trash}<span>Delete</span></button>
+        </div>`;
+    bar.hidden = false;
+    bar.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
+    bar.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());
 }
 
 async function createPage(rawName: string): Promise<void> {
@@ -352,6 +410,9 @@ async function deleteCurrentPage(): Promise<void> {
             await openFile(next.id);
         } else {
             (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = '';
+            const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
+            if (rail) { rail.innerHTML = ''; rail.hidden = true; }
+            renderContentBar();
         }
     } catch (error) {
         alert(`Could not delete “${page.name}”: ${(error as Error).message}`);
@@ -460,15 +521,26 @@ async function createDiscussion(): Promise<void> {
     if (!id || !capability || !content || !target) return;
     const anchor = anchorFromElement(target, content);
     if (!anchor) { alert('Move focus to a rendered source element before adding a discussion.'); return; }
+    const makeForm = () => composeForm('Add a comment…', 'Comment', async (text) => {
+        await capability.create(id, anchor, text);
+        await renderDiscussions(content);
+    });
+    if (appState.settings.commentLayout === 'rail') {
+        const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
+        if (!rail) return;
+        if (rail.querySelector('.glint-compose')) { rail.querySelector<HTMLTextAreaElement>('.glint-compose textarea')?.focus(); return; }
+        const form = makeForm();
+        const controls = rail.querySelector('.glint-discussion-controls');
+        if (controls) controls.insertAdjacentElement('afterend', form); else rail.prepend(form);
+        form.querySelector('textarea')?.focus();
+        return;
+    }
     const existing = target.nextElementSibling;
     if (existing instanceof HTMLElement && existing.classList.contains('glint-compose')) {
         existing.querySelector('textarea')?.focus();
         return;
     }
-    const form = composeForm('Add a comment…', 'Comment', async (text) => {
-        await capability.create(id, anchor, text);
-        await renderDiscussions(content);
-    });
+    const form = makeForm();
     target.insertAdjacentElement('afterend', form);
     form.querySelector('textarea')?.focus();
 }
@@ -477,25 +549,29 @@ async function renderDiscussions(content: string): Promise<void> {
     const id = currentFileId;
     const capability = adapter.discussions;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
+    const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
+    const useRail = appState.settings.commentLayout === 'rail' && !!capability;
     wrapper.querySelectorAll('.glint-discussion, .glint-discussion-controls, .glint-unanchored-discussions').forEach((element) => element.remove());
+    if (rail) { rail.innerHTML = ''; rail.hidden = true; }
     if (!id || !capability) return;
     let discussions;
     try { discussions = resolveDiscussionAnchors(content, await capability.list(id)); } catch (error) {
         const errorNode = document.createElement('p');
         errorNode.role = 'alert';
         errorNode.textContent = `Could not load discussions: ${(error as Error).message}`;
-        wrapper.append(errorNode);
+        (useRail && rail ? rail : wrapper).append(errorNode);
+        if (useRail && rail) rail.hidden = false;
         return;
     }
     const controls = document.createElement('section');
     controls.className = 'glint-discussion-controls';
     const controlsHeading = document.createElement('h2');
-    controlsHeading.textContent = 'Discussions';
+    controlsHeading.textContent = 'Comments';
     const addDiscussion = document.createElement('button');
     addDiscussion.textContent = 'New comment';
     addDiscussion.addEventListener('click', () => void createDiscussion());
     controls.append(controlsHeading, addDiscussion);
-    wrapper.append(controls);
+    if (useRail && rail) { rail.hidden = false; rail.append(controls); } else wrapper.append(controls);
     const unanchored = document.createElement('section');
     unanchored.className = 'glint-unanchored-discussions';
     const heading = document.createElement('h2');
@@ -543,7 +619,14 @@ async function renderDiscussions(content: string): Promise<void> {
         actions.className = 'glint-discussion-actions';
         actions.append(reply, resolve);
         article.append(actions);
-        if (resolved.sourceLine === null) {
+        if (useRail && rail) {
+            // The rail is not positioned against the text, so label each thread's anchor.
+            const anchorHint = document.createElement('p');
+            anchorHint.className = 'glint-discussion-anchor';
+            anchorHint.textContent = resolved.sourceLine === null ? 'Unanchored' : `Line ${resolved.sourceLine}`;
+            article.prepend(anchorHint);
+            rail.append(article);
+        } else if (resolved.sourceLine === null) {
             unanchored.append(article);
         } else {
             const source = wrapper.querySelector<HTMLElement>(`[data-source-line="${resolved.sourceLine}"]`);
@@ -551,7 +634,7 @@ async function renderDiscussions(content: string): Promise<void> {
             else unanchored.append(article);
         }
     }
-    if (unanchored.childElementCount > 2) wrapper.append(unanchored);
+    if (!useRail && unanchored.childElementCount > 2) wrapper.append(unanchored);
 }
 
 function installCommentShortcut(): void {
@@ -712,6 +795,9 @@ async function refreshFilesOnFocus(): Promise<void> {
         if (!replacement) {
             currentFileId = null;
             (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = '';
+            const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
+            if (rail) { rail.innerHTML = ''; rail.hidden = true; }
+            renderContentBar();
             renderSidebar();
         } else if (current?.version !== replacement.version) {
             await openFile(id);
@@ -740,6 +826,8 @@ export async function boot(): Promise<void> {
     stateNotice = loaded.notice ?? '';
     applyTheme(appState.settings.theme);
     applySkin(appState.settings.skin);
+    applyCommentLayout(appState.settings.commentLayout);
+    applyContentBar(appState.settings.contentBar);
     const oauth = githubOAuthConfig();
     if (oauth) githubCallbackToken = await takeGitHubOAuthCallback(oauth);
     const route = parseRoute(location.hash);

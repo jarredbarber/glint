@@ -4,17 +4,27 @@ export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
 export const SKINS = ['reader', 'almanac'] as const;
 export type Skin = (typeof SKINS)[number];
 
+export const COMMENT_LAYOUTS = ['inline', 'rail'] as const;
+export type CommentLayout = (typeof COMMENT_LAYOUTS)[number];
+
 export type ProjectV1 = { name: string; route: string };
 export type PersistedStateV1 = {
     version: 1;
     projects: ProjectV1[];
-    settings: { theme: string; skin: Skin; vimMode: boolean; activeProjectRoute: string | null };
+    settings: {
+        theme: string;
+        skin: Skin;
+        commentLayout: CommentLayout;
+        contentBar: boolean;
+        vimMode: boolean;
+        activeProjectRoute: string | null;
+    };
 };
 
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { theme: 'nord', skin: 'reader', vimMode: true, activeProjectRoute: null },
+    settings: { theme: 'nord', skin: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -69,10 +79,12 @@ function validatedState(value: unknown, themes: readonly string[]): PersistedSta
     const activeProjectRoute = settings.activeProjectRoute === null ? null : normalizeProjectRoute(settings.activeProjectRoute as string);
     if (settings.activeProjectRoute !== null && (!activeProjectRoute || !routes.has(activeProjectRoute))) return null;
     const theme = typeof settings.theme === 'string' && themes.includes(settings.theme) ? settings.theme : 'nord';
-    // Skin backfills like theme (fallback, never reject) so records written before the
-    // skin axis existed keep loading.
+    // Skin/layout backfill like theme (fallback, never reject) so records written before
+    // these axes existed keep loading.
     const skin: Skin = settings.skin === 'almanac' ? 'almanac' : 'reader';
-    return { version: 1, projects, settings: { theme, skin, vimMode: settings.vimMode, activeProjectRoute } };
+    const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
+    const contentBar = settings.contentBar === true;
+    return { version: 1, projects, settings: { theme, skin, commentLayout, contentBar, vimMode: settings.vimMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };

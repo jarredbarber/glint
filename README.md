@@ -28,7 +28,7 @@ npm run dev
 | Google Drive | `#/drive/<folderId>` | Public Drive OAuth client ID in `src/spa/config.js` |
 | GitHub | `#/gh/<owner>/<repo>/<path>` | Fine-grained GitHub token entered in the browser |
 
-**Settings** (top of any workspace) exposes two independent appearance axes — a **skin** (Reader, warm editorial; or Almanac, printed field-guide) that sets layout and typography, and a **palette** (18 colour themes) that sets colour. Any skin renders under any palette, light or dark. Settings also holds the Vim-keybindings toggle and per-project management: saved projects carry an editable display **name** (rename there), so a long Drive folder ID never overflows the sidebar. Comments are written with an inline compose box, and GitHub credentials are entered through an in-app dialog and kept in memory only.
+**Settings** (top of any workspace) exposes two independent appearance axes — a **skin** (Reader, warm editorial; or Almanac, printed field-guide) that sets layout and typography, and a **palette** (18 colour themes) that sets colour. Any skin renders under any palette, light or dark. A **Layout** section chooses where comments go — **inline** (anchored beneath the source line) or a **side rail** — and toggles an optional page **top bar** (breadcrumb, export, delete). Settings also holds the Vim-keybindings toggle and per-project management: saved projects carry an editable display **name** (rename there), so a long Drive folder ID never overflows the sidebar. Comments are written with an inline compose box, and GitHub credentials are entered through an in-app dialog and kept in memory only.
 
 See [SPA setup and deployment](docs/spa-setup.md) for OAuth and GitHub Pages details.
 
