@@ -161,6 +161,7 @@ export class DriveAdapter implements StorageAdapter {
         });
     }
 
+    capabilities() { return { canEdit: true, canComment: true }; }
     identity() { return { name: this.userName }; }
 
     private headers(): Record<string, string> {

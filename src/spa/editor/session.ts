@@ -190,6 +190,10 @@ export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: (
         if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return;
         const id = currentFileId();
         if (!id) return;
+        if (adapter.capabilities && !adapter.capabilities().canEdit) {
+            alert('This source is read-only.');   // #59: no Save affordance without edit permission
+            return;
+        }
         const section = getCurrentSection(64);
         if (!section) { alert('Scroll to a section first.'); return; }   // never a silent no-op (#8 §2/§4)
         e.preventDefault();

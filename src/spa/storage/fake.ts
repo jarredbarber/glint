@@ -42,6 +42,7 @@ export class FakeAdapter implements StorageAdapter {
         }
     }
     async auth() {}
+    capabilities() { return { canEdit: true, canComment: true }; }
     identity() { return { name: 'Fake User' }; }
     async list(): Promise<FileMeta[]> { return [...this.entries.values()].map((e) => ({ ...e.meta })); }
     async read(id: string) {

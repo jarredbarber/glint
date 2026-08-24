@@ -19,7 +19,10 @@ test('keeps supplied GitHub credentials in memory and reserves token entry for t
     });
     Object.defineProperty(globalThis, 'fetch', {
         configurable: true,
-        value: async () => {
+        value: async (url: string) => {
+            // The repo-permissions probe (#59) is not a credential validation; keep it
+            // out of the 401 sequence the prompt-reuse assertion depends on.
+            if (!url.endsWith('/user')) return new Response(JSON.stringify({ permissions: { push: true } }));
             validations += 1;
             return validations === 2 || validations === 3
                 ? new Response('expired', { status: 401 })
@@ -108,6 +111,28 @@ test('recursively lists repository folders using source-relative file IDs', asyn
         { id: 'notes/Draft.md', name: 'Draft.md', path: 'notes/Draft.md', version: 'draft-sha' },
     ]);
 });
+test('reports read-only when the token lacks push on the repo (#59)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+    const withPush = async (push: boolean) => {
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: async (url: string) =>
+                url.endsWith('/user')
+                    ? new Response(JSON.stringify({ login: 'octocat' }))
+                    : new Response(JSON.stringify({ permissions: { push } })),
+        });
+        const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'tok');
+        await adapter.auth();
+        return adapter.capabilities!();
+    };
+    assert.deepEqual(await withPush(false), { canEdit: false, canComment: false });
+    assert.deepEqual(await withPush(true), { canEdit: true, canComment: false });
+});
+
 test('reuses a valid cached token from localStorage without prompting (#53)', async (t) => {
     const descriptors = Object.fromEntries(
         ['localStorage', 'fetch'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),

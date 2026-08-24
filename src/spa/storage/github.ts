@@ -54,6 +54,9 @@ function fromB64(b: string): string {
 export class GitHubAdapter implements StorageAdapter {
     private token: string | null = null;
     private userName = 'GitHub User';
+    // Optimistic until the repo's permissions are fetched (#59): a read-only token
+    // then flips this false and the UI hides Save; a failed probe leaves writes to 403.
+    private canPush = true;
     private reads = new Map<string, CachedRead>();
     private listedVersions = new Map<string, string>();
 
@@ -70,7 +73,7 @@ export class GitHubAdapter implements StorageAdapter {
     }
 
     async auth(): Promise<void> {
-        if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); return; }
+        if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); await this.detectPush(); return; }
         clearCachedGitHubToken();
         let error: string | undefined;
         for (;;) {
@@ -84,7 +87,7 @@ export class GitHubAdapter implements StorageAdapter {
                 continue;
             }
             const token = choice.token.trim();
-            if (token && (await this.validate(token))) { this.token = token; cacheGitHubToken(token); return; }
+            if (token && (await this.validate(token))) { this.token = token; cacheGitHubToken(token); await this.detectPush(); return; }
             error = 'That token is invalid or lacks access to this repo.';
         }
     }
@@ -106,6 +109,15 @@ export class GitHubAdapter implements StorageAdapter {
         } catch { return false; }
     }
 
+    // GitHub reports write access as repo `permissions.push` on the fine-grained token.
+    private async detectPush(): Promise<void> {
+        try {
+            const r = await this.gh(`/repos/${this.owner}/${this.repo}`);
+            if (r.ok) this.canPush = !!(await r.json())?.permissions?.push;
+        } catch { /* keep optimistic default; a write will 403 if wrong */ }
+    }
+
+    capabilities() { return { canEdit: this.canPush, canComment: false }; }
     identity() { return { name: this.userName }; }
 
     private gh(path: string, opts: RequestInit = {}): Promise<Response> {

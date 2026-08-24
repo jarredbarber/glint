@@ -53,6 +53,7 @@ export class LocalAdapter implements StorageAdapter {
         await idbSet(this.dir).catch(() => { /* non-fatal: handle just won't persist */ });
     }
 
+    capabilities() { return { canEdit: true, canComment: false }; }
     identity() { return { name: 'Local' }; }
 
     private need(): DirHandle {

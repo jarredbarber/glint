@@ -759,6 +759,17 @@ async function renderDiscussions(content: string): Promise<void> {
     addDiscussion.textContent = 'New comment';
     addDiscussion.addEventListener('click', () => void createDiscussion());
     controls.append(controlsHeading, addDiscussion);
+    // Resolved threads render hidden; offer a toggle only when some exist (#55).
+    const resolvedCount = discussions.filter((d) => d.discussion.resolved).length;
+    if (resolvedCount) {
+        const toggle = document.createElement('button');
+        toggle.className = 'glint-toggle-resolved';
+        const root = document.documentElement;
+        const sync = () => { toggle.textContent = root.classList.contains('glint-show-resolved') ? `Hide resolved (${resolvedCount})` : `Show resolved (${resolvedCount})`; };
+        sync();
+        toggle.addEventListener('click', () => { root.classList.toggle('glint-show-resolved'); sync(); });
+        controls.append(toggle);
+    }
     if (useRail && rail) { rail.hidden = false; rail.append(controls); } else wrapper.append(controls);
     const unanchored = document.createElement('section');
     unanchored.className = 'glint-unanchored-discussions';
@@ -843,6 +854,59 @@ function installCommentShortcut(): void {
     });
 }
 
+// "On this page" dock: built from the rendered document (headings already carry
+// rehype-slug ids), styled per skin, IntersectionObserver-tracked (#56).
+const TOC_COLLAPSED_KEY = 'glint.toc.collapsed';
+let tocObserver: IntersectionObserver | null = null;
+
+function tocDockHtml(): string {
+    if (!currentFileId) return '';
+    const headings = Array.from(document.querySelectorAll<HTMLElement>('.content-wrapper h2[id], .content-wrapper h3[id]'));
+    if (headings.length < 2) return '';   // nothing worth an outline
+    let open = true;
+    try { open = localStorage.getItem(TOC_COLLAPSED_KEY) !== '1'; } catch { /* default open */ }
+    const items = headings.map((h) => {
+        const sub = h.tagName === 'H3' ? ' toc-h3' : '';
+        const clone = h.cloneNode(true) as HTMLElement;
+        clone.querySelector('.heading-anchor')?.remove();   // drop the autolink '#' permalink
+        const label = (clone.textContent ?? '').trim();
+        return `<li class="glint-toc-item${sub}"><a href="#${escapeHtml(h.id)}" data-toc-target="${escapeHtml(h.id)}"><span class="glint-toc-label">${escapeHtml(label)}</span></a></li>`;
+    }).join('');
+    return `<details class="glint-toc-dock"${open ? ' open' : ''}><summary>On this page</summary><ol class="glint-toc-list">${items}</ol></details>`;
+}
+
+function wireTocDock(nav: HTMLElement): void {
+    tocObserver?.disconnect();   // drop the previous page's observer (#56)
+    tocObserver = null;
+    const dock = nav.querySelector<HTMLDetailsElement>('.glint-toc-dock');
+    if (!dock) return;
+    dock.addEventListener('toggle', () => {
+        try { localStorage.setItem(TOC_COLLAPSED_KEY, dock.open ? '0' : '1'); } catch { /* ignore */ }
+    });
+    const links = Array.from(dock.querySelectorAll<HTMLAnchorElement>('a[data-toc-target]'));
+    const headings = links.map((a) => document.getElementById(a.dataset.tocTarget!)).filter((h): h is HTMLElement => !!h);
+    for (const a of links) a.addEventListener('click', (e) => {
+        e.preventDefault();   // a raw hash link would trip the SPA router
+        document.getElementById(a.dataset.tocTarget!)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // The observer only fires the recompute; current/done are decided from geometry.
+    const markActive = () => {
+        const line = window.innerHeight * 0.3;
+        let currentIdx = -1;
+        links.forEach((a, i) => {
+            const h = document.getElementById(a.dataset.tocTarget!);
+            if (h && h.getBoundingClientRect().top <= line) currentIdx = i;
+        });
+        links.forEach((a, i) => {
+            a.classList.toggle('current', i === currentIdx);
+            a.classList.toggle('done', i < currentIdx);
+        });
+    };
+    tocObserver = new IntersectionObserver(markActive, { rootMargin: '0px' });
+    for (const h of headings) tocObserver.observe(h);
+    markActive();
+}
+
 function renderFileTree(nodes: TreeNode[]): string {
     return nodes.map((node) => {
         if (node.kind === 'file') {
@@ -858,8 +922,9 @@ function renderFileTree(nodes: TreeNode[]): string {
 function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
+    const canEdit = adapter.capabilities?.().canEdit ?? true;   // #59: hide write affordances when read-only
     const pageActions = currentFileId
-        ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button><button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>`
+        ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button>${canEdit ? `<button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>` : ''}`
         : '';
     nav.innerHTML = `
         <header class="glint-brand">
@@ -872,13 +937,15 @@ function renderSidebar() {
             <div class="glint-search-results" data-search-results></div>
         </div>
         <nav class="glint-tree spa-page-list" aria-label="Files"><ul>${renderFileTree(buildFileTree(files))}</ul></nav>
+        ${tocDockHtml()}
         <footer class="glint-sidebar-footer">
-            <button class="glint-primary" data-new-page>${ICON.plus}<span>New page</span></button>
+            ${canEdit ? `<button class="glint-primary" data-new-page>${ICON.plus}<span>New page</span></button>` : ''}
             ${pageActions}
             <button class="glint-icon-btn" data-open-source title="Open another source" aria-label="Open another source">${ICON.source}</button>
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
         </footer>`;
     wireProjectControls(nav);
+    wireTocDock(nav);
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
     nav.querySelector('[data-go-project]')?.addEventListener('click', () => {
         const route = appState.settings.activeProjectRoute;

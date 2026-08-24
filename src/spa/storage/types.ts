@@ -29,10 +29,15 @@ export interface DiscussionCapability {
     setResolved(fileId: string, discussionId: string, resolved: boolean): Promise<void>;
 }
 
+// Read-only capability reporting (#59). Absent means fully capable (canEdit,
+// canComment both true). The UI hides Save/write affordances when canEdit is false.
+export interface AdapterCapabilities { canEdit: boolean; canComment: boolean; }
+
 export interface StorageAdapter {
     auth(): Promise<void>;
     reauthenticate?(): Promise<void>;
     identity(): { name: string };
+    capabilities?(): AdapterCapabilities;
     list(): Promise<FileMeta[]>;
     read(id: string): Promise<{ content: string; version: string }>;
     write(id: string, content: string, version: string): Promise<{ version: string }>;
