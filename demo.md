@@ -27,17 +27,6 @@ here is how you should have implemented it dummy
 
 ```comment
 #resolved
-jarred@2026-01-11:14:00 This is a test comment.
-
-clanker@2026-01-11:14:05 Reply to the test.
-
-jarred@2026-01-11:15:08 $e=mc^2$
-
-jarred@2026-01-11:15:08 $$e^2 = m^2c^4 + p^2$$
-```
-
-```comment
-#resolved
 summary: bash.org
 #important
 <Donut[AFK]>@ HEY EURAKARTE
