@@ -43,6 +43,7 @@ The deploy root is `dist-spa/`: `index.html`, `config.js`, `llms.txt`, and `asse
 - Keep storage adapters backend-native: do not add a proxy or a Glint credential store.
 - Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/fake` in a browser.
 - Update `README.md`, `docs/spa-setup.md`, and `glint skill` when changing user-facing routes, storage behavior, or Markdown syntax.
+- Commit and push directly to `main`. Do not open pull requests for routine work.
 
 ---
 **NOTE**: When running `/init`, do not update anything below this line
