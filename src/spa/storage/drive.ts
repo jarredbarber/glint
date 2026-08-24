@@ -86,7 +86,9 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async auth(): Promise<void> {
-        this.token = await this.requestToken('consent');
+        // ponytail: empty prompt reuses an existing grant silently; 'consent' forced
+        // the account/permission dialog on every load and route click (#37).
+        this.token = await this.requestToken('');
         // Best-effort display name (userinfo is outside drive scope; ignore failures).
         try {
             const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: this.headers() });

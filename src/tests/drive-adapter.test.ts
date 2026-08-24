@@ -84,7 +84,7 @@ test('uses an interactive GIS request initially and a no-prompt request for sile
     await adapter.auth();
     await adapter.reauthenticate();
 
-    assert.deepEqual(requests, [{ prompt: 'consent' }, { prompt: 'none' }]);
+    assert.deepEqual(requests, [{ prompt: '' }, { prompt: 'none' }]);
 });
 
 test('rejects silent reauthentication when GIS reports a popup error', async (t) => {
