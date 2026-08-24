@@ -82,7 +82,7 @@ githubOAuthWorkerOrigin: 'https://glint-github-oauth.<account>.workers.dev',
 githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 ```
 
-**4. Smoke test on the live site:** open a `#/gh/...` route → **Sign in with GitHub** → approve → confirm list/read/edit/save. The sign-in screen states up front that OAuth grants broad `repo` access; **Use a personal access token instead** is the fallback and prompts for a repository-selected fine-grained PAT with Contents read/write.
+**4. Smoke test on the live site:** open a `#/gh/...` route → the in-app **Connect GitHub** dialog appears → **Authorize with GitHub** → approve → confirm list/read/edit/save. The dialog also offers a **fine-grained personal access token** field (Contents read/write on the repo) as the fallback; when no OAuth app is configured, only the token field is shown. An invalid token re-opens the dialog with an inline error rather than a browser alert.
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
