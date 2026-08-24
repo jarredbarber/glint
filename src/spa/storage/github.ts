@@ -5,6 +5,13 @@ import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './typ
 
 const API = 'https://api.github.com';
 
+// How the adapter asks the UI for credentials, replacing the old prompt()/confirm().
+// The result is a discriminated union: OAuth navigates away, PAT is validated in place.
+export type GitHubAuthChoice = { kind: 'oauth' } | { kind: 'pat'; token: string } | null;
+export type GitHubAuthPrompt = (ctx: {
+    owner: string; repo: string; ref: string; hasOAuth: boolean; error?: string;
+}) => Promise<GitHubAuthChoice>;
+
 interface CachedRead {
     content: string;
     version: string;
@@ -42,23 +49,28 @@ export class GitHubAdapter implements StorageAdapter {
         private ref: string,
         private oauth?: GitHubOAuthConfig,
         initialToken?: string | null,
+        private authPrompt?: GitHubAuthPrompt,
     ) {
         this.token = initialToken ?? null;
     }
 
     async auth(): Promise<void> {
         if (this.token && (await this.validate(this.token))) return;
-        if (this.oauth && confirm('GitHub OAuth grants Glint broad “repo” access. Continue to sign in with GitHub? Cancel to use a repository-selected personal access token instead.')) {
-            beginGitHubOAuth(this.oauth);
+        let error: string | undefined;
+        for (;;) {
+            const choice = this.authPrompt
+                ? await this.authPrompt({ owner: this.owner, repo: this.repo, ref: this.ref, hasOAuth: !!this.oauth, error })
+                : null;
+            if (!choice) throw new Error('GitHub token required.');
+            if (choice.kind === 'oauth') {
+                if (this.oauth) { beginGitHubOAuth(this.oauth); return await new Promise<void>(() => {}); }
+                error = 'GitHub sign-in is not configured here — paste a token instead.';
+                continue;
+            }
+            const token = choice.token.trim();
+            if (token && (await this.validate(token))) { this.token = token; return; }
+            error = 'That token is invalid or lacks access to this repo.';
         }
-        const pat = prompt(
-            'Paste a GitHub fine-grained token with Contents read/write on this repo. It will be kept only until this tab reloads.\\n' +
-            'Create one at github.com/settings/tokens'
-        );
-        const token = pat?.trim();
-        if (!token) throw new Error('GitHub token required.');
-        if (!(await this.validate(token))) throw new Error('Token is invalid or lacks access to this repo.');
-        this.token = token;
     }
 
     async reauthenticate(): Promise<void> {

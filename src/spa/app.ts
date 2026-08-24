@@ -3,12 +3,12 @@ import { StorageAdapter, FileMeta } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { DriveAdapter } from './storage/drive.js';
-import { GitHubAdapter } from './storage/github.js';
+import { GitHubAdapter, GitHubAuthChoice } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
-import { addProject, DEFAULT_STATE, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, saveState } from './app-state.js';
+import { addProject, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback } from './github-oauth.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
@@ -53,7 +53,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             let path = pathParts.join('/');
             const at = path.lastIndexOf('@');
             if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
-            return new GitHubAdapter(owner, repo, path, ref, githubOAuthConfig(), githubCallbackToken);
+            return new GitHubAdapter(owner, repo, path, ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
         }
         default: throw new Error(`unknown backend: ${backend}`);
     }
@@ -83,6 +83,89 @@ function applyTheme(theme: string): void {
     if (link) link.href = `./assets/themes/${theme}.css`;
 }
 
+// Skin is the layout/type/ornament axis; palette (theme) is colour. They are set
+// independently — the skin is a root attribute the per-skin CSS keys off.
+function applySkin(skin: Skin): void {
+    document.documentElement.dataset.skin = skin;
+}
+
+const SKIN_LABELS: Record<Skin, { title: string; blurb: string }> = {
+    reader: { title: 'Reader', blurb: 'Warm editorial — serif prose, soft rounded controls.' },
+    almanac: { title: 'Almanac', blurb: 'Printed field guide — ruled index, small caps, marginalia.' },
+};
+
+// A single dismissible modal layer. Resolves via the caller's wiring; Escape / backdrop
+// click resolve with the fallback value.
+function openModal<T>(html: string, wire: (root: HTMLElement, done: (value: T) => void) => void, fallback: T): Promise<T> {
+    return new Promise<T>((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'glint-modal-overlay';
+        overlay.innerHTML = `<div class="glint-modal" role="dialog" aria-modal="true">${html}</div>`;
+        const done = (value: T) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(value); };
+        const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') done(fallback); };
+        overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) done(fallback); });
+        document.addEventListener('keydown', onKey);
+        document.body.append(overlay);
+        wire(overlay.querySelector('.glint-modal') as HTMLElement, done);
+    });
+}
+
+// Small in-app text prompt (replaces window.prompt for naming).
+function promptText(title: string, initial = ''): Promise<string | null> {
+    const html = `<header class="glint-modal-head"><h2>${escapeHtml(title)}</h2></header>
+        <form data-text-form>
+            <input type="text" data-text value="${escapeHtml(initial)}" autocomplete="off">
+            <div class="glint-modal-actions">
+                <button type="button" class="glint-modal-cancel" data-cancel>Cancel</button>
+                <button type="submit" class="glint-modal-confirm">Save</button>
+            </div>
+        </form>`;
+    return openModal<string | null>(html, (root, done) => {
+        root.querySelector('[data-cancel]')?.addEventListener('click', () => done(null));
+        root.querySelector<HTMLFormElement>('[data-text-form]')?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            done(root.querySelector<HTMLInputElement>('[data-text]')!.value);
+        });
+        const input = root.querySelector<HTMLInputElement>('[data-text]')!;
+        input.focus();
+        input.select();
+    }, null);
+}
+
+// In-app replacement for the GitHub prompt()/confirm() flow. The PAT is returned to the
+// adapter, which keeps it in memory only — it is never persisted here.
+function promptGitHubAuth(ctx: { owner: string; repo: string; ref: string; hasOAuth: boolean; error?: string }): Promise<GitHubAuthChoice> {
+    const oauthBlock = ctx.hasOAuth
+        ? `<button type="button" class="glint-modal-primary" data-oauth>Authorize with GitHub</button>
+           <div class="glint-modal-or"><span>or paste a token</span></div>`
+        : '';
+    const html = `
+        <header class="glint-modal-head"><h2>Connect GitHub</h2>
+            <p>Open <strong>${escapeHtml(ctx.owner)}/${escapeHtml(ctx.repo)}</strong> at <code>${escapeHtml(ctx.ref)}</code></p></header>
+        ${oauthBlock}
+        <form data-pat-form>
+            <label>Fine-grained personal access token
+                <input type="password" data-pat autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+            </label>
+            <p class="glint-modal-help">Kept in this browser tab only, never sent to a Glint server. <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">How to create one ↗</a></p>
+            ${ctx.error ? `<p class="glint-modal-error" role="alert">${escapeHtml(ctx.error)}</p>` : ''}
+            <div class="glint-modal-actions">
+                <button type="button" class="glint-modal-cancel" data-cancel>Cancel</button>
+                <button type="submit" class="glint-modal-confirm">Connect</button>
+            </div>
+        </form>`;
+    return openModal<GitHubAuthChoice>(html, (root, done) => {
+        root.querySelector('[data-oauth]')?.addEventListener('click', () => done({ kind: 'oauth' }));
+        root.querySelector('[data-cancel]')?.addEventListener('click', () => done(null));
+        root.querySelector<HTMLFormElement>('[data-pat-form]')?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const token = root.querySelector<HTMLInputElement>('[data-pat]')!.value.trim();
+            if (token) done({ kind: 'pat', token });
+        });
+        root.querySelector<HTMLInputElement>('[data-pat]')?.focus();
+    }, null);
+}
+
 function persistState(): boolean {
     if (!statePersistent || !browserStorage) return false;
     try {
@@ -104,8 +187,7 @@ function sourceSummary(route: string): string {
 function rememberCurrentProject(): void {
     const route = normalizeProjectRoute(location.hash);
     if (!route) return;
-    const name = sourceSummary(route);
-    appState = addProject(appState, name, route);
+    appState = addProject(appState, defaultProjectName(route), route);
     persistState();
 }
 
@@ -125,9 +207,34 @@ function wireProjectControls(root: ParentNode): void {
 
 function renderSettings(): void {
     document.body.classList.add('glint-landing');
-    const rows = appState.projects.map((project, index) => `<li><span>${escapeHtml(project.name)} — ${escapeHtml(sourceSummary(project.route))}</span><button data-open-project="${index}">Open</button><button data-remove-project="${index}">Remove</button></li>`).join('');
-    (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell"><h1 tabindex="-1">Settings</h1><p role="status">${escapeHtml(stateNotice)}</p><label>Theme <select data-theme>${THEMES.map((theme) => `<option value="${theme}"${theme === appState.settings.theme ? ' selected' : ''}>${theme}</option>`).join('')}</select></label><label><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label><h2>Projects</h2><ul>${rows}</ul><button data-reset-projects>Reset local Projects and settings</button><p><a href="#">Back to Projects</a></p></section>`;
+    const skinCards = SKINS.map((skin) => `<button type="button" class="glint-skin-card${skin === appState.settings.skin ? ' selected' : ''}" data-skin-choice="${skin}"><strong>${escapeHtml(SKIN_LABELS[skin].title)}</strong><span>${escapeHtml(SKIN_LABELS[skin].blurb)}</span></button>`).join('');
+    const themeOptions = THEMES.map((theme) => `<option value="${theme}"${theme === appState.settings.theme ? ' selected' : ''}>${theme}</option>`).join('');
+    const rows = appState.projects.map((project, index) => `<li class="glint-project-row"><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(sourceSummary(project.route))}</span></span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`).join('');
+    (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell glint-settings">
+        <h1 tabindex="-1">Settings</h1>
+        <p role="status">${escapeHtml(stateNotice)}</p>
+        <section class="glint-setting-group"><h2>Appearance</h2>
+            <p class="glint-setting-note">Skin sets the layout &amp; type; palette sets the colours — independently.</p>
+            <div class="glint-skin-grid">${skinCards}</div>
+            <label class="glint-field">Palette <select data-theme>${themeOptions}</select></label>
+        </section>
+        <section class="glint-setting-group"><h2>Editing</h2>
+            <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
+        </section>
+        <section class="glint-setting-group"><h2>Projects</h2>
+            ${rows ? `<ul class="glint-project-list">${rows}</ul>` : '<p class="glint-setting-note">No Projects saved yet.</p>'}
+            <button class="glint-danger" data-reset-projects>Reset local Projects and settings</button>
+        </section>
+        <p><a href="#">Back to Projects</a></p></section>`;
     const wrapper = document.querySelector('.content-wrapper')!;
+    wrapper.querySelectorAll<HTMLButtonElement>('[data-skin-choice]').forEach((button) => button.addEventListener('click', () => {
+        const skin = button.dataset.skinChoice as Skin;
+        const previous = appState.settings.skin;
+        appState = { ...appState, settings: { ...appState.settings, skin } };
+        applySkin(skin);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, skin: previous } }; applySkin(previous); }
+        renderSettings();
+    }));
     wrapper.querySelector<HTMLSelectElement>('[data-theme]')?.addEventListener('change', (event) => {
         const previous = appState.settings.theme;
         appState = { ...appState, settings: { ...appState.settings, theme: (event.target as HTMLSelectElement).value } };
@@ -140,6 +247,14 @@ function renderSettings(): void {
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, vimMode: previous } }; renderSettings(); }
     });
     wrapper.querySelectorAll<HTMLButtonElement>('[data-open-project]').forEach((button) => button.addEventListener('click', () => { location.hash = appState.projects[Number(button.dataset.openProject)]!.route; }));
+    wrapper.querySelectorAll<HTMLButtonElement>('[data-rename-project]').forEach((button) => button.addEventListener('click', async () => {
+        const project = appState.projects[Number(button.dataset.renameProject)]!;
+        const name = await promptText('Rename project', project.name);
+        if (name === null) return;
+        appState = renameProject(appState, project.route, name);
+        persistState();
+        renderSettings();
+    }));
     wrapper.querySelectorAll<HTMLButtonElement>('[data-remove-project]').forEach((button) => button.addEventListener('click', () => {
         const project = appState.projects[Number(button.dataset.removeProject)]!;
         if (!confirm(`Remove “${project.name}”? This only removes the local bookmark.`)) return;
@@ -150,6 +265,8 @@ function renderSettings(): void {
     wrapper.querySelector('[data-reset-projects]')?.addEventListener('click', () => {
         if (!confirm('Reset local Projects and settings? Backend files will not be changed.')) return;
         appState = { version: 1, projects: [], settings: { ...DEFAULT_STATE.settings } };
+        applySkin(appState.settings.skin);
+        applyTheme(appState.settings.theme);
         browserStorage?.removeItem(LEGACY_GITHUB_TOKEN_KEY);
         persistState();
         renderSettings();
@@ -282,6 +399,39 @@ function wireWikiLinks() {
     });
 }
 
+// Inline compose control (textarea + submit) replacing prompt() for comments and replies.
+// Cmd/Ctrl+Enter submits; Cancel removes it.
+function composeForm(placeholder: string, submitLabel: string, onSubmit: (text: string) => Promise<void>): HTMLFormElement {
+    const form = document.createElement('form');
+    form.className = 'glint-compose';
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.placeholder = placeholder;
+    const actions = document.createElement('div');
+    actions.className = 'glint-compose-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'glint-compose-cancel';
+    cancel.textContent = 'Cancel';
+    const submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.textContent = submitLabel;
+    actions.append(cancel, submit);
+    form.append(textarea, actions);
+    cancel.addEventListener('click', () => form.remove());
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = textarea.value.trim();
+        if (!text) return;
+        submit.disabled = true;
+        try { await onSubmit(text); form.remove(); } catch (error) { submit.disabled = false; alert((error as Error).message); }
+    });
+    textarea.addEventListener('keydown', (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); form.requestSubmit(); }
+    });
+    return form;
+}
+
 async function createDiscussion(): Promise<void> {
     const id = currentFileId;
     const capability = adapter.discussions;
@@ -290,14 +440,17 @@ async function createDiscussion(): Promise<void> {
     if (!id || !capability || !content || !target) return;
     const anchor = anchorFromElement(target, content);
     if (!anchor) { alert('Move focus to a rendered source element before adding a discussion.'); return; }
-    const message = prompt('New discussion (Markdown):')?.trim();
-    if (!message) return;
-    try {
-        await capability.create(id, anchor, message);
-        await renderDiscussions(content);
-    } catch (error) {
-        alert(`Could not create discussion: ${(error as Error).message}`);
+    const existing = target.nextElementSibling;
+    if (existing instanceof HTMLElement && existing.classList.contains('glint-compose')) {
+        existing.querySelector('textarea')?.focus();
+        return;
     }
+    const form = composeForm('Add a comment…', 'Comment', async (text) => {
+        await capability.create(id, anchor, text);
+        await renderDiscussions(content);
+    });
+    target.insertAdjacentElement('afterend', form);
+    form.querySelector('textarea')?.focus();
 }
 
 async function renderDiscussions(content: string): Promise<void> {
@@ -330,34 +483,46 @@ async function renderDiscussions(content: string): Promise<void> {
     unanchored.append(heading);
     for (const resolved of discussions) {
         const article = document.createElement('article');
-        article.className = 'glint-discussion';
+        article.className = resolved.discussion.resolved ? 'glint-discussion resolved' : 'glint-discussion';
         const meta = document.createElement('p');
+        meta.className = 'glint-discussion-meta';
         meta.textContent = `${resolved.discussion.author} · ${resolved.discussion.createdAt}${resolved.discussion.resolved ? ' · Resolved' : ''}`;
         const body = document.createElement('div');
+        body.className = 'glint-discussion-body';
         body.innerHTML = await GlintRender.renderMarkdown(resolved.discussion.content);
         article.append(meta, body);
         for (const reply of resolved.discussion.replies) {
             const replyNode = document.createElement('div');
             replyNode.className = 'glint-discussion-reply';
-            replyNode.textContent = `${reply.author} · ${reply.createdAt}`;
+            const replyMeta = document.createElement('p');
+            replyMeta.className = 'glint-discussion-meta';
+            replyMeta.textContent = `${reply.author} · ${reply.createdAt}`;
             const replyBody = document.createElement('div');
+            replyBody.className = 'glint-discussion-body';
             replyBody.innerHTML = await GlintRender.renderMarkdown(reply.content);
-            replyNode.append(replyBody);
+            replyNode.append(replyMeta, replyBody);
             article.append(replyNode);
         }
         const reply = document.createElement('button');
         reply.textContent = 'Reply';
-        reply.addEventListener('click', async () => {
-            const message = prompt('Reply (Markdown):')?.trim();
-            if (!message) return;
-            try { await capability.reply(id, resolved.discussion.id, message); await renderDiscussions(content); } catch (error) { alert(`Could not reply: ${(error as Error).message}`); }
+        reply.addEventListener('click', () => {
+            if (article.querySelector('.glint-compose')) { article.querySelector<HTMLTextAreaElement>('.glint-compose textarea')?.focus(); return; }
+            const form = composeForm('Reply…', 'Reply', async (text) => {
+                await capability.reply(id, resolved.discussion.id, text);
+                await renderDiscussions(content);
+            });
+            article.append(form);
+            form.querySelector('textarea')?.focus();
         });
         const resolve = document.createElement('button');
         resolve.textContent = resolved.discussion.resolved ? 'Reopen' : 'Resolve';
         resolve.addEventListener('click', async () => {
             try { await capability.setResolved(id, resolved.discussion.id, !resolved.discussion.resolved); await renderDiscussions(content); } catch (error) { alert(`Could not update discussion: ${(error as Error).message}`); }
         });
-        article.append(reply, resolve);
+        const actions = document.createElement('div');
+        actions.className = 'glint-discussion-actions';
+        actions.append(reply, resolve);
+        article.append(actions);
         if (resolved.sourceLine === null) {
             unanchored.append(article);
         } else {
@@ -520,6 +685,8 @@ async function refreshFilesOnFocus(): Promise<void> {
 }
 
 export async function boot(): Promise<void> {
+    // A route change can leave a modal (e.g. a pending GitHub auth prompt) orphaned.
+    document.querySelectorAll('.glint-modal-overlay').forEach((overlay) => overlay.remove());
     let loaded;
     try {
         browserStorage = window.localStorage;
@@ -533,6 +700,7 @@ export async function boot(): Promise<void> {
     statePersistent = loaded.persistent;
     stateNotice = loaded.notice ?? '';
     applyTheme(appState.settings.theme);
+    applySkin(appState.settings.skin);
     const oauth = githubOAuthConfig();
     if (oauth) githubCallbackToken = await takeGitHubOAuthCallback(oauth);
     const route = parseRoute(location.hash);

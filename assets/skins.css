@@ -1,0 +1,315 @@
+/*
+ * Glint skins — the layout/type/ornament axis, orthogonal to the colour palette.
+ * Colours come only from palette tokens (--bg-color, --text-color, --link-color, …)
+ * so every skin renders under all 18 themes, light or dark. This file sets fonts,
+ * shape, rule weight, and per-skin ornament keyed off the root [data-skin] attribute.
+ * Loaded after layout.css; selectors carry [data-skin] so they win over the legacy
+ * chrome (gradient headings, Inter/Outfit families) without !important.
+ */
+
+/* ---- Skin tokens ------------------------------------------------------- */
+:root[data-skin="reader"] {
+    --skin-ui: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --skin-display: 'Spectral', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    --skin-body: var(--skin-display);
+    --skin-radius: 12px;
+    --skin-radius-sm: 8px;
+    --skin-rule: 1px;
+}
+
+:root[data-skin="almanac"] {
+    --skin-ui: 'Newsreader Variable', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+    --skin-display: 'Newsreader Variable', 'Iowan Old Style', Georgia, serif;
+    --skin-body: var(--skin-display);
+    --skin-radius: 0px;
+    --skin-radius-sm: 0px;
+    --skin-rule: 1.5px;
+}
+
+/* Accent: only default.css defines --link-color; every theme defines --blue, so fall
+ * back to it. Keeps the skin accent palette-driven across all 18 themes. */
+[data-skin] { --skin-accent: var(--link-color, var(--blue)); }
+
+/* ---- Shared chrome (both skins) --------------------------------------- */
+[data-skin] .sidebar,
+[data-skin] .spa-sidebar-controls,
+[data-skin] .spa-page-list {
+    font-family: var(--skin-ui);
+}
+
+[data-skin] .content-wrapper {
+    font-family: var(--skin-body);
+    max-width: 46rem;
+}
+
+[data-skin] .content-wrapper a { color: var(--skin-accent); }
+
+/* Neutralize the legacy gradient/centered H1 and green sans headings. */
+[data-skin] .content-wrapper h1,
+[data-skin] .content-wrapper h2,
+[data-skin] .content-wrapper h3,
+[data-skin] .content-wrapper h4,
+[data-skin] .content-wrapper h5,
+[data-skin] .content-wrapper h6 {
+    font-family: var(--skin-display);
+    color: var(--text-color);
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    text-align: left;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+}
+
+[data-skin] .content-wrapper h1 { font-size: 2.1rem; margin: 0 0 0.6rem; }
+[data-skin] .content-wrapper h2 {
+    font-size: 1.35rem;
+    padding-bottom: 0.4rem;
+    border-bottom: var(--skin-rule) solid var(--border-color);
+}
+
+/* Sidebar controls */
+[data-skin] .spa-sidebar-controls input,
+[data-skin] .spa-sidebar-controls button {
+    border-radius: var(--skin-radius-sm);
+    border-width: var(--skin-rule);
+}
+[data-skin] .spa-sidebar-controls [data-project-switch] {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    font: inherit;
+}
+[data-skin] .spa-sidebar-controls [data-new-page] {
+    background: var(--text-color);
+    color: var(--bg-color);
+    border-color: var(--text-color);
+    text-align: center;
+    font-weight: 600;
+}
+[data-skin] .spa-sidebar-controls [data-new-page]:hover {
+    background: var(--skin-accent);
+    border-color: var(--skin-accent);
+    color: var(--bg-color);
+}
+
+/* Landing + settings shells */
+[data-skin] .glint-landing-shell h1 {
+    font-family: var(--skin-display);
+    font-size: clamp(2.6rem, 8vw, 4.6rem);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--text-color);
+    text-align: left;
+}
+[data-skin] .glint-eyebrow { color: var(--skin-accent); font-family: var(--skin-ui); }
+[data-skin] .glint-source-card {
+    border-radius: var(--skin-radius);
+    border-width: var(--skin-rule);
+    font-family: var(--skin-ui);
+}
+[data-skin] .glint-source-card strong { color: var(--skin-accent); font-family: var(--skin-display); }
+[data-skin] .glint-source-card input,
+[data-skin] .glint-source-card button { border-radius: var(--skin-radius-sm); }
+
+/* ---- Settings ---------------------------------------------------------- */
+[data-skin] .glint-setting-group { margin: 2rem 0; }
+[data-skin] .glint-setting-group h2 {
+    font-family: var(--skin-display);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: none;
+    margin: 0 0 0.75rem;
+}
+[data-skin] .glint-setting-note { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.9rem; }
+[data-skin] .glint-field { display: block; margin-top: 1rem; }
+[data-skin] .glint-field select {
+    display: block;
+    margin-top: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    min-width: 16rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    font: inherit;
+}
+[data-skin] .glint-toggle { display: flex; align-items: center; gap: 0.6rem; }
+
+[data-skin] .glint-skin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+[data-skin] .glint-skin-card {
+    text-align: left;
+    padding: 0.9rem 1rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius);
+    cursor: pointer;
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+[data-skin] .glint-skin-card strong { font-family: var(--skin-display); font-size: 1.05rem; }
+[data-skin] .glint-skin-card span { color: var(--text-dim); font-size: 0.85rem; }
+[data-skin] .glint-skin-card.selected { border-color: var(--skin-accent); border-width: 2px; box-shadow: inset 0 0 0 1px var(--skin-accent); }
+
+[data-skin] .glint-project-list { list-style: none; margin: 0; padding: 0; border-top: var(--skin-rule) solid var(--border-color); }
+[data-skin] .glint-project-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.2rem;
+    border-bottom: var(--skin-rule) solid var(--border-color);
+}
+[data-skin] .glint-project-id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+[data-skin] .glint-project-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-skin] .glint-project-source { color: var(--text-dim); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-skin] .glint-project-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+[data-skin] .glint-project-actions button {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.7rem;
+    background: transparent;
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    cursor: pointer;
+}
+[data-skin] .glint-danger { color: var(--red); border-color: var(--red) !important; }
+[data-skin] button.glint-danger[data-reset-projects] { margin-top: 1rem; background: transparent; padding: 0.5rem 0.9rem; border: var(--skin-rule) solid var(--red); border-radius: var(--skin-radius-sm); cursor: pointer; font: inherit; }
+
+/* ---- Modal (auth + rename) -------------------------------------------- */
+.glint-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 5000;
+}
+[data-skin] .glint-modal {
+    width: min(30rem, 100%);
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    padding: 1.5rem;
+    font-family: var(--skin-ui);
+}
+[data-skin] .glint-modal-head h2 { font-family: var(--skin-display); font-size: 1.25rem; margin: 0 0 0.25rem; color: var(--text-color); }
+[data-skin] .glint-modal-head p { color: var(--text-dim); font-size: 0.85rem; margin: 0; }
+[data-skin] .glint-modal form { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+[data-skin] .glint-modal label { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem; font-weight: 600; color: var(--text-dim); }
+[data-skin] .glint-modal input {
+    padding: 0.65rem 0.7rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    font: inherit;
+}
+[data-skin] .glint-modal-primary {
+    padding: 0.75rem;
+    background: var(--text-color);
+    color: var(--bg-color);
+    border: none;
+    border-radius: var(--skin-radius-sm);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+[data-skin] .glint-modal-or { display: flex; align-items: center; gap: 0.75rem; color: var(--text-dim); font-size: 0.8rem; }
+[data-skin] .glint-modal-or::before,
+[data-skin] .glint-modal-or::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+[data-skin] .glint-modal-help { font-size: 0.75rem; color: var(--text-dim); font-weight: 400; margin: 0; }
+[data-skin] .glint-modal-error { color: var(--red); font-size: 0.8rem; font-weight: 600; margin: 0; }
+[data-skin] .glint-modal-actions { display: flex; flex-direction: row; justify-content: flex-end; gap: 0.6rem; }
+[data-skin] .glint-modal-actions button { padding: 0.55rem 1.1rem; border-radius: var(--skin-radius-sm); font: inherit; cursor: pointer; }
+[data-skin] .glint-modal-cancel { background: transparent; color: var(--text-dim); border: var(--skin-rule) solid var(--border-color); }
+[data-skin] .glint-modal-confirm { background: var(--skin-accent); color: var(--bg-color); border: none; font-weight: 600; }
+
+/* ---- Comment compose + discussions ------------------------------------ */
+[data-skin] .glint-compose {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: var(--bg-dim);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+}
+[data-skin] .glint-compose textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 0.55rem 0.6rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius-sm);
+    font: inherit;
+    font-family: var(--skin-ui);
+}
+[data-skin] .glint-compose-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+[data-skin] .glint-compose-actions button { padding: 0.4rem 0.9rem; border-radius: var(--skin-radius-sm); font: inherit; cursor: pointer; border: var(--skin-rule) solid var(--border-color); }
+[data-skin] .glint-compose-actions button[type="submit"] { background: var(--text-color); color: var(--bg-color); border-color: var(--text-color); font-weight: 600; }
+[data-skin] .glint-compose-cancel { background: transparent; color: var(--text-dim); }
+
+[data-skin] .glint-discussion-controls { margin-top: 3rem; padding-top: 1rem; border-top: var(--skin-rule) solid var(--border-color); display: flex; align-items: center; gap: 1rem; }
+[data-skin] .glint-discussion-controls h2 { font-family: var(--skin-display); font-size: 1.1rem; margin: 0; border: none; }
+[data-skin] .glint-discussion-controls button { padding: 0.4rem 0.9rem; font: inherit; cursor: pointer; background: transparent; color: var(--text-color); border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm); }
+[data-skin] .glint-discussion {
+    margin: 0.75rem 0;
+    padding: 0.9rem 1rem;
+    background: var(--bg-dim);
+    border: var(--skin-rule) solid var(--border-color);
+    border-radius: var(--skin-radius);
+    font-family: var(--skin-ui);
+    font-size: 0.9rem;
+}
+[data-skin] .glint-discussion.resolved { opacity: 0.6; }
+[data-skin] .glint-discussion-meta { color: var(--text-dim); font-size: 0.75rem; margin: 0 0 0.35rem; }
+[data-skin] .glint-discussion-body { color: var(--text-color); }
+[data-skin] .glint-discussion-body > :first-child { margin-top: 0; }
+[data-skin] .glint-discussion-body > :last-child { margin-bottom: 0; }
+[data-skin] .glint-discussion-reply { margin-top: 0.6rem; padding-left: 0.75rem; border-left: 2px solid var(--border-color); }
+[data-skin] .glint-discussion-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+[data-skin] .glint-discussion-actions button { padding: 0.3rem 0.75rem; font: inherit; font-size: 0.8rem; cursor: pointer; background: transparent; color: var(--text-color); border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm); }
+
+/* ---- Almanac ornament -------------------------------------------------- */
+[data-skin="almanac"] .sidebar { border-right-width: 1.5px; }
+[data-skin="almanac"] .spa-sidebar-controls { border-bottom-width: 1.5px; }
+[data-skin="almanac"] .spa-page-list summary,
+[data-skin="almanac"] .spa-page-list a {
+    font-variant: all-small-caps;
+    letter-spacing: 0.05em;
+    font-size: 1.05em;
+}
+[data-skin="almanac"] .spa-page-list li > a { display: block; border-bottom: 1px dotted var(--border-color); padding: 0.1rem 0; }
+[data-skin="almanac"] .glint-setting-group h2,
+[data-skin="almanac"] .glint-discussion-controls h2 { font-variant: all-small-caps; letter-spacing: 0.1em; text-transform: none; }
+[data-skin="almanac"] .glint-eyebrow { font-variant: all-small-caps; text-transform: none; letter-spacing: 0.14em; }
+/* Drop cap on the opening paragraph. */
+[data-skin="almanac"] .content-wrapper .glint-section:first-of-type > p:first-of-type::first-letter {
+    float: left;
+    font-family: var(--skin-display);
+    font-size: 3.1em;
+    line-height: 0.7;
+    font-weight: 600;
+    padding: 0.05em 0.1em 0 0;
+    color: var(--skin-accent);
+}
+/* Marginalia-style discussions: hairline, accented left rule, italic replies. */
+[data-skin="almanac"] .glint-discussion { background: transparent; border: none; border-left: 3px solid var(--skin-accent); border-radius: 0; padding-left: 1rem; }
+[data-skin="almanac"] .glint-discussion-meta { font-variant: all-small-caps; letter-spacing: 0.06em; }
+[data-skin="almanac"] .glint-discussion-reply { font-style: italic; border-left-style: dotted; }

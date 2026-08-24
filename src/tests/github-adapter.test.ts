@@ -2,19 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GitHubAdapter } from '../spa/storage/github.js';
 
-test('keeps supplied GitHub credentials in memory and reserves PAT entry for interactive auth', async (t) => {
+test('keeps supplied GitHub credentials in memory and reserves token entry for the in-app prompt', async (t) => {
     const descriptors = Object.fromEntries(
         ['localStorage', 'fetch', 'prompt'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
     );
-    let prompts = 0;
+    let authPrompts = 0;
     let validations = 0;
     Object.defineProperty(globalThis, 'localStorage', {
         configurable: true,
         value: new Proxy({}, { get: () => { throw new Error('credentials must not use localStorage'); } }),
     });
+    // The adapter must not fall back to the browser dialog any more.
     Object.defineProperty(globalThis, 'prompt', {
         configurable: true,
-        value: () => { prompts += 1; return 'replacement-token'; },
+        value: () => { throw new Error('auth must not call window.prompt'); },
     });
     Object.defineProperty(globalThis, 'fetch', {
         configurable: true,
@@ -32,13 +33,14 @@ test('keeps supplied GitHub credentials in memory and reserves PAT entry for int
         }
     });
 
-    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'memory-token') as GitHubAdapter & { reauthenticate(): Promise<void> };
+    const authPrompt = async () => { authPrompts += 1; return { kind: 'pat' as const, token: 'replacement-token' }; };
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'memory-token', authPrompt) as GitHubAdapter & { reauthenticate(): Promise<void> };
     await adapter.auth();
     await assert.rejects(adapter.reauthenticate(), /authentication expired/);
-    assert.equal(prompts, 0);
+    assert.equal(authPrompts, 0);
 
     await adapter.auth();
-    assert.equal(prompts, 1);
+    assert.equal(authPrompts, 1);
 });
 
 test('caches GitHub file content until a directory refresh reports a new blob SHA', async (t) => {

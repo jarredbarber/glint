@@ -1,21 +1,33 @@
 export const STATE_KEY = 'glint-spa-state';
 export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
 
+export const SKINS = ['reader', 'almanac'] as const;
+export type Skin = (typeof SKINS)[number];
+
 export type ProjectV1 = { name: string; route: string };
 export type PersistedStateV1 = {
     version: 1;
     projects: ProjectV1[];
-    settings: { theme: string; vimMode: boolean; activeProjectRoute: string | null };
+    settings: { theme: string; skin: Skin; vimMode: boolean; activeProjectRoute: string | null };
 };
 
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { theme: 'nord', vimMode: true, activeProjectRoute: null },
+    settings: { theme: 'nord', skin: 'reader', vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
     return { version: 1, projects: [], settings: { ...DEFAULT_STATE.settings } };
+}
+
+// A short, human default so an un-renamed Drive folder never spills its 44-char id
+// into the sidebar. The full source is still shown as a secondary line in the UI.
+export function defaultProjectName(route: string): string {
+    if (route === '#/local') return 'Local folder';
+    if (route.startsWith('#/drive/')) return 'Drive folder';
+    const m = route.match(/^#\/gh\/([^/]+)\/([^/]+)/);
+    return m ? `${decodeURIComponent(m[1])}/${decodeURIComponent(m[2])}` : 'Project';
 }
 
 export function normalizeProjectRoute(route: string): string | null {
@@ -57,7 +69,10 @@ function validatedState(value: unknown, themes: readonly string[]): PersistedSta
     const activeProjectRoute = settings.activeProjectRoute === null ? null : normalizeProjectRoute(settings.activeProjectRoute as string);
     if (settings.activeProjectRoute !== null && (!activeProjectRoute || !routes.has(activeProjectRoute))) return null;
     const theme = typeof settings.theme === 'string' && themes.includes(settings.theme) ? settings.theme : 'nord';
-    return { version: 1, projects, settings: { theme, vimMode: settings.vimMode, activeProjectRoute } };
+    // Skin backfills like theme (fallback, never reject) so records written before the
+    // skin axis existed keep loading.
+    const skin: Skin = settings.skin === 'almanac' ? 'almanac' : 'reader';
+    return { version: 1, projects, settings: { theme, skin, vimMode: settings.vimMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };
@@ -89,4 +104,10 @@ export function addProject(state: PersistedStateV1, name: string, route: string)
     const existing = state.projects.find((project) => project.route === normalized);
     if (existing) return { ...state, settings: { ...state.settings, activeProjectRoute: existing.route } };
     return { ...state, projects: [...state.projects, { name: label, route: normalized }], settings: { ...state.settings, activeProjectRoute: normalized } };
+}
+
+export function renameProject(state: PersistedStateV1, route: string, name: string): PersistedStateV1 {
+    const label = name.trim();
+    if (!label) return state;
+    return { ...state, projects: state.projects.map((project) => (project.route === route ? { ...project, name: label } : project)) };
 }

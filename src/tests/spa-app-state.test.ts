@@ -36,3 +36,11 @@ test('invalid runtime theme falls back to nord', () => {
     storage.setItem('glint-spa-state', JSON.stringify({ version: 1, projects: [], settings: { theme: 'unknown', vimMode: true, activeProjectRoute: null } }));
     assert.equal(loadState(storage as unknown as Storage, themes).state.settings.theme, 'nord');
 });
+
+test('skin backfills to reader for records with no or invalid skin', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('glint-spa-state', JSON.stringify({ version: 1, projects: [], settings: { theme: 'nord', vimMode: true, activeProjectRoute: null } }));
+    assert.equal(loadState(storage as unknown as Storage, themes).state.settings.skin, 'reader');
+    storage.setItem('glint-spa-state', JSON.stringify({ version: 1, projects: [], settings: { theme: 'nord', skin: 'almanac', vimMode: false, activeProjectRoute: null } }));
+    assert.equal(loadState(storage as unknown as Storage, themes).state.settings.skin, 'almanac');
+});
