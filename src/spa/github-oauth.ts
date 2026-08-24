@@ -20,7 +20,7 @@ function cleanCallbackUrl(url: URL): void {
     history.replaceState(null, '', url);
 }
 
-export function beginGitHubOAuth(config: GitHubOAuthConfig): never {
+export function beginGitHubOAuth(config: GitHubOAuthConfig): void {
     const state = crypto.randomUUID();
     sessionStorage.setItem(STATE_KEY, state);
     sessionStorage.setItem(RETURN_KEY, location.hash);
@@ -31,8 +31,10 @@ export function beginGitHubOAuth(config: GitHubOAuthConfig): never {
         scope: 'repo',
         state,
     }).toString();
-    location.assign(authorize);
-    throw new Error('OAuth redirect did not start.');
+    // No throw after assign: the throw raced the navigation and surfaced as a bogus
+    // "redirect did not start" error. The caller hangs on a never-resolving promise
+    // until the browser unloads this page (#37).
+    location.assign(authorize.toString());
 }
 
 export async function takeGitHubOAuthCallback(config: GitHubOAuthConfig): Promise<string | null> {
