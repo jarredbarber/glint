@@ -10,13 +10,13 @@ becomes a wiki. No server, no Glint user database — access control is the back
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
 | GitHub repo | `#/gh/<owner>/<repo>/<path>@<ref>` | GitHub OAuth or an explicit fine-grained PAT |
-| Demo (in-memory) | `#/fake` | nothing |
+| Demo (in-memory) | `#/demo` | nothing |
 
 ## Local dev
 
 ```bash
 npm run dev
-# open http://localhost:8080/#/fake
+# open http://localhost:8080/#/demo
 ```
 
 `npm run dev` type-checks, rebuilds browser bundles, stages the deploy layout in

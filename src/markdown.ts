@@ -65,11 +65,17 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
 
     // 1. Handle frontmatter
     let processedRaw = raw;
+    // Body with the frontmatter block removed. Used as the fallback when the YAML
+    // parser throws (e.g. gray-matter needs Buffer, which is absent in the browser
+    // bundle) so frontmatter never leaks into rendered output. See #52.
+    let bodyAfterFrontmatter = raw;
     if (raw.startsWith('---')) {
         const endOfFrontmatter = raw.indexOf('\n---', 3);
         if (endOfFrontmatter !== -1) {
             const frontmatterText = raw.substring(0, endOfFrontmatter + 4);
             contentStartLine = frontmatterText.split('\n').length + 1;
+            // Drop the leading newline after the closing --- so the body starts clean.
+            bodyAfterFrontmatter = raw.substring(endOfFrontmatter + 4).replace(/^\n/, '');
 
             // Fix unquoted colons in values (common user error)
             // e.g. "title: Project: Zero" -> "title: "Project: Zero""
@@ -92,7 +98,9 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
         frontmatter = result.data;
         content = result.content;
     } catch {
-        // Fallback: treat everything as content if frontmatter parsing fails
+        // Fallback: YAML parse failed, but still strip the frontmatter block so it
+        // never renders. Frontmatter values are unavailable here (best effort).
+        content = bodyAfterFrontmatter;
     }
 
     // 2. Fix display math (before any line-sensitive operations)

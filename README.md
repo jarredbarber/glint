@@ -16,14 +16,14 @@ Glint is a static Markdown wiki and a self-contained HTML renderer. The browser 
 ```bash
 npm install
 npm run dev
-# open http://localhost:8080/#/fake
+# open http://localhost:8080/#/demo
 ```
 
 `npm run dev` builds the bundles, stages the Pages layout in `dist-spa/`, and serves it locally. Workspace routes are:
 
 | Source | Route | Requirement |
 | --- | --- | --- |
-| Demo | `#/fake` | None |
+| Demo | `#/demo` | None |
 | Local folder | `#/local` | Chromium or Edge File System Access API |
 | Google Drive | `#/drive/<folderId>` | Public Drive OAuth client ID in `src/spa/config.js` |
 | GitHub | `#/gh/<owner>/<repo>/<path>` | Fine-grained GitHub token entered in the browser |

@@ -86,7 +86,11 @@
     font-size: 0.8rem;
 }
 [data-skin] .glint-wordmark { font-family: var(--skin-display); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
-[data-skin] .glint-brand-project { display: none; }
+/* Brand mark and project name are buttons (nav to landing / project home): strip button chrome. */
+[data-skin] .glint-brand-home { display: flex; align-items: center; gap: 0.55rem; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; }
+[data-skin] .glint-brand-project { display: none; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+[data-skin] .glint-brand-home:hover .glint-wordmark { text-decoration: underline; }
+[data-skin] .glint-brand-project:hover { text-decoration: underline; }
 
 /* Top controls */
 [data-skin] .glint-sidebar-top { display: flex; flex-direction: column; gap: 0.55rem; padding: 0 0.9rem 0.6rem; }

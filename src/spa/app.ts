@@ -74,15 +74,52 @@ export function parseRoute(hash: string): { backend: string; rest: string[] } | 
     return { backend: parts[0], rest: parts.slice(1) };
 }
 
+// In-memory demo content. Exercises every render feature the pipeline supports so
+// `#/demo` doubles as a visual smoke test. Single-quoted so code-fence backticks stay literal.
+const DEMO_PAGES = [
+    { name: 'Home.md', content: [
+        '---', 'title: Glint Demo', 'author: Jarred', 'date: 2026-01-08', '---', '',
+        '# Glint demo', '',
+        'A tour of what the renderer does. Start here, then see [[Tasks]], [[Diagrams]], [[Code]], [[Math]], and [[Comments]].', '',
+        '## Prose', '',
+        'Text with *emphasis*, **strong**, `inline code`, and a [link](https://github.com/jarredbarber/glint).', '',
+        '> A blockquote, for good measure.', '',
+        '## Table', '',
+        '| Feature | Fenced as | Renders |', '| --- | --- | --- |', '| Diagrams | `mermaid` | SVG flowchart |', '| Music | `abcjs` | staff + playback |', '| Math | `$$` | KaTeX |', '',
+    ].join('\n') },
+    { name: 'Tasks.md', content: [
+        '# Tasks', '',
+        '- Not a task', '- [ ] Open task', '- [/] In progress', '- [x] Done', '- [b] Blocked, waiting on review',
+        '- [ ] Task with metadata (created:2025-12-25 due:2026-02-05 @clanker #urgent)', '',
+    ].join('\n') },
+    { name: 'Diagrams.md', content: [
+        '# Diagrams', '',
+        'A flow chart:', '',
+        '```mermaid', 'graph TD;', '  A[Start] --> B{Works?};', '  B -- Yes --> C[Ship];', '  B -- No --> D[Debug];', '  D --> B;', '```', '',
+        'And music, via abcjs (with playback):', '',
+        '```abcjs', 'X:1', 'T:Ode to Joy (Theme)', 'M:4/4', 'L:1/8', 'K:C', 'E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |', '```', '',
+    ].join('\n') },
+    { name: 'Code.md', content: [
+        '# Code', '',
+        '```python', 'def fib(n):', '    if n <= 1:', '        return n', '    return fib(n - 1) + fib(n - 2)', '```', '',
+    ].join('\n') },
+    { name: 'Math.md', content: [
+        '# Math', '',
+        'Inline math like $e = mc^2$ renders alongside prose. Display blocks stand alone:', '',
+        '$$E^2 = (mc^2)^2 + (pc)^2$$', '',
+    ].join('\n') },
+    { name: 'Comments.md', content: [
+        '# Comments', '',
+        'The pipeline renders `comment` fences as annotation blocks. Active:', '',
+        '```comment', 'jarred@2026-01-11:14:00 This is a test comment.', '', 'clanker@2026-01-11:14:05 Reply to the test.', '```', '',
+        'And resolved (collapsed by the reader):', '',
+        '```comment', '#resolved', 'jarred@2026-01-11:15:08 Looks good, shipping.', '```', '',
+    ].join('\n') },
+];
+
 function pickAdapter(backend: string, rest: string[]): StorageAdapter {
     switch (backend) {
-        case 'fake': return new FakeAdapter([
-            { name: 'Home.md', content: '# Home\n\nSee [[Notes]].\n\n## Intro\n\nWelcome.' },
-            { name: 'Notes.md', content: '## Notes\n\nHello from notes.' },
-            { name: 'Guides/Welcome.md', content: '## Welcome\n\nA nested page.' },
-            { name: 'Diagrams.md', content: '# Diagrams\n\n```mermaid\ngraph TD\n  A[Start] --> B{Works?}\n  B -->|Yes| C[Ship]\n  B -->|No| A\n```\n\n## A tune\n\n```abc\nX:1\nT:Scale\nK:C\nCDEF GABc\n```\n' },
-            { name: 'Tasks.md', content: '# Tasks\n\n- [ ] Write the docs\n- [/] Ship the SPA\n- [x] Fix mermaid\n- [b] Waiting on review\n' },
-        ]);
+        case 'demo': return new FakeAdapter(DEMO_PAGES);
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
             return new LocalAdapter();
@@ -794,9 +831,8 @@ function renderSidebar() {
         : '';
     nav.innerHTML = `
         <header class="glint-brand">
-            <span class="glint-brand-mark">${ICON.mark}</span>
-            <span class="glint-wordmark">Glint</span>
-            <span class="glint-brand-project">${escapeHtml(activeProjectName())}</span>
+            <button class="glint-brand-home" data-go-landing title="Home" aria-label="Home"><span class="glint-brand-mark">${ICON.mark}</span><span class="glint-wordmark">Glint</span></button>
+            <button class="glint-brand-project" data-go-project title="Open project home">${escapeHtml(activeProjectName())}</button>
         </header>
         <div class="glint-sidebar-top">
             ${projectSwitcher()}
@@ -811,9 +847,15 @@ function renderSidebar() {
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
         </footer>`;
     wireProjectControls(nav);
+    nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
+    nav.querySelector('[data-go-project]')?.addEventListener('click', () => {
+        const route = appState.settings.activeProjectRoute;
+        if (route) location.hash = route;
+    });
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
-        const name = prompt('Page name (.md is optional):');
-        if (name !== null) void createPage(name);
+        void promptText('New page name (.md is optional)').then((name) => {
+            if (name !== null) void createPage(name);
+        });
     });
     nav.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
     nav.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());

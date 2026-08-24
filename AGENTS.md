@@ -30,7 +30,7 @@ glint skill         # Print the Markdown extension reference
 
 Use a hash route while running `npm run dev`:
 
-- `#/fake` — in-memory demo; use it for browser smoke tests.
+- `#/demo` — in-memory demo; use it for browser smoke tests.
 - `#/local` — local directory via the File System Access API (Chromium/Edge).
 - `#/drive/<folderId>` — Drive folder; needs `window.GLINT_CONFIG.driveClientId` in `src/spa/config.js`.
 - `#/gh/<owner>/<repo>/<path>` — GitHub subtree; prompts for a fine-grained token and stores it in browser local storage.
@@ -41,7 +41,7 @@ The deploy root is `dist-spa/`: `index.html`, `config.js`, `llms.txt`, and `asse
 
 - Preserve source-root-relative `FileMeta.path` values. Folder navigation, wiki rendering, and all adapters rely on it.
 - Keep storage adapters backend-native: do not add a proxy or a Glint credential store.
-- Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/fake` in a browser.
+- Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/demo` in a browser.
 - Update `README.md`, `docs/spa-setup.md`, and `glint skill` when changing user-facing routes, storage behavior, or Markdown syntax.
 - Commit and push directly to `main`. Do not open pull requests for routine work.
 

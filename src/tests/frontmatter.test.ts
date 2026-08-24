@@ -33,4 +33,26 @@ Content`;
         const result = parseMarkdown(content);
         assert.equal(result.title, 'Project: Zero');
     });
+
+    // #52: gray-matter throws in the browser bundle (no Buffer). The fallback must
+    // still strip the frontmatter block so it never leaks into rendered output.
+    await t.test('strips frontmatter even when the YAML parser throws', () => {
+        const original = (globalThis as { Buffer?: unknown }).Buffer;
+        delete (globalThis as { Buffer?: unknown }).Buffer;
+        try {
+            const result = parseMarkdown(`---
+title: Leaky
+author: Nobody
+---
+
+# Head
+
+Body.`);
+            assert.ok(!result.content.includes('title: Leaky'), 'frontmatter must not leak into content');
+            assert.ok(!result.content.includes('author'), 'frontmatter must not leak into content');
+            assert.ok(result.content.includes('Body.'), 'body must survive');
+        } finally {
+            (globalThis as { Buffer?: unknown }).Buffer = original;
+        }
+    });
 });
