@@ -45,7 +45,7 @@ test('recursively lists Drive folders with source-relative paths', async () => {
     ]);
 });
 
-test('uses an interactive GIS request initially and a no-prompt request for silent reauthentication', async (t) => {
+test('auth tries a silent grant first and falls back to interactive when it fails', async (t) => {
     const descriptors = Object.fromEntries(
         ['document', 'google', 'fetch'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
     );
@@ -59,10 +59,12 @@ test('uses an interactive GIS request initially and a no-prompt request for sile
         value: {
             accounts: {
                 oauth2: {
-                    initTokenClient: ({ callback }: { callback: (response: unknown) => void }) => ({
+                    initTokenClient: ({ callback, error_callback }: { callback: (response: unknown) => void; error_callback: (error: { type: string }) => void }) => ({
                         requestAccessToken: (options?: { prompt?: string }) => {
                             requests.push(options);
-                            callback({ access_token: 'token' });
+                            // Silent ('none') grant fails without an active session; interactive succeeds.
+                            if (options?.prompt === 'none') error_callback({ type: 'suppressed' });
+                            else callback({ access_token: 'token' });
                         },
                     }),
                 },
@@ -80,11 +82,10 @@ test('uses an interactive GIS request initially and a no-prompt request for sile
         }
     });
 
-    const adapter = new DriveAdapter('folder', 'client') as DriveAdapter & { reauthenticate(): Promise<void> };
+    const adapter = new DriveAdapter('folder', 'client');
     await adapter.auth();
-    await adapter.reauthenticate();
 
-    assert.deepEqual(requests, [{ prompt: '' }, { prompt: 'none' }]);
+    assert.deepEqual(requests, [{ prompt: 'none' }, { prompt: '' }]);
 });
 
 test('rejects silent reauthentication when GIS reports a popup error', async (t) => {

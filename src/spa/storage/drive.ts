@@ -86,9 +86,14 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async auth(): Promise<void> {
-        // ponytail: empty prompt reuses an existing grant silently; 'consent' forced
-        // the account/permission dialog on every load and route click (#37).
-        this.token = await this.requestToken('');
+        // ponytail: try a silent grant first (no popup when a Google session already
+        // granted access), fall back to an interactive prompt only when needed (#37).
+        // Token stays memory-only — silent reuse relies on Google's session, not storage.
+        try {
+            this.token = await this.requestToken('none');
+        } catch {
+            this.token = await this.requestToken('');
+        }
         // Best-effort display name (userinfo is outside drive scope; ignore failures).
         try {
             const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: this.headers() });
