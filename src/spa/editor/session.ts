@@ -11,13 +11,40 @@ let container: HTMLElement | null = null;
 let hidden: HTMLElement[] = [];
 let editorGeneration = 0;
 
+// Last known pointer position, so `e` opens the editor on the section under the
+// cursor rather than the topmost visible one (#44). null until the mouse moves.
+let lastPointer: { x: number; y: number } | null = null;
+let pointerTracking = false;
+
+function trackPointer(): void {
+    if (pointerTracking) return;
+    pointerTracking = true;
+    document.addEventListener('mousemove', (e) => { lastPointer = { x: e.clientX, y: e.clientY }; }, { passive: true });
+}
+
 export function getCurrentSection(headerOffset = 0): HTMLElement | null {
-    const wrapper = document.querySelector('.content-wrapper') ?? document.body;
-    const sections = Array.from(wrapper.querySelectorAll<HTMLElement>('.glint-section'));
-    for (const s of sections) {
-        if (s.getBoundingClientRect().bottom > headerOffset) return s;
+    const wrapper = document.querySelector<HTMLElement>('.content-wrapper') ?? document.body;
+
+    // Prefer the section under the cursor.
+    if (lastPointer) {
+        const under = document.elementFromPoint(lastPointer.x, lastPointer.y);
+        const section = under?.closest<HTMLElement>('.glint-section');
+        if (section && wrapper.contains(section)) return section;
     }
-    return wrapper.querySelector<HTMLElement>('[data-source-line]');
+
+    // Fall back to the section nearest the vertical center of the viewport
+    // (better for keyboard-only use than always grabbing the topmost one).
+    const sections = Array.from(wrapper.querySelectorAll<HTMLElement>('.glint-section'));
+    const mid = window.innerHeight / 2;
+    let best: HTMLElement | null = null;
+    let bestDist = Infinity;
+    for (const s of sections) {
+        const rect = s.getBoundingClientRect();
+        if (rect.bottom <= headerOffset) continue;   // scrolled above the header
+        const dist = Math.abs((rect.top + rect.bottom) / 2 - mid);
+        if (dist < bestDist) { bestDist = dist; best = s; }
+    }
+    return best ?? wrapper.querySelector<HTMLElement>('[data-source-line]');
 }
 
 export function closeSectionEditor(): void {
@@ -139,6 +166,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
 }
 
 export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true): void {
+    trackPointer();
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'e' || e.metaKey || e.ctrlKey || e.altKey) return;
         const el = e.target as HTMLElement;
