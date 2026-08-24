@@ -37,7 +37,31 @@ const ICON = {
     export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    // Source-type marks.
+    drive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 3h8l5.5 9.5-4 6.9H6.5l-4-6.9zM8 3 2.5 12.5M16 3l-5.5 9.5M2.5 12.5h15"/></svg>',
+    github: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>',
+    local: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>',
 } as const;
+
+type SourceKind = 'local' | 'drive' | 'gh';
+function sourceKind(route: string): SourceKind {
+    if (route === '#/local') return 'local';
+    if (route.startsWith('#/drive/')) return 'drive';
+    return 'gh';
+}
+function sourceLabel(route: string): string {
+    return { local: 'Local folder', drive: 'Google Drive', gh: 'GitHub' }[sourceKind(route)];
+}
+function sourceIcon(route: string): string {
+    return { local: ICON.local, drive: ICON.drive, gh: ICON.github }[sourceKind(route)];
+}
+// A useful secondary line: the repo path for GitHub, nothing for Drive/local. The raw
+// Drive folder id is noise, and the icon already carries the type.
+function sourceDetail(route: string): string {
+    if (sourceKind(route) !== 'gh') return '';
+    return decodeURIComponent(route.slice(5)).replace(/@main$/, '');
+}
 
 export function parseRoute(hash: string): { backend: string; rest: string[] } | null {
     const m = hash.replace(/^#\/?/, '');
@@ -79,6 +103,8 @@ let appState: PersistedStateV1 = DEFAULT_STATE;
 let statePersistent = true;
 let stateNotice = '';
 let githubCallbackToken: string | null = null;
+// The route to return to when Settings is closed (the last non-settings view).
+let settingsReturn = '';
 
 function githubOAuthConfig(): GitHubOAuthConfig | undefined {
     if (!CFG.githubClientId || !CFG.githubOAuthWorkerOrigin || !CFG.githubRedirectUri) return undefined;
@@ -99,14 +125,14 @@ function applyTheme(theme: string): void {
 }
 
 // Skin is the layout/type/ornament axis; palette (theme) is colour. They are set
-// independently — the skin is a root attribute the per-skin CSS keys off.
+// independently, the skin is a root attribute the per-skin CSS keys off.
 function applySkin(skin: Skin): void {
     document.documentElement.dataset.skin = skin;
 }
 
 const SKIN_LABELS: Record<Skin, { title: string; blurb: string }> = {
-    reader: { title: 'Reader', blurb: 'Warm editorial — serif prose, soft rounded controls.' },
-    almanac: { title: 'Almanac', blurb: 'Printed field guide — ruled index, small caps, marginalia.' },
+    reader: { title: 'Reader', blurb: 'Warm editorial with serif prose and soft, rounded controls.' },
+    almanac: { title: 'Almanac', blurb: 'Printed field guide with a ruled index, small caps, and marginalia.' },
 };
 
 const COMMENT_LABELS: Record<CommentLayout, { title: string; blurb: string }> = {
@@ -162,7 +188,7 @@ function promptText(title: string, initial = ''): Promise<string | null> {
 }
 
 // In-app replacement for the GitHub prompt()/confirm() flow. The PAT is returned to the
-// adapter, which keeps it in memory only — it is never persisted here.
+// adapter, which keeps it in memory only, it is never persisted here.
 function promptGitHubAuth(ctx: { owner: string; repo: string; ref: string; hasOAuth: boolean; error?: string }): Promise<GitHubAuthChoice> {
     const oauthBlock = ctx.hasOAuth
         ? `<button type="button" class="glint-modal-primary" data-oauth>Authorize with GitHub</button>
@@ -207,12 +233,6 @@ function persistState(): boolean {
     }
 }
 
-function sourceSummary(route: string): string {
-    if (route === '#/local') return 'Local folder';
-    if (route.startsWith('#/drive/')) return `Google Drive: ${decodeURIComponent(route.slice(8))}`;
-    return `GitHub: ${decodeURIComponent(route.slice(5))}`;
-}
-
 function rememberCurrentProject(): void {
     const route = normalizeProjectRoute(location.hash);
     if (!route) return;
@@ -226,8 +246,10 @@ function activeProjectName(): string {
 }
 
 function projectSwitcher(): string {
-    const options = appState.projects.map((project) => `<option value="${escapeHtml(project.route)}"${project.route === appState.settings.activeProjectRoute ? ' selected' : ''}>${escapeHtml(project.name)} — ${escapeHtml(sourceSummary(project.route))}</option>`).join('');
-    return `<div class="glint-switcher">${ICON.source}<select data-project-switch aria-label="Switch project"><option value="">Choose a project…</option>${options}</select></div>`;
+    const active = appState.projects.find((project) => project.route === appState.settings.activeProjectRoute);
+    const icon = active ? sourceIcon(active.route) : ICON.source;
+    const options = appState.projects.map((project) => `<option value="${escapeHtml(project.route)}"${project.route === active?.route ? ' selected' : ''}>${escapeHtml(project.name)}</option>`).join('');
+    return `<div class="glint-switcher"><span class="glint-source-icon">${icon}</span><select data-project-switch aria-label="Switch project"><option value="">Choose a project</option>${options}</select></div>`;
 }
 
 function wireProjectControls(root: ParentNode): void {
@@ -239,17 +261,30 @@ function wireProjectControls(root: ParentNode): void {
     root.querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
 }
 
+function closeSettings(): void {
+    // Return to whatever view we came from; fall back to the landing page.
+    const target = settingsReturn && settingsReturn !== '#/settings' ? settingsReturn : '';
+    if (location.hash === target) void boot();
+    else location.hash = target;
+}
+
 function renderSettings(): void {
     document.body.classList.add('glint-landing');
     const skinCards = SKINS.map((skin) => `<button type="button" class="glint-skin-card${skin === appState.settings.skin ? ' selected' : ''}" data-skin-choice="${skin}"><strong>${escapeHtml(SKIN_LABELS[skin].title)}</strong><span>${escapeHtml(SKIN_LABELS[skin].blurb)}</span></button>`).join('');
     const themeOptions = THEMES.map((theme) => `<option value="${theme}"${theme === appState.settings.theme ? ' selected' : ''}>${theme}</option>`).join('');
     const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-skin-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
-    const rows = appState.projects.map((project, index) => `<li class="glint-project-row"><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(sourceSummary(project.route))}</span></span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`).join('');
+    const rows = appState.projects.map((project, index) => {
+        const detail = sourceDetail(project.route);
+        return `<li class="glint-project-row"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span>${detail ? `<span class="glint-project-source">${escapeHtml(detail)}</span>` : ''}</span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`;
+    }).join('');
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell glint-settings">
-        <h1 tabindex="-1">Settings</h1>
+        <header class="glint-page-head">
+            <div><p class="glint-eyebrow">Preferences</p><h1 tabindex="-1">Settings</h1></div>
+            <button class="glint-ghost-btn" data-close-settings aria-label="Close settings">${ICON.close}<span>Close</span></button>
+        </header>
         <p role="status">${escapeHtml(stateNotice)}</p>
         <section class="glint-setting-group"><h2>Appearance</h2>
-            <p class="glint-setting-note">Skin sets the layout &amp; type; palette sets the colours — independently.</p>
+            <p class="glint-setting-note">Skin sets the layout and type; palette sets the colours.</p>
             <div class="glint-skin-grid">${skinCards}</div>
             <label class="glint-field">Palette <select data-theme>${themeOptions}</select></label>
         </section>
@@ -262,11 +297,11 @@ function renderSettings(): void {
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
         </section>
         <section class="glint-setting-group"><h2>Projects</h2>
-            ${rows ? `<ul class="glint-project-list">${rows}</ul>` : '<p class="glint-setting-note">No Projects saved yet.</p>'}
-            <button class="glint-danger" data-reset-projects>Reset local Projects and settings</button>
-        </section>
-        <p><a href="#">Back to Projects</a></p></section>`;
+            ${rows ? `<ul class="glint-project-list">${rows}</ul>` : '<p class="glint-setting-note">No projects saved yet.</p>'}
+            <button class="glint-danger" data-reset-projects>Reset local projects and settings</button>
+        </section></section>`;
     const wrapper = document.querySelector('.content-wrapper')!;
+    wrapper.querySelector('[data-close-settings]')?.addEventListener('click', closeSettings);
     wrapper.querySelectorAll<HTMLButtonElement>('[data-skin-choice]').forEach((button) => button.addEventListener('click', () => {
         const skin = button.dataset.skinChoice as Skin;
         const previous = appState.settings.skin;
@@ -718,33 +753,50 @@ function renderSidebar() {
 function renderLanding(): void {
     document.body.classList.add('glint-landing');
     const local = localSupported()
-        ? `<a class="glint-source-card" href="#/local"><strong>Local folder</strong><span>Open Markdown from this device.</span></a>`
-        : `<div class="glint-source-card disabled"><strong>Local folder</strong><span>Needs a Chromium-based browser.</span></div>`;
+        ? `<a class="glint-source-card" href="#/local"><span class="glint-source-icon">${ICON.local}</span><strong>Local folder</strong><span>Open Markdown from this device.</span></a>`
+        : `<div class="glint-source-card disabled"><span class="glint-source-icon">${ICON.local}</span><strong>Local folder</strong><span>Needs a Chromium-based browser.</span></div>`;
+    const projectList = appState.projects.length
+        ? `<ul class="glint-project-list">${appState.projects.map((project) => {
+            const detail = sourceDetail(project.route);
+            return `<li class="glint-project-row"><a class="glint-project-open" href="${escapeHtml(project.route)}"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(detail || sourceLabel(project.route))}</span></span></a></li>`;
+        }).join('')}</ul>`
+        : '<p class="glint-setting-note">No projects saved yet. Open a source to start one.</p>';
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `
-        <section class="glint-landing-shell">
-            <p class="glint-eyebrow">Markdown, kept close</p>
-            <h1 tabindex="-1">Projects</h1>
+        <section class="glint-landing-shell glint-landing-page">
+            <header class="glint-page-head">
+                <div><p class="glint-eyebrow">A Markdown wiki</p><h1 tabindex="-1">Glint</h1></div>
+                <button class="glint-ghost-btn" data-settings aria-label="Settings">${ICON.gear}<span>Settings</span></button>
+            </header>
             <p role="status">${escapeHtml(stateNotice)}</p>
-            <p class="glint-intro">Projects are bookmarks stored only in this browser.</p>
-            ${appState.projects.length ? `<ul>${appState.projects.map((project) => `<li><a href="${escapeHtml(project.route)}">${escapeHtml(project.name)} — ${escapeHtml(sourceSummary(project.route))}</a></li>`).join('')}</ul>` : '<p>No Projects saved yet.</p>'}
-            <div class="glint-source-grid">
-                ${local}
-                <form class="glint-source-card" data-source-form="drive">
-                    <strong>Google Drive</strong><span>Open a shared folder by ID.</span>
-                    <label for="lp-drive">Folder ID</label>
-                    <input id="lp-drive" placeholder="1a2b..." autocomplete="off">
-                    <button>Open Drive folder</button>
-                </form>
-                <form class="glint-source-card" data-source-form="gh">
-                    <strong>GitHub</strong><span>Open a repository folder with a personal token.</span>
-                    <label for="lp-gh">Repository path</label>
-                    <input id="lp-gh" placeholder="owner/repo/path@ref" autocomplete="off">
-                    <button>Open GitHub folder</button>
-                </form>
+            <div class="glint-landing-cols">
+                <section class="glint-landing-col">
+                    <h2 class="glint-col-label">Your projects</h2>
+                    ${projectList}
+                </section>
+                <section class="glint-landing-col">
+                    <h2 class="glint-col-label">Open a source</h2>
+                    <div class="glint-source-grid">
+                        ${local}
+                        <form class="glint-source-card" data-source-form="drive">
+                            <span class="glint-source-icon">${ICON.drive}</span>
+                            <strong>Google Drive</strong><span>Open a shared folder by ID.</span>
+                            <label for="lp-drive">Folder ID</label>
+                            <input id="lp-drive" placeholder="1a2b..." autocomplete="off">
+                            <button>Open Drive folder</button>
+                        </form>
+                        <form class="glint-source-card" data-source-form="gh">
+                            <span class="glint-source-icon">${ICON.github}</span>
+                            <strong>GitHub</strong><span>Open a repository folder with a token.</span>
+                            <label for="lp-gh">Repository path</label>
+                            <input id="lp-gh" placeholder="owner/repo/path@ref" autocomplete="off">
+                            <button>Open GitHub folder</button>
+                        </form>
+                    </div>
+                    <p class="glint-route-help">Direct routes also work: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, or <code>#/gh/owner/repo/path@ref</code>.</p>
+                </section>
             </div>
-            <p><a href="#/settings">Settings</a></p>
-            <p class="glint-route-help">Direct routes also work: <code>#/local</code>, <code>#/drive/&lt;folderId&gt;</code>, or <code>#/gh/owner/repo/path@ref</code>.</p>
         </section>`;
+    (document.querySelector('.content-wrapper') as HTMLElement).querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
     const goTo = (hash: string) => { location.hash = hash; };
     document.querySelector<HTMLFormElement>('[data-source-form="drive"]')?.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -772,7 +824,10 @@ function wireMobileSidebar(): void {
     });
     overlay?.addEventListener('click', closeMobileSidebar);
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeMobileSidebar();
+        if (event.key !== 'Escape') return;
+        closeMobileSidebar();
+        // Escape closes Settings too, unless a modal is capturing it.
+        if (location.hash === '#/settings' && !document.querySelector('.glint-modal-overlay')) closeSettings();
     });
 }
 
@@ -830,7 +885,7 @@ export async function boot(): Promise<void> {
     applyContentBar(appState.settings.contentBar);
     const oauth = githubOAuthConfig();
     if (oauth) {
-        // Only overwrite on an actual capture — the restore below re-boots without a code,
+        // Only overwrite on an actual capture, the restore below re-boots without a code,
         // and that second pass must not null the token we just obtained.
         const captured = await takeGitHubOAuthCallback(oauth);
         if (captured) {
@@ -840,6 +895,7 @@ export async function boot(): Promise<void> {
         }
     }
     const route = parseRoute(location.hash);
+    if (route?.backend !== 'settings') settingsReturn = location.hash;
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }
     adapter = pickAdapter(route.backend, route.rest);
