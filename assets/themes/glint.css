@@ -1,0 +1,19 @@
+/* Glint theme: the original pre-SPA default — offwhite ground, green accent. */
+:root {
+    --bg-color: #f8f8f2;
+    --bg-dim: #f0efe6;
+    --bg-highlight: #e7e6d9;
+    --bg-secondary: #f0efe6;
+    --text-color: #1b2b1b;
+    --text-dim: #5a6a55;
+    --green: #22863a;
+    --red: #d73a49;
+    --orange: #e36209;
+    --yellow: #b08800;
+    --blue: #1b7c83;
+    --aqua: #1b7c83;
+    --purple: #6f42c1;
+    --border-color: #d9dccf;
+    --code-bg: #eef0e6;
+    --link-color: #22863a;
+}

@@ -2060,6 +2060,34 @@ h6:hover .heading-edit-icon,
 }
 
 /* Toast Notifications */
+.glint-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: center;
+    padding: 3rem 0;
+    color: var(--text-dim, #6a737d);
+}
+
+.glint-spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--green, #22863a);
+    border-radius: 50%;
+    animation: glint-spin 0.7s linear infinite;
+}
+
+.glint-editor-saving {
+    color: var(--text-dim, #6a737d);
+    font-size: 0.9rem;
+    margin: 0.4rem 0 0;
+}
+
+@keyframes glint-spin {
+    to { transform: rotate(360deg); }
+}
+
 .glint-toast-container {
     position: fixed;
     bottom: 2rem;

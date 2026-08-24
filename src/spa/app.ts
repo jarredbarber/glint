@@ -140,7 +140,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
     }
 }
 
-const THEMES = ['ayu-dark', 'ayu-light', 'catppuccin-latte', 'catppuccin-mocha', 'default', 'dracula', 'everforest-dark', 'github-light', 'gruvbox-dark', 'kanagawa', 'moonlight', 'nord', 'nvim', 'one-dark', 'rose-pine', 'rose-pine-dawn', 'solarized-light', 'tokyo-night'] as const;
+const THEMES = ['ayu-dark', 'ayu-light', 'catppuccin-latte', 'catppuccin-mocha', 'default', 'dracula', 'everforest-dark', 'github-light', 'glint', 'gruvbox-dark', 'kanagawa', 'moonlight', 'nord', 'nvim', 'one-dark', 'rose-pine', 'rose-pine-dawn', 'solarized-light', 'tokyo-night'] as const;
 let appState: PersistedStateV1 = DEFAULT_STATE;
 let statePersistent = true;
 let stateNotice = '';
@@ -412,6 +412,38 @@ function renderSettings(): void {
 function wikiTargetFromHref(href: string): string {
     const m = href.match(/\/f\/(.+)$/);
     return m ? decodeURIComponent(m[1]) : '';
+}
+
+// Reuses the .glint-toast CSS shipped in layout.css. Returns the node so a caller can
+// flip a persistent "Saving…" toast to "Saved".
+function showToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+    let container = document.querySelector('.glint-toast-container');
+    if (!container) { container = document.createElement('div'); container.className = 'glint-toast-container'; document.body.appendChild(container); }
+    const toast = document.createElement('div');
+    toast.className = `glint-toast ${type}`;
+    const icon = document.createElement('span'); icon.className = 'toast-icon';
+    icon.textContent = type === 'success' ? '✔' : type === 'error' ? '✕' : 'ℹ';
+    const msg = document.createElement('span'); msg.className = 'toast-message'; msg.textContent = message;
+    toast.append(icon, msg);
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('out'); toast.addEventListener('animationend', () => toast.remove()); }, 2500);
+}
+
+function showLoading(label = 'Loading…'): void {
+    const wrapper = document.querySelector('.content-wrapper') as HTMLElement | null;
+    if (wrapper) wrapper.innerHTML = `<div class="glint-loading" role="status"><span class="glint-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span></div>`;
+}
+
+// Called by the editor after a successful save: refresh the cache and re-render the
+// page in place instead of reloading the SPA (#54).
+async function onSectionSaved(id: string, content: string): Promise<void> {
+    contentCache.set(id, content);
+    const file = files.find((f) => f.id === id);
+    try {
+        if (file) { const { version } = await adapter.read(id); file.version = version; }
+    } catch { /* version refresh is best-effort */ }
+    await openFile(id);
+    showToast('Saved', 'success');
 }
 
 async function openFile(id: string) {
@@ -1025,6 +1057,7 @@ export async function boot(): Promise<void> {
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }
     adapter = pickAdapter(route.backend, route.rest);
+    showLoading('Opening project…');
     try {
         await adapter.auth();
         document.body.dataset.access = 'edit';
@@ -1044,7 +1077,7 @@ export async function boot(): Promise<void> {
     }
     rememberCurrentProject();
     renderSidebar();
-    installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode);
+    installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved);
     installCommentShortcut();
     if (files.length) await openFile(files[0].id);
 }

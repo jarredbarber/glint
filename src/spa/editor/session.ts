@@ -55,6 +55,16 @@ export function closeSectionEditor(): void {
     hidden = [];
 }
 
+type SavedCallback = (fileId: string, content: string) => void | Promise<void>;
+
+function showSavingNotice(): HTMLElement {
+    const notice = document.createElement('p');
+    notice.className = 'glint-editor-saving';
+    notice.textContent = 'Saving…';
+    container?.appendChild(notice);
+    return notice;
+}
+
 function showConflictNotice(): void {
     const notice = document.createElement('p');
     notice.className = 'glint-editor-save-conflict';
@@ -88,7 +98,7 @@ function isAuthExpired(error: unknown): boolean {
     return error instanceof AuthExpiredError || (error instanceof Error && error.name === 'AuthExpiredError');
 }
 
-export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement, vimMode = true): Promise<void> {
+export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement, vimMode = true, onSaved?: SavedCallback): Promise<void> {
     closeSectionEditor();
     const generation = editorGeneration;
 
@@ -116,12 +126,19 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
         onSave: async (edited: string) => {
             const next = [...lines];
             next.splice(startLine - 1, endLine - startLine, edited);
-            const write = () => adapter.write(fileId, next.join('\n'), version);
+            const newContent = next.join('\n');
+            const write = () => adapter.write(fileId, newContent, version);
+            const finish = async () => {
+                closeSectionEditor();                       // close in place, no reload (#54)
+                await onSaved?.(fileId, newContent);
+            };
+            const saving = showSavingNotice();
             try {
                 await write();
-                location.reload();
+                await finish();
                 return true;
             } catch (e) {
+                saving.remove();
                 if (e instanceof ConflictError) {
                     showConflictNotice();
                 } else if (isAuthExpired(e)) {
@@ -137,7 +154,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
                     }
                     try {
                         await write();
-                        location.reload();
+                        await finish();
                         return true;
                     } catch (retryError) {
                         if (retryError instanceof ConflictError) {
@@ -165,7 +182,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     active = editor;
 }
 
-export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true): void {
+export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true, onSaved?: SavedCallback): void {
     trackPointer();
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'e' || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -176,6 +193,6 @@ export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: (
         const section = getCurrentSection(64);
         if (!section) { alert('Scroll to a section first.'); return; }   // never a silent no-op (#8 §2/§4)
         e.preventDefault();
-        void openSectionEditor(adapter, id, section, vimMode());
+        void openSectionEditor(adapter, id, section, vimMode(), onSaved);
     });
 }

@@ -108,3 +108,39 @@ test('recursively lists repository folders using source-relative file IDs', asyn
         { id: 'notes/Draft.md', name: 'Draft.md', path: 'notes/Draft.md', version: 'draft-sha' },
     ]);
 });
+test('reuses a valid cached token from localStorage without prompting (#53)', async (t) => {
+    const descriptors = Object.fromEntries(
+        ['localStorage', 'fetch'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+    );
+    const store = new Map<string, string>([['glint.github.token', 'cached-token']]);
+    let authPrompts = 0;
+    let sawToken: string | null = null;
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: {
+            getItem: (k: string) => store.get(k) ?? null,
+            setItem: (k: string, v: string) => { store.set(k, v); },
+            removeItem: (k: string) => { store.delete(k); },
+        },
+    });
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (_url: string, opts: RequestInit) => {
+            sawToken = String((opts.headers as Record<string, string>).Authorization);
+            return new Response(JSON.stringify({ login: 'octocat' }));
+        },
+    });
+    t.after(() => {
+        for (const [name, descriptor] of Object.entries(descriptors)) {
+            if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+            else Reflect.deleteProperty(globalThis, name);
+        }
+    });
+
+    const authPrompt = async () => { authPrompts += 1; return null; };
+    // No initialToken: the adapter must recover the token from localStorage.
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, null, authPrompt);
+    await adapter.auth();
+    assert.equal(authPrompts, 0);
+    assert.equal(sawToken, 'Bearer cached-token');
+});

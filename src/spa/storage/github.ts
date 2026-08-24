@@ -27,6 +27,21 @@ const githubReadSchema = z.object({ content: z.string(), sha: z.string() });
 const githubMutationSchema = z.object({
     content: z.object({ name: z.string(), path: z.string(), sha: z.string() }),
 });
+// ponytail: mirror the Drive token cache (#37/#53) — persist the validated token in
+// localStorage so reopening an authed repo skips the auth window. Same tradeoff: the
+// CSP is the real exfil control, and 401/invalid clears it. Global key: validate() and
+// the 401 handlers cover a token that lacks access to a particular repo.
+const GH_TOKEN_KEY = 'glint.github.token';
+function loadCachedGitHubToken(): string | null {
+    try { return localStorage.getItem(GH_TOKEN_KEY) || null; } catch { return null; }
+}
+function cacheGitHubToken(token: string): void {
+    try { localStorage.setItem(GH_TOKEN_KEY, token); } catch { /* non-fatal */ }
+}
+function clearCachedGitHubToken(): void {
+    try { localStorage.removeItem(GH_TOKEN_KEY); } catch { /* non-fatal */ }
+}
+
 // UTF-8-safe base64 (GitHub Contents API is base64).
 function toB64(s: string): string {
     return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
@@ -51,11 +66,12 @@ export class GitHubAdapter implements StorageAdapter {
         initialToken?: string | null,
         private authPrompt?: GitHubAuthPrompt,
     ) {
-        this.token = initialToken ?? null;
+        this.token = initialToken ?? loadCachedGitHubToken();
     }
 
     async auth(): Promise<void> {
-        if (this.token && (await this.validate(this.token))) return;
+        if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); return; }
+        clearCachedGitHubToken();
         let error: string | undefined;
         for (;;) {
             const choice = this.authPrompt
@@ -68,13 +84,14 @@ export class GitHubAdapter implements StorageAdapter {
                 continue;
             }
             const token = choice.token.trim();
-            if (token && (await this.validate(token))) { this.token = token; return; }
+            if (token && (await this.validate(token))) { this.token = token; cacheGitHubToken(token); return; }
             error = 'That token is invalid or lacks access to this repo.';
         }
     }
 
     async reauthenticate(): Promise<void> {
         if (!this.token || !(await this.validate(this.token))) {
+            clearCachedGitHubToken();
             throw new AuthExpiredError('GitHub authentication expired');
         }
     }
@@ -152,7 +169,7 @@ export class GitHubAdapter implements StorageAdapter {
             }),
         });
         if (r.status === 409) throw new ConflictError();
-        if (r.status === 401) throw new AuthExpiredError('GitHub authentication expired');
+        if (r.status === 401) { clearCachedGitHubToken(); throw new AuthExpiredError('GitHub authentication expired'); }
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const nextVersion = githubMutationSchema.parse(await r.json()).content.sha;
         this.reads.set(id, { content, version: nextVersion });

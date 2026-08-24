@@ -117,9 +117,10 @@ class ExpiredAuthError extends Error {
     }
 }
 
-test('an expired-auth save silently reconnects once, retries once, then reloads', async (t) => {
+test('an expired-auth save silently reconnects once, retries once, then closes in place', async (t) => {
     const dom = installEditorDom(t);
     const writes: string[] = [];
+    const saved: Array<[string, string]> = [];
     let silentReauths = 0;
     const adapter = {
         auth: async () => { throw new Error('interactive auth must not run'); },
@@ -136,13 +137,14 @@ test('an expired-auth save silently reconnects once, retries once, then reloads'
         delete: async () => {},
     } satisfies StorageAdapter;
 
-    await openSectionEditor(adapter, 'note.md', dom.section);
-    const saved = await dom.options?.onSave('# Edited');
+    await openSectionEditor(adapter, 'note.md', dom.section, true, (id, content) => { saved.push([id, content]); });
+    const ok = await dom.options?.onSave('# Edited');
 
-    assert.equal(saved, true);
+    assert.equal(ok, true);
     assert.equal(silentReauths, 1);
     assert.deepEqual(writes, ['# Edited', '# Edited']);
-    assert.equal(dom.reloads, 1);
+    assert.deepEqual(saved, [['note.md', '# Edited']]);
+    assert.equal(dom.reloads, 0);
     assert.equal(dom.alerts, 0);
 });
 
