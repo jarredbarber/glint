@@ -86,7 +86,7 @@ githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
-OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs.
+GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is `drive.file`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,
