@@ -22,7 +22,10 @@ declare global {
 const CFG = window.GLINT_CONFIG ?? {};
 import { installEditorShortcuts } from './editor/session.js';
 
-declare const GlintRender: { renderMarkdown(src: string, opts?: any): Promise<string> };
+declare const GlintRender: {
+    renderMarkdown(src: string, opts?: any): Promise<string>;
+    drawContentBehaviors(root?: ParentNode): Promise<void>;
+};
 
 // Inline single-colour icons (stroke = currentColor) for the app chrome. Kept here so
 // the sidebar markup below reads as structure, not paths.
@@ -77,6 +80,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             { name: 'Home.md', content: '# Home\n\nSee [[Notes]].\n\n## Intro\n\nWelcome.' },
             { name: 'Notes.md', content: '## Notes\n\nHello from notes.' },
             { name: 'Guides/Welcome.md', content: '## Welcome\n\nA nested page.' },
+            { name: 'Diagrams.md', content: '# Diagrams\n\n```mermaid\ngraph TD\n  A[Start] --> B{Works?}\n  B -->|Yes| C[Ship]\n  B -->|No| A\n```\n\n## A tune\n\n```abc\nX:1\nT:Scale\nK:C\nCDEF GABc\n```\n' },
         ]);
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
@@ -384,6 +388,7 @@ async function openFile(id: string) {
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = html;
+    void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
     wireWikiLinks();
     await renderDiscussions(content);
     renderContentBar();

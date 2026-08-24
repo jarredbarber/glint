@@ -2,6 +2,8 @@ import { VFile } from 'vfile';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor, type GlintConfig } from './pipeline.js';
 
+export { drawContentBehaviors } from './renderer/content-behavior.js';
+
 export interface RenderOptions {
     /** KaTeX macros, e.g. { '\\R': '\\mathbb{R}' } */
     macros?: Record<string, string>;
