@@ -9,7 +9,7 @@ import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-li
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
-import { GitHubOAuthConfig, takeGitHubOAuthCallback } from './github-oauth.js';
+import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
 // Public OAuth IDs and the Worker origin are deployment configuration; secrets never
@@ -829,7 +829,16 @@ export async function boot(): Promise<void> {
     applyCommentLayout(appState.settings.commentLayout);
     applyContentBar(appState.settings.contentBar);
     const oauth = githubOAuthConfig();
-    if (oauth) githubCallbackToken = await takeGitHubOAuthCallback(oauth);
+    if (oauth) {
+        // Only overwrite on an actual capture — the restore below re-boots without a code,
+        // and that second pass must not null the token we just obtained.
+        const captured = await takeGitHubOAuthCallback(oauth);
+        if (captured) {
+            githubCallbackToken = captured;
+            const returnTo = takeGitHubOAuthReturn();
+            if (returnTo && location.hash !== returnTo) { location.hash = returnTo; return; }
+        }
+    }
     const route = parseRoute(location.hash);
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }

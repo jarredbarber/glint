@@ -1,6 +1,15 @@
 export type GitHubOAuthConfig = { clientId: string; workerOrigin: string; redirectUri: string };
 
 const STATE_KEY = 'glint-gh-oauth-state';
+// GitHub redirects back to the fragment-less redirect_uri, dropping the #/gh/... route.
+// Stash it before leaving so the callback can restore it after the token exchange (#37).
+const RETURN_KEY = 'glint-gh-oauth-return';
+
+export function takeGitHubOAuthReturn(): string | null {
+    const hash = sessionStorage.getItem(RETURN_KEY);
+    sessionStorage.removeItem(RETURN_KEY);
+    return hash || null;
+}
 
 function callbackUrl(): URL {
     return new URL(location.href);
@@ -14,6 +23,7 @@ function cleanCallbackUrl(url: URL): void {
 export function beginGitHubOAuth(config: GitHubOAuthConfig): never {
     const state = crypto.randomUUID();
     sessionStorage.setItem(STATE_KEY, state);
+    sessionStorage.setItem(RETURN_KEY, location.hash);
     const authorize = new URL('https://github.com/login/oauth/authorize');
     authorize.search = new URLSearchParams({
         client_id: config.clientId,

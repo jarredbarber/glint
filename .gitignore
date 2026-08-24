@@ -5,6 +5,8 @@ dist-spa/
 *.md.assets/
 assets/*.bundle.js
 assets/*.bundle.js.map
+.env
+.dev.vars
 
 
 # bv (beads viewer) local config and caches
