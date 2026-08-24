@@ -103,11 +103,60 @@ const DEMO_PAGES = [
         '# Code', '',
         '```python', 'def fib(n):', '    if n <= 1:', '        return n', '    return fib(n - 1) + fib(n - 2)', '```', '',
     ].join('\n') },
-    { name: 'Math.md', content: [
-        '# Math', '',
-        'Inline math like $e = mc^2$ renders alongside prose. Display blocks stand alone:', '',
-        '$$E^2 = (mc^2)^2 + (pc)^2$$', '',
-    ].join('\n') },
+    // String.raw so the LaTeX backslashes survive; headings double as a ToC demo.
+    { name: 'Math.md', content: String.raw`# Math
+
+Inline math like $e = mc^2$ renders alongside prose. Display blocks stand alone:
+
+$$E^2 = (mc^2)^2 + (pc)^2$$
+
+## The Euler-Lagrange Equation [[#ref:euler]]
+
+**Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
+
+We consider a variation $\delta q(t)$ such that $\delta q(t_1) = \delta q(t_2) = 0$. The extremum condition is $\delta S = 0$:
+$$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \delta q + \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta \dot{q} \right) dt = 0 $$
+
+Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
+
+$$ \int_{t_1}^{t_2} \frac{\partial \mathcal{L}}{\partial \dot{q}} \frac{d}{dt}(\delta q) dt = \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta q \right)_{t_1}^{t_2} - \int_{t_1}^{t_2} \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt $$
+
+The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substituting this back:
+
+$$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt = 0 $$
+
+By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
+$$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
+
+## Einstein Field Equations [[#ref:einstein]]
+
+**Goal:** To derive the EFE from the Einstein-Hilbert action $S = \int \left( \frac{1}{2\kappa} R + \mathcal{L}_M \right) \sqrt{-g} \, d^4x$.
+
+Varying the action with respect to the inverse metric $g^{\mu\nu}$:
+
+$$ \delta S = \int \left[ \frac{1}{2\kappa} \left( \frac{\delta(\sqrt{-g}R)}{\delta g^{\mu\nu}} \right) + \frac{\delta(\sqrt{-g}\mathcal{L}_M)}{\delta g^{\mu\nu}} \right] \delta g^{\mu\nu} d^4x = 0 $$
+
+Using the variation of the Ricci scalar $R = g^{\mu\nu} R_{\mu\nu}$:
+
+$$ \delta(\sqrt{-g}R) = R_{\mu\nu} \delta(g^{\mu\nu}\sqrt{-g}) + \sqrt{-g} g^{\mu\nu} \delta R_{\mu\nu} $$
+
+The second term (Palatini identity) is a total divergence and vanishes. Using Jacobi's formula for the variation of the determinant $\delta \sqrt{-g} = -\frac{1}{2}\sqrt{-g}g_{\mu\nu}\delta g^{\mu\nu}$:
+
+$$ \delta(\sqrt{-g}R) = \sqrt{-g} \left( R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} \right) \delta g^{\mu\nu} $$
+
+Defining the Energy-Momentum tensor $T_{\mu\nu} = -2 \frac{1}{\sqrt{-g}} \frac{\delta(\sqrt{-g}\mathcal{L}_M)}{\delta g^{\mu\nu}}$:
+
+$$ \frac{1}{2\kappa} \sqrt{-g} \left( R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} \right) - \frac{1}{2} \sqrt{-g} T_{\mu\nu} = 0 $$
+
+Rearranging with $\kappa = 8\pi G/c^4$ gives:
+
+$$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}$$
+
+## References
+
+- [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation>
+- [ref:euler] "Methodus Inveniendi Lineas Curvas Maximi Minive Proprietate Gaudentes" Euler, L. (1744)
+` },
     { name: 'Comments.md', content: [
         '# Comments', '',
         'The pipeline renders `comment` fences as annotation blocks. Active:', '',
