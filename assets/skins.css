@@ -182,7 +182,8 @@
     border-radius: var(--skin-radius-sm);
     cursor: pointer;
 }
-[data-skin] .glint-danger { color: var(--red); border-color: var(--red) !important; }
+/* button.glint-danger (0,2,1) ties .glint-project-actions button and wins on order. */
+[data-skin] button.glint-danger { color: var(--red); border-color: var(--red); }
 [data-skin] button.glint-danger[data-reset-projects] { margin-top: 1rem; background: transparent; padding: 0.5rem 0.9rem; border: var(--skin-rule) solid var(--red); border-radius: var(--skin-radius-sm); cursor: pointer; font: inherit; }
 
 /* ---- Modal (auth + rename) -------------------------------------------- */
