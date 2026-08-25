@@ -23,6 +23,10 @@ const githubListSchema = z.array(z.object({
     path: z.string(),
     sha: z.string(),
 }));
+const githubTreeSchema = z.object({
+    truncated: z.boolean(),
+    tree: z.array(z.object({ path: z.string(), type: z.string(), sha: z.string() })),
+});
 const githubReadSchema = z.object({ content: z.string(), sha: z.string() });
 const githubMutationSchema = z.object({
     content: z.object({ name: z.string(), path: z.string(), sha: z.string() }),
@@ -164,8 +168,28 @@ export class GitHubAdapter implements StorageAdapter {
         return files;
     }
 
+    // One recursive Git Trees call yields the whole repo tree, instead of one
+    // /contents/ request per directory (#66). Returns null when GitHub truncates
+    // the tree (>100k entries) or the call fails, so list() falls back to the walk.
+    private async listTree(): Promise<FileMeta[] | null> {
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/git/trees/${encodeURIComponent(this.ref)}?recursive=1`);
+        if (!r.ok) return null;
+        const j = githubTreeSchema.parse(await r.json());
+        if (j.truncated) return null;
+        const root = this.path.replace(/^\/+|\/+$/g, '');
+        const prefix = root ? `${root}/` : '';
+        const files: FileMeta[] = [];
+        for (const item of j.tree) {
+            if (item.type !== 'blob' || !item.path.endsWith('.md')) continue;
+            if (prefix && !item.path.startsWith(prefix)) continue;
+            const rel = item.path.slice(prefix.length);
+            files.push({ id: rel, name: rel.split('/').pop()!, path: rel, version: item.sha });
+        }
+        return files;
+    }
+
     async list(): Promise<FileMeta[]> {
-        const files = await this.listDirectory('');
+        const files = (await this.listTree()) ?? await this.listDirectory('');
         this.listedVersions = new Map(files.map((file) => [file.id, file.version]));
         for (const id of this.reads.keys()) {
             if (!this.listedVersions.has(id)) this.reads.delete(id);

@@ -53,10 +53,10 @@ test('caches GitHub file content until a directory refresh reports a new blob SH
     Object.defineProperty(globalThis, 'fetch', {
         configurable: true,
         value: async (url: string) => {
-            if (url.includes('?ref=main') && !url.includes('note.md')) {
-                return new Response(JSON.stringify([{
-                    type: 'file', name: 'note.md', path: 'note.md', sha: listVersion,
-                }]));
+            if (url.includes('/git/trees/')) {
+                return new Response(JSON.stringify({ truncated: false, tree: [
+                    { type: 'blob', path: 'note.md', sha: listVersion },
+                ] }));
             }
             fileReads += 1;
             const content = listVersion === 'sha-1' ? 'first' : 'second';
@@ -84,11 +84,49 @@ test('caches GitHub file content until a directory refresh reports a new blob SH
 });
 
 
-test('recursively lists repository folders using source-relative file IDs', async (t) => {
+test('lists the whole repo with one Git Trees call, filtered to the subtree (#66)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    let treeCalls = 0, contentsCalls = 0;
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string) => {
+            if (url.includes('/git/trees/')) {
+                treeCalls += 1;
+                return new Response(JSON.stringify({ truncated: false, tree: [
+                    { type: 'tree', path: 'docs', sha: 'd0' },
+                    { type: 'tree', path: 'docs/notes', sha: 'dir-sha' },
+                    { type: 'blob', path: 'docs/Home.md', sha: 'home-sha' },
+                    { type: 'blob', path: 'docs/notes/Draft.md', sha: 'draft-sha' },
+                    { type: 'blob', path: 'docs/logo.png', sha: 'png' },       // non-markdown, skipped
+                    { type: 'blob', path: 'other/Outside.md', sha: 'skip' },   // outside subtree, skipped
+                ] }));
+            }
+            if (url.includes('/contents/')) contentsCalls += 1;
+            return new Response(JSON.stringify([]));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', 'docs', 'main');
+    assert.deepEqual(await adapter.list(), [
+        { id: 'Home.md', name: 'Home.md', path: 'Home.md', version: 'home-sha' },
+        { id: 'notes/Draft.md', name: 'Draft.md', path: 'notes/Draft.md', version: 'draft-sha' },
+    ]);
+    assert.equal(treeCalls, 1, 'exactly one tree request');
+    assert.equal(contentsCalls, 0, 'no per-directory contents walk');
+});
+
+test('falls back to the contents walk when the tree is truncated (#66)', async (t) => {
     const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
     Object.defineProperty(globalThis, 'fetch', {
         configurable: true,
         value: async (url: string) => {
+            if (url.includes('/git/trees/')) {
+                return new Response(JSON.stringify({ truncated: true, tree: [] }));
+            }
             if (url.includes('/contents/docs/notes?')) {
                 return new Response(JSON.stringify([{
                     type: 'file', name: 'Draft.md', path: 'docs/notes/Draft.md', sha: 'draft-sha',
@@ -120,9 +158,9 @@ test('auto-detects the repo default branch when no ref is given (#64)', async (t
             if (url.endsWith('/user')) return new Response(JSON.stringify({ login: 'octocat' }));
             // The repo probe carries the default branch; a repo on `master`, not `main`.
             if (url.endsWith('/repos/owner/repo')) return new Response(JSON.stringify({ permissions: { push: true }, default_branch: 'master' }));
-            const m = url.match(/[?&]ref=([^&]+)/);
+            const m = url.match(/\/git\/trees\/([^?]+)/);
             if (m) refs.push(decodeURIComponent(m[1]));
-            return new Response(JSON.stringify([{ type: 'file', name: 'Home.md', path: 'Home.md', sha: 's1' }]));
+            return new Response(JSON.stringify({ truncated: false, tree: [{ type: 'blob', path: 'Home.md', sha: 's1' }] }));
         },
     });
     t.after(() => {
@@ -144,9 +182,9 @@ test('an explicit ref is not overridden by the default branch (#64)', async (t) 
         value: async (url: string) => {
             if (url.endsWith('/user')) return new Response(JSON.stringify({ login: 'octocat' }));
             if (url.endsWith('/repos/owner/repo')) return new Response(JSON.stringify({ permissions: { push: true }, default_branch: 'master' }));
-            const m = url.match(/[?&]ref=([^&]+)/);
+            const m = url.match(/\/git\/trees\/([^?]+)/);
             if (m) refs.push(decodeURIComponent(m[1]));
-            return new Response(JSON.stringify([]));
+            return new Response(JSON.stringify({ truncated: false, tree: [] }));
         },
     });
     t.after(() => {
