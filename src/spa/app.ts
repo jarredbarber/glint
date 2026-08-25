@@ -245,6 +245,11 @@ const contentCache = new Map<string, string>();
 let bootGeneration = 0;
 let searchGeneration = 0;
 const expandedFolders = new Set<string>();
+// Which page was open, and in which project, so returning to a project (e.g. after
+// Settings) reopens where you were instead of the default page (#69). Scoped by
+// project route because file ids are not unique across sources (#65).
+let lastProjectRoute: string | null = null;
+let lastFileId: string | null = null;
 
 function applyTheme(theme: string): void {
     const link = document.querySelector<HTMLLinkElement>('#glint-theme');
@@ -360,10 +365,12 @@ function persistState(): boolean {
     }
 }
 
-function rememberCurrentProject(): void {
+function rememberCurrentProject(nameOverride?: string): void {
     const route = normalizeProjectRoute(location.hash);
     if (!route) return;
-    appState = addProject(appState, defaultProjectName(route), route);
+    // addProject keeps an existing project's name, so a folder name only lands on
+    // first open and never clobbers a manual rename (#69).
+    appState = addProject(appState, nameOverride?.trim() || defaultProjectName(route), route);
     persistState();
 }
 
@@ -540,9 +547,20 @@ async function onSectionSaved(id: string, content: string): Promise<void> {
     showToast('Saved', 'success');
 }
 
+// "Open on GitHub" link for the page, rendered at the top of the content (#69).
+// Only GitHub has a stable public blob URL per page; Drive/local return ''.
+function pageSourceLinkHtml(id: string): string {
+    if (!(adapter instanceof GitHubAdapter)) return '';
+    const page = files.find((f) => f.id === id);
+    if (!page) return '';
+    const url = adapter.pageUrl(page.path);
+    return `<a class="glint-source-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${ICON.github}<span>Open on GitHub</span></a>`;
+}
+
 async function openFile(id: string) {
     const gen = bootGeneration;
     currentFileId = id;
+    lastFileId = id;
     let content = contentCache.get(id);
     if (content === undefined) {
         const read = await adapter.read(id);
@@ -556,7 +574,7 @@ async function openFile(id: string) {
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
     if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
-    wrapper.innerHTML = html;
+    wrapper.innerHTML = pageSourceLinkHtml(id) + html;
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
     wireWikiLinks();
     wireTaskCheckboxes();
@@ -1259,6 +1277,11 @@ export async function boot(): Promise<void> {
     document.body.classList.remove('shared-view');
     document.querySelector('.sidebar')?.classList.remove('shared-view');
     delete document.body.dataset.access;
+    // Clear a leftover comment rail from the previous project, or closing one
+    // leaves a stray sidebar hanging on the landing/next view (#68).
+    const staleRail = document.querySelector<HTMLElement>('.glint-comment-rail');
+    if (staleRail) { staleRail.innerHTML = ''; staleRail.hidden = true; }
+    discussionTarget = null;
     let loaded;
     try {
         browserStorage = window.localStorage;
@@ -1314,11 +1337,17 @@ export async function boot(): Promise<void> {
         showSourceError(error as Error);
         return;
     }
-    rememberCurrentProject();
+    rememberCurrentProject(adapter instanceof LocalAdapter ? adapter.folderName() : undefined);
     renderSidebar();
     installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved);
     installCommentShortcut();
-    if (files.length) await openFile(files[0].id);
+    // Returning to the same project (e.g. after Settings) reopens the page you left,
+    // not the default one (#69). A different project always opens its default page.
+    const projectRoute = location.hash;
+    const sameProject = lastProjectRoute === projectRoute;
+    lastProjectRoute = projectRoute;
+    const reopenId = sameProject && lastFileId && files.some((f) => f.id === lastFileId) ? lastFileId : files[0]?.id;
+    if (reopenId) await openFile(reopenId);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

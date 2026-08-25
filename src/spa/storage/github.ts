@@ -85,6 +85,13 @@ export class GitHubAdapter implements StorageAdapter {
     // blob share links that name a concrete branch even when the route left it implicit.
     get resolvedRef(): string { return this.ref; }
 
+    // github.com blob URL for a source-root-relative page path, for an "Open on
+    // GitHub" link on each rendered page (#69).
+    pageUrl(pathRel: string): string {
+        const full = this.fullPath(pathRel).split('/').map(encodeURIComponent).join('/');
+        return `https://github.com/${this.owner}/${this.repo}/blob/${encodeURIComponent(this.ref)}/${full}`;
+    }
+
     async auth(): Promise<void> {
         if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); await this.probeRepo(); return; }
         clearCachedGitHubToken();

@@ -284,6 +284,44 @@ ul.contains-task-list .glint-task {
     border-color: rgba(34, 197, 94, 0.3);
 }
 
+/* SPA task-state dropdown (#69). Positioned with fixed viewport coords set inline
+   from getBoundingClientRect; without position:fixed it fell into body flow at the
+   bottom of the page and ignored the theme. */
+.glint-task-picker {
+    position: fixed;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: 0.3rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    font-family: 'Inter', sans-serif;
+    animation: popIn 0.15s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+.glint-task-picker-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.glint-task-picker-item:hover {
+    background: var(--bg-color);
+}
+.glint-task-picker-item.is-current {
+    color: var(--skin-accent, var(--link-color));
+    font-weight: 600;
+}
+
 /* State Picker Popover */
 .glint-state-picker {
     position: absolute;
@@ -1512,6 +1550,31 @@ tr:nth-child(even) {
 }
 
 /* Article Header & Metadata */
+/* "Open on GitHub" affordance at the top of a rendered page (#69). */
+.glint-source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    float: right;
+    margin: 0 0 0.5rem 1rem;
+    padding: 0.25rem 0.6rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--surface-color, transparent);
+}
+.glint-source-link:hover {
+    color: var(--text-color);
+    border-color: var(--text-dim);
+}
+.glint-source-link svg {
+    width: 1em;
+    height: 1em;
+}
+
 .article-header {
     margin-bottom: 2rem;
     text-align: center;

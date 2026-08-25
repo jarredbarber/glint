@@ -56,6 +56,9 @@ export class LocalAdapter implements StorageAdapter {
     capabilities() { return { canEdit: true, canComment: false }; }
     identity() { return { name: 'Local' }; }
 
+    // The chosen directory's name, for labelling the project after the folder (#69).
+    folderName(): string | undefined { return this.dir?.name || undefined; }
+
     private need(): DirHandle {
         if (!this.dir) throw new Error('call auth() first');
         return this.dir;
