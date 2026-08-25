@@ -11,7 +11,7 @@ import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
 import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
-import { contentBehaviorInit, contentBehaviorLoaders } from './renderer/content-behavior.js';
+import { contentBehaviorInit, contentBehaviorLoaders, MERMAID_CDN, ABCJS_CDN } from './renderer/content-behavior.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 /**
@@ -34,15 +34,18 @@ export async function resolveKatexVersion(): Promise<string> {
  * external `<script src>` tags. The single-file render is fully static, so no
  * client JS is emitted. Pure.
  *
- * With `keepMermaid`, mermaid-related scripts survive (the CDN loader and the
- * `mermaid.initialize` block) so client-rendered diagrams still draw — every
- * other script is still dropped. A script "is mermaid" if the tag or its body
- * mentions mermaid.
+ * With `keepMermaid`/`keepAbcjs`, renderer-owned scripts survive: the shared
+ * init block (tagged `data-glint`) and the exact mermaid/abcjs CDN loader URLs.
+ * Everything else is dropped — a user `<script>` that merely mentions "mermaid"
+ * in its body no longer executes in static output (#65).
  */
 export function stripScripts(html: string, opts: { keepMermaid?: boolean; keepAbcjs?: boolean } = {}): string {
-    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag) => {
-        if (opts.keepMermaid && /mermaid/i.test(tag)) return tag;
-        if (opts.keepAbcjs && /abcjs/i.test(tag)) return tag;
+    const keepInline = opts.keepMermaid || opts.keepAbcjs;
+    return html.replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (tag, attrs: string) => {
+        if (keepInline && /\bdata-glint\b/.test(attrs)) return tag;
+        const src = attrs.match(/\bsrc="([^"]*)"/i)?.[1];
+        if (opts.keepMermaid && src === MERMAID_CDN) return tag;
+        if (opts.keepAbcjs && src === ABCJS_CDN) return tag;
         return '';
     });
 }

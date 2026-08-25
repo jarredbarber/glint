@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+  <style>
+    :root{
+      --bg:#ffffff; --dim:#f5f5f5; --hl:#eaeaea;
+      --text:#000000; --muted:#6a737d; --border:#e1e4e8;
+      --accent:#0366d6; --aqua:#1b7c83;
+      --ui:'IBM Plex Sans','ui-sans-serif',system-ui,sans-serif;
+      --body:'Spectral','Iowan Old Style',Palatino,Georgia,serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--dim);font-family:var(--body);color:var(--text);}
+    .screen{width:1440px;height:900px;display:flex;background:var(--bg);overflow:hidden;}
+    a{text-decoration:none;color:inherit;}
+
+    .sidebar{width:280px;min-width:280px;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;font-family:var(--ui);}
+    .brand{display:flex;align-items:center;gap:.55rem;padding:1.1rem 1.1rem .8rem;}
+    .brand-mark{width:1.4rem;height:1.4rem;border-radius:8px;background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+    .wordmark{font-family:var(--body);font-size:1.15rem;font-weight:600;letter-spacing:-.01em;}
+    .side-top{display:flex;flex-direction:column;gap:.55rem;padding:0 .9rem .6rem;}
+    .switcher,.search{display:flex;align-items:center;gap:.5rem;padding:0 .65rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+    .switcher{color:var(--aqua);}
+    .switcher span{flex:1;padding:.5rem .2rem;color:var(--text);font-weight:600;font-size:.85rem;}
+    .switcher .car{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--muted);}
+    .search{color:var(--muted);}
+    .search input{flex:1;min-width:0;padding:.5rem 0;background:none;border:none;color:var(--muted);font:inherit;font-size:.85rem;}
+    .search kbd{font-size:.65rem;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:.05rem .3rem;}
+    .tree{flex:1;overflow-y:auto;min-height:0;padding:.2rem .6rem .8rem;font-size:.85rem;}
+    .tree ul{list-style:none;margin:0;padding-left:.85rem;}
+    .tree>ul{padding-left:0;}
+    .row{display:flex;align-items:center;gap:.45rem;padding:.32rem .5rem;border-radius:8px;color:var(--text);cursor:pointer;}
+    .row.folder{color:var(--muted);}
+    .row svg{width:1em;height:1em;color:var(--muted);flex-shrink:0;}
+    .row.current{font-weight:600;background:color-mix(in srgb,var(--accent) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent);}
+    .row.current svg{color:var(--accent);}
+
+    /* ---- ToC dock in sidebar ---- */
+    .dock{border-top:1px solid var(--border);padding:.7rem .9rem .4rem;max-height:44%;display:flex;flex-direction:column;background:var(--dim);}
+    .dock-head{display:flex;align-items:center;gap:.4rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:.45rem;}
+    .dock-head svg{width:.9em;height:.9em;}
+    .dock-head .chev{margin-left:auto;}
+    .dock-toc{position:relative;overflow-y:auto;display:flex;flex-direction:column;padding-left:.3rem;}
+    .dock-toc::before{content:'';position:absolute;left:5px;top:11px;bottom:11px;width:2px;background:var(--border);}
+    .dock-toc::after{content:'';position:absolute;left:5px;top:11px;height:32%;width:2px;background:var(--accent);border-radius:2px;}
+    .dock-toc a{position:relative;display:flex;align-items:center;gap:.65rem;padding:.24rem 0;font-size:.82rem;color:var(--muted);line-height:1.3;}
+    .dock-toc .dot{width:11px;height:11px;border-radius:50%;background:var(--dim);border:2px solid var(--border);flex-shrink:0;z-index:1;}
+    .dock-toc a.done .dot{background:var(--border);border-color:var(--border);}
+    .dock-toc a.l3{padding-left:1.3rem;font-size:.79rem;}
+    .dock-toc a.l3 .dot{width:8px;height:8px;margin-left:2px;}
+    .dock-toc a.current{color:var(--accent);font-weight:600;}
+    .dock-toc a.current .dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);}
+    .foot{display:flex;align-items:center;gap:.3rem;padding:.7rem .85rem;border-top:1px solid var(--border);}
+    .primary{flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.5rem;background:var(--text);color:var(--bg);border-radius:8px;font-family:var(--ui);font-size:.8rem;font-weight:600;cursor:pointer;}
+    .primary svg{width:1em;height:1em;}
+    .ibtn{width:1.85rem;height:1.85rem;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:8px;}
+    .ibtn svg{width:1em;height:1em;}
+
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+    .bar{display:flex;align-items:center;padding:.6rem 1.5rem;background:var(--bg);border-bottom:1px solid var(--border);font-family:var(--ui);}
+    .crumb{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted);}
+    .crumb .cur{color:var(--text);font-weight:600;}
+    .crumb .sep{opacity:.6;}
+    .bar-actions{margin-left:auto;display:flex;gap:.4rem;}
+    .bbtn{display:flex;align-items:center;gap:.35rem;padding:.35rem .7rem;font-family:var(--ui);font-size:.78rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer;}
+    .bbtn svg{width:.9em;height:.9em;}
+    .body{flex:1;overflow-y:auto;}
+    .cbody{display:flex;align-items:flex-start;gap:2.5rem;max-width:72rem;margin:0 auto;padding:2.2rem 1.5rem;}
+    .article{flex:1;min-width:0;max-width:46rem;}
+    .article h1{font-size:2.1rem;font-weight:600;letter-spacing:-.015em;margin:0 0 .6rem;}
+    .article h2{font-size:1.35rem;font-weight:600;letter-spacing:-.015em;padding-bottom:.4rem;border-bottom:1px solid var(--border);margin:2rem 0 .8rem;}
+    .article h3{font-size:1.08rem;font-weight:600;margin:1.4rem 0 .5rem;}
+    .article p{font-size:1.02rem;line-height:1.65;color:#1c1c1c;margin:.7rem 0;}
+    .article code{font-family:'IBM Plex Mono',monospace;font-size:.85em;background:#f6f8fa;padding:.1rem .35rem;border-radius:4px;}
+    .lead{color:var(--muted);}
+
+    /* ---- Comment rail (its own citizen now) ---- */
+    .rail{flex:0 0 20rem;position:sticky;top:0;font-family:var(--ui);}
+    .rail-head{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 .6rem;display:flex;align-items:center;gap:.4rem;}
+    .rail-head svg{width:.95em;height:.95em;}
+    .disc{margin:.6rem 0;padding:.9rem 1rem;background:var(--dim);border:1px solid var(--border);border-radius:12px;font-size:.86rem;}
+    .disc-anchor{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 .3rem;}
+    .disc-meta{color:var(--muted);font-size:.74rem;margin:0 0 .35rem;}
+    .disc-body{color:var(--text);line-height:1.5;}
+    .disc.resolved{opacity:.55;}
+  </style>
+</helmet>
+
+<div class="screen">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">G</div><div class="wordmark">Glint</div></div>
+    <div class="side-top">
+      <div class="switcher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6l2 2h8v12H4z"/></svg><span>Engineering Wiki</span><i class="car"></i></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Search" value=""><kbd>/</kbd></div>
+    </div>
+    <nav class="tree">
+      <ul>
+        <li><div class="row folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6" transform="rotate(90 12 12)"/></svg><span>Guides</span></div>
+          <ul>
+            <li><div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6v20h12V8z"/><path d="M14 2v6h6"/></svg><span>Getting started</span></div></li>
+            <li><div class="row current"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6v20h12V8z"/><path d="M14 2v6h6"/></svg><span>Storage adapters</span></div></li>
+            <li><div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6v20h12V8z"/><path d="M14 2v6h6"/></svg><span>Rendering pipeline</span></div></li>
+          </ul>
+        </li>
+        <li><div class="row folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg><span>Reference</span></div></li>
+      </ul>
+    </nav>
+    <!-- ToC dock -->
+    <div class="dock">
+      <div class="dock-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>On this page<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+      <nav class="dock-toc">
+        <a class="done"><i class="dot"></i>Overview</a>
+        <a class="current"><i class="dot"></i>The adapter seam</a>
+        <a class="l3"><i class="dot"></i>id, path, version</a>
+        <a class="l3"><i class="dot"></i>Read and write keys</a>
+        <a><i class="dot"></i>Backends</a>
+        <a class="l3"><i class="dot"></i>Local folder</a>
+        <a class="l3"><i class="dot"></i>Google Drive</a>
+        <a class="l3"><i class="dot"></i>GitHub</a>
+        <a><i class="dot"></i>Writing a new adapter</a>
+      </nav>
+    </div>
+    <div class="foot">
+      <div class="primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New page</div>
+      <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="bar">
+      <div class="crumb"><span>Guides</span><span class="sep">/</span><span class="cur">Storage adapters</span></div>
+      <div class="bar-actions">
+        <button class="bbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Edit</button>
+        <button class="bbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="cbody">
+        <article class="article">
+          <h1>Storage adapters</h1>
+          <p class="lead">Glint reads and writes every backend through one <code>StorageAdapter</code> seam. This page covers the contract, the three shipped backends, and how to add your own.</p>
+          <h2>Overview</h2>
+          <p>An adapter maps Glint's document model onto a concrete store. The SPA never talks to a backend directly; it holds a single adapter instance and drives it through a small, backend-agnostic interface.</p>
+          <h2>The adapter seam</h2>
+          <p>Three identifiers travel with every file. Keeping them distinct is what lets navigation, rendering, and writes stay backend-native.</p>
+          <h3>id, path, version</h3>
+          <p><code>id</code> is the backend read/write key, <code>path</code> is source-root-relative for navigation, and <code>version</code> is the concurrency token used on save.</p>
+          <h3>Read and write keys</h3>
+          <p>Adapters resolve <code>id</code> lazily so a folder listing stays cheap. Writes carry the last-seen <code>version</code> and surface a conflict rather than clobbering.</p>
+          <h2>Backends</h2>
+          <p>Three adapters ship today, each authenticating in its own native way.</p>
+        </article>
+
+        <aside class="rail">
+          <p class="rail-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Comments</p>
+          <div class="disc">
+            <p class="disc-anchor">&ldquo;concurrency token&rdquo;</p>
+            <p class="disc-meta">Dana &middot; 2d ago</p>
+            <p class="disc-body">Should we spell out that Drive uses <code>headRevisionId</code> here?</p>
+          </div>
+          <div class="disc">
+            <p class="disc-anchor">&ldquo;lazily&rdquo;</p>
+            <p class="disc-meta">Priya &middot; 1d ago</p>
+            <p class="disc-body">Confirmed the folder listing skips content fetches now.</p>
+          </div>
+          <div class="disc resolved">
+            <p class="disc-meta">Resolved &middot; Sam</p>
+            <p class="disc-body">Fixed the id/path wording.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

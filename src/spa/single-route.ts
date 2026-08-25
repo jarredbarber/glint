@@ -67,7 +67,9 @@ export function buildShareRoute(projectRoute: string, pagePath: string, refOverr
     if (backend === 'gh' || backend === 'github') {
         const t = parseGhRoute(rest);
         const full = [t.path, pagePath].filter(Boolean).join('/');
-        const ref = refOverride || t.ref || 'main';
+        // An explicit ref in the project route is intentional and must round-trip;
+        // refOverride only fills in when the route left the ref implicit (#64/#65).
+        const ref = t.ref || refOverride || 'main';
         return `#/gh/${encodeURIComponent(t.owner)}/${encodeURIComponent(t.repo)}/blob/${encodeURIComponent(ref)}/${encPath(full)}`;
     }
     if (backend === 'demo') return `#/s/demo/${encPath(pagePath)}`;

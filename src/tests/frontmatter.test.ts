@@ -36,6 +36,25 @@ Content`;
         assert.equal(result.frontmatter.title, 'Project: Zero');
     });
 
+    // #65: single-line display math must not shift the line count, or every
+    // source-line-based edit after it targets the wrong line.
+    await t.test('display-math fix preserves line count and the math source line', () => {
+        const md = `Intro.
+
+$$ x = y $$
+
+After.`;
+        const result = parseMarkdown(md, false);
+        const lines = result.content.split('\n');
+        assert.equal(lines.length, md.split('\n').length, 'total line count unchanged');
+        // "After." keeps its original line index (4, zero-based).
+        assert.equal(lines[4], 'After.');
+        // Math content stays on its original line, delimiters on the blanks.
+        assert.equal(lines[1], '$$');
+        assert.equal(lines[2], 'x = y');
+        assert.equal(lines[3], '$$');
+    });
+
     // #52: gray-matter throws in the browser bundle (no Buffer). The fallback must
     // still strip the frontmatter block so it never leaks into rendered output.
     await t.test('strips frontmatter even when the YAML parser throws', () => {

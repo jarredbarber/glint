@@ -3,7 +3,7 @@ import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError } from './sto
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { DriveAdapter } from './storage/drive.js';
-import { GitHubAdapter, GitHubAuthChoice } from './storage/github.js';
+import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
@@ -240,6 +240,9 @@ let discussionTarget: HTMLElement | null = null;
 let adapter: StorageAdapter;
 let browserStorage: Storage | null = null;
 const contentCache = new Map<string, string>();
+// Bumped on every boot(). Async continuations capture it and bail if it changed,
+// so a hash change mid-load can never render/mutate the wrong project (#65).
+let bootGeneration = 0;
 let searchGeneration = 0;
 const expandedFolders = new Set<string>();
 
@@ -326,7 +329,7 @@ function promptGitHubAuth(ctx: { owner: string; repo: string; ref: string; hasOA
             <label>Fine-grained personal access token
                 <input type="password" data-pat autocomplete="off" spellcheck="false" placeholder="github_pat_…">
             </label>
-            <p class="glint-modal-help">Kept in this browser tab only, never sent to a Glint server. <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">How to create one ↗</a></p>
+            <p class="glint-modal-help">Saved in this browser so you skip re-entry, never sent to a Glint server. Clear it anytime from Settings. <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">How to create one ↗</a></p>
             ${ctx.error ? `<p class="glint-modal-error" role="alert">${escapeHtml(ctx.error)}</p>` : ''}
             <div class="glint-modal-actions">
                 <button type="button" class="glint-modal-cancel" data-cancel>Cancel</button>
@@ -420,6 +423,10 @@ function renderSettings(): void {
         <section class="glint-setting-group"><h2>Editing</h2>
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
         </section>
+        ${hasCachedGitHubToken() ? `<section class="glint-setting-group"><h2>Connections</h2>
+            <p class="glint-setting-note">Your GitHub token is saved in this browser so you don't re-enter it. It is never sent to a Glint server.</p>
+            <button class="glint-danger" data-forget-github>Sign out of GitHub (clear saved token)</button>
+        </section>` : ''}
         <section class="glint-setting-group"><h2>Projects</h2>
             ${rows ? `<ul class="glint-project-list">${rows}</ul>` : '<p class="glint-setting-note">No projects saved yet.</p>'}
             <button class="glint-danger" data-reset-projects>Reset local projects and settings</button>
@@ -476,6 +483,11 @@ function renderSettings(): void {
         persistState();
         renderSettings();
     }));
+    wrapper.querySelector('[data-forget-github]')?.addEventListener('click', () => {
+        forgetGitHubToken();
+        showToast('Signed out of GitHub', 'success');
+        renderSettings();
+    });
     wrapper.querySelector('[data-reset-projects]')?.addEventListener('click', () => {
         if (!confirm('Reset local Projects and settings? Backend files will not be changed.')) return;
         appState = { version: 1, projects: [], settings: { ...DEFAULT_STATE.settings } };
@@ -529,15 +541,20 @@ async function onSectionSaved(id: string, content: string): Promise<void> {
 }
 
 async function openFile(id: string) {
+    const gen = bootGeneration;
     currentFileId = id;
     let content = contentCache.get(id);
     if (content === undefined) {
         const read = await adapter.read(id);
+        // A newer boot or a newer openFile superseded this read: discard it so a
+        // slow backend can't replace the page the user actually selected (#65).
+        if (gen !== bootGeneration || currentFileId !== id) return;
         content = read.content;
         contentCache.set(id, content);
     }
     const knownPaths = files.map((f) => f.name);
     const html = await GlintRender.renderMarkdown(content, { knownPaths });
+    if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = html;
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
@@ -1209,13 +1226,16 @@ async function bootSingle(rest: string[]): Promise<void> {
 }
 
 async function bootSingleResolved(single: SingleTarget): Promise<void> {
+    const myGen = bootGeneration;
     adapter = single.adapter;
     showLoading('Opening page…');
     try {
         await adapter.auth();
+        if (myGen !== bootGeneration) return;
         let id = single.fileId;
         if (single.resolveByPath) {
             const found = (await adapter.list()).find((f) => f.path === single.resolveByPath);
+            if (myGen !== bootGeneration) return;
             if (!found) throw new Error(`No page named “${single.resolveByPath}”.`);
             id = found.id;
         }
@@ -1229,6 +1249,10 @@ async function bootSingleResolved(single: SingleTarget): Promise<void> {
 }
 
 export async function boot(): Promise<void> {
+    const myGen = ++bootGeneration;
+    // File ids are not unique across sources, so a previous project's cache must
+    // never satisfy a read here (#65). In-project page nav doesn't call boot().
+    contentCache.clear();
     // A route change can leave a modal (e.g. a pending GitHub auth prompt) orphaned.
     document.querySelectorAll('.glint-modal-overlay').forEach((overlay) => overlay.remove());
     // Reset per-view chrome so leaving single-file/read-only mode restores the project shell.
@@ -1281,9 +1305,12 @@ export async function boot(): Promise<void> {
     showLoading('Opening project…');
     try {
         await adapter.auth();
+        if (myGen !== bootGeneration) return;
         document.body.dataset.access = 'edit';
         files = await adapter.list();
+        if (myGen !== bootGeneration) return;
     } catch (error) {
+        if (myGen !== bootGeneration) return;
         showSourceError(error as Error);
         return;
     }

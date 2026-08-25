@@ -57,7 +57,9 @@ function mermaidInitOptions(): Record<string, unknown> {
  * {@link contentBehaviorLoaders} to be present.
  */
 export function contentBehaviorInit(): string {
-    return `<script>
+    // data-glint marks this as renderer-owned so stripScripts keeps it while
+    // dropping every user-authored <script> in static output (#65).
+    return `<script data-glint>
     ${paletteVar.toString()}
     ${paletteIsDark.toString()}
     ${mermaidInitOptions.toString()}

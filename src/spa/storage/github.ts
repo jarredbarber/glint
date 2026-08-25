@@ -41,6 +41,11 @@ function cacheGitHubToken(token: string): void {
 function clearCachedGitHubToken(): void {
     try { localStorage.removeItem(GH_TOKEN_KEY); } catch { /* non-fatal */ }
 }
+// Exposed so Settings can honor the "sign out" affordance the disclosure promises (#65).
+export function hasCachedGitHubToken(): boolean {
+    try { return !!localStorage.getItem(GH_TOKEN_KEY); } catch { return false; }
+}
+export function forgetGitHubToken(): void { clearCachedGitHubToken(); }
 
 // UTF-8-safe base64 (GitHub Contents API is base64).
 function toB64(s: string): string {

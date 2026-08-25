@@ -96,7 +96,16 @@ export class LocalAdapter implements StorageAdapter {
 
     async write(id: string, content: string, version: string) {
         const { dir, name } = await this.parentFor(id);
-        const fh = await dir.getFileHandle(name, { create: true });
+        // No { create: true }: validate optimistic concurrency BEFORE touching the
+        // file. A file another process deleted must surface as a conflict, not be
+        // silently resurrected as an empty file (#65).
+        let fh;
+        try {
+            fh = await dir.getFileHandle(name);
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'NotFoundError') throw new ConflictError();
+            throw error;
+        }
         const current = String((await fh.getFile()).lastModified);
         if (current !== version) throw new ConflictError();
         const w = await fh.createWritable();

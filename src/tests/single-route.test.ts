@@ -62,6 +62,9 @@ test('buildShareRoute prepends the project source root and prefers the resolved 
     // A resolved default branch (auto-detect) overrides the implicit route ref.
     assert.equal(buildShareRoute('#/gh/o/r', 'Home.md', 'master'),
         '#/gh/o/r/blob/master/Home.md');
+    // #65: an explicit ref must round-trip even when a different default resolves.
+    assert.equal(buildShareRoute('#/gh/o/r/docs@main', 'Home.md', 'master'),
+        '#/gh/o/r/blob/main/docs/Home.md');
 });
 
 test('buildShareRoute returns null for backends with no shareable URL', () => {

@@ -65,6 +65,9 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
     const { content, title, frontmatter, contentStartLine } = parseMarkdown(source);
     const file = new VFile({ value: content });
     file.data.contentStartLine = contentStartLine;
+    // Static SPA: keep relative image src as-is instead of the CLI's
+    // /api/asset/resolve intermediate, which has no server to hit here (#65).
+    file.data.rawAssetSrc = true;
     if (opts.baseUrl) file.data.baseUrl = opts.baseUrl;
 
     const result = await processor.process(file);

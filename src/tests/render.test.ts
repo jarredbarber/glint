@@ -21,11 +21,19 @@ test('stripScripts with keepMermaid keeps mermaid loader + init, drops the rest'
     const html =
         '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>' +
         '<script>foo();</script>' +
-        '<script>mermaid.initialize({});</script>';
+        '<script data-glint>mermaid.initialize({});</script>';
     const out = stripScripts(html, { keepMermaid: true });
     assert.ok(out.includes('mermaid.min.js'), 'keeps the loader');
     assert.ok(out.includes('mermaid.initialize'), 'keeps the init');
     assert.ok(!out.includes('foo()'), 'drops unrelated scripts');
+});
+
+test('stripScripts drops a user script that merely mentions mermaid/abcjs (#65)', () => {
+    const html =
+        '<script>var note = "mermaid and abcjs"; steal();</script>' +
+        '<script src="https://evil.example/mermaid.js"></script>';
+    const out = stripScripts(html, { keepMermaid: true, keepAbcjs: true });
+    assert.equal(out, '', 'only data-glint scripts and exact CDN URLs survive');
 });
 
 test('stripScripts without keepMermaid removes mermaid scripts too', () => {

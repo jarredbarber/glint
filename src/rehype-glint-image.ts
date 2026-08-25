@@ -25,15 +25,20 @@ import { Root, Element, Text } from 'hast';
 export function rehypeGlintImage() {
     return (tree: Root, file: any) => {
         const filePath = file.data.filePath;
+        // The `/api/asset/resolve` URL is a CLI-build intermediate that
+        // rewriteStaticHtml + inlineImages turn into a real path. The SPA is
+        // fully static with no such server, so it opts out and keeps the raw
+        // relative src (#65). Full per-adapter blob resolution is tracked in #30.
+        const rawAssetSrc = file.data.rawAssetSrc === true;
 
         visit(tree, ['element', 'raw'], (node: any, index, parent: any) => {
             // Case 1: Standard <img> element from markdown
             if (node.type === 'element' && node.tagName === 'img') {
-                handleImageElement(node, index, parent, filePath);
+                handleImageElement(node, index, parent, filePath, rawAssetSrc);
             }
             // Case 2: Raw HTML <img> (legacy from old resize saves)
             else if (node.type === 'raw' && node.value.includes('<img')) {
-                handleRawImageHtml(node, index, parent, filePath);
+                handleRawImageHtml(node, index, parent, filePath, rawAssetSrc);
             }
         });
     };
@@ -43,7 +48,7 @@ export function rehypeGlintImage() {
  * Handle standard <img> elements.
  * Parses alt text for |width syntax and wraps in figure if alt text exists.
  */
-function handleImageElement(node: Element, index: number | undefined, parent: any, filePath?: string) {
+function handleImageElement(node: Element, index: number | undefined, parent: any, filePath?: string, rawAssetSrc = false) {
     const rawAlt = node.properties?.alt ? String(node.properties.alt) : '';
 
     // Parse width from alt text: "Caption|500" → { caption: "Caption", width: "500" }
@@ -63,7 +68,7 @@ function handleImageElement(node: Element, index: number | undefined, parent: an
         if (node.properties.src && typeof node.properties.src === 'string') {
             const originalSrc = node.properties.src;
             node.properties['data-glint-src'] = originalSrc;
-            node.properties.src = resolveImageUrl(originalSrc, filePath);
+            node.properties.src = rawAssetSrc ? originalSrc : resolveImageUrl(originalSrc, filePath);
         }
     }
 
@@ -79,7 +84,7 @@ function handleImageElement(node: Element, index: number | undefined, parent: an
 /**
  * Handle raw HTML <img> tags (legacy support for old resized images).
  */
-function handleRawImageHtml(node: any, index: number | undefined, parent: any, filePath?: string) {
+function handleRawImageHtml(node: any, index: number | undefined, parent: any, filePath?: string, rawAssetSrc = false) {
     const imgMatch = node.value.match(/<img[^>]*src=["']([^"']*)["'][^>]*alt=["']([^"']*)["'][^>]*>/i) ||
         node.value.match(/<img[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']*)["'][^>]*>/i);
 
@@ -95,7 +100,7 @@ function handleRawImageHtml(node: any, index: number | undefined, parent: any, f
             if (srcMatch) {
                 const originalSrc = srcMatch[1];
                 props['data-glint-src'] = originalSrc;
-                props.src = resolveImageUrl(originalSrc, filePath);
+                props.src = rawAssetSrc ? originalSrc : resolveImageUrl(originalSrc, filePath);
             }
             if (altMatch) props.alt = altMatch[1];
             if (widthMatch) props.width = widthMatch[1];

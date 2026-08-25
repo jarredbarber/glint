@@ -9,43 +9,32 @@ export interface ParsedMarkdown {
 
 /**
  * Fix single-line display math for remark-math compatibility.
- * 
- * remark-math treats single-line $$ content $$ as INLINE math.
- * This function converts them to multi-line format to trigger display mode.
- * 
- * Important: This is LINE-PRESERVING. Each single-line $$ becomes 3 lines,
- * but this happens at the start before line mapping begins.
+ *
+ * remark-math treats single-line `$$ content $$` as INLINE math. To trigger
+ * display mode the delimiters must sit on their own lines. When the math line
+ * is fenced by blank lines (its own paragraph) we move the `$$` delimiters onto
+ * those surrounding blank lines rather than inserting new ones. The math content
+ * keeps its ORIGINAL source line and the total line count is unchanged, so
+ * downstream source-line mapping (tasks/comments/section edits) stays correct
+ * (#65). At a document boundary with no blank line to reuse we leave the line
+ * as-is (it renders inline) — correctness of line mapping over display there.
  */
 function fixDisplayMath(content: string): string {
     const lines = content.split('\n');
-    const result: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        // Check for single-line display math: $$ content $$ on its own line
-        // The regex: starts with optional whitespace, $$, content, $$, optional whitespace
-        const displayMathMatch = line.match(/^(\s*)\$\$\s*(.+?)\s*\$\$(\s*)$/);
-
-        if (displayMathMatch) {
-            const [, leadingSpace, mathContent] = displayMathMatch;
-            // Check if this appears to be on its own paragraph
-            const prevEmpty = i === 0 || lines[i - 1].trim() === '';
-            const nextEmpty = i === lines.length - 1 || lines[i + 1].trim() === '';
-
-            if (prevEmpty && nextEmpty) {
-                // Split into multi-line format
-                result.push(leadingSpace + '$$');
-                result.push(mathContent);
-                result.push('$$');
-                continue;
-            }
+        const m = lines[i].match(/^(\s*)\$\$\s*(.+?)\s*\$\$(\s*)$/);
+        if (!m) continue;
+        const hasBlankBefore = i > 0 && lines[i - 1].trim() === '';
+        const hasBlankAfter = i < lines.length - 1 && lines[i + 1].trim() === '';
+        if (hasBlankBefore && hasBlankAfter) {
+            lines[i - 1] = m[1] + '$$';
+            lines[i] = m[2];
+            lines[i + 1] = '$$';
         }
-
-        result.push(line);
     }
 
-    return result.join('\n');
+    return lines.join('\n');
 }
 
 /**

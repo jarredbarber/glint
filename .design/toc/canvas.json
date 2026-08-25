@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",    "title": "Reader skin - progress rail dock",   "x": 0,    "y": 0, "w": 1440, "h": 900 },
+    { "file": "Almanac.dc.html", "title": "Almanac skin - numbered field guide", "x": 1560, "y": 0, "w": 1440, "h": 900 }
+  ],
+  "annotations": [
+    { "id": "reader",  "x": 0,    "y": -138, "w": 460, "text": "Reader skin. 'On this page' docks under the file tree as a progress rail: a spine with a filled marker per heading and a bar tracking read position. Right rail stays for comments." },
+    { "id": "almanac", "x": 1560, "y": -138, "w": 460, "text": "Almanac skin. Same sidebar dock, styled as a numbered field-guide index: small-caps header, heavy rule, tabular section numbers. Square corners and Newsreader throughout." }
+  ],
+  "launch": { "view": "canvas" }
+}

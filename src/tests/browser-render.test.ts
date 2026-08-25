@@ -27,3 +27,9 @@ test('renderMarkdown with custom macros', async () => {
     const html = await renderMarkdown('$$\\R$$', { macros: { R: '\\mathbb{R}' } });
     assert.ok(html.includes('katex'), 'macro-using math rendered');
 });
+
+test('SPA render keeps relative image src, never the phantom asset API (#65)', async () => {
+    const html = await renderMarkdown('![pic](images/cat.png)');
+    assert.ok(!html.includes('/api/asset/resolve'), 'no dead resolver URL in static SPA output');
+    assert.ok(html.includes('src="images/cat.png"'), 'relative src preserved');
+});
