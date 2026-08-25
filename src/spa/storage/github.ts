@@ -72,6 +72,10 @@ export class GitHubAdapter implements StorageAdapter {
         this.token = initialToken ?? loadCachedGitHubToken();
     }
 
+    // The branch actually in use after auth() resolves the default (#64/#67). Used to build
+    // blob share links that name a concrete branch even when the route left it implicit.
+    get resolvedRef(): string { return this.ref; }
+
     async auth(): Promise<void> {
         if (this.token && (await this.validate(this.token))) { cacheGitHubToken(this.token); await this.probeRepo(); return; }
         clearCachedGitHubToken();

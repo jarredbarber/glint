@@ -2,6 +2,25 @@ import { VFile } from 'vfile';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor, type GlintConfig } from './pipeline.js';
 import { escapeHtml } from './utils/html.js';
+import { renderMetadata } from './renderer/metadata.js';
+
+// Keys renderMetadata already presents (plus `title`, which #67 demotes to metadata but
+// is redundant with the H1). Everything else is dumped as a labelled key/value grid so
+// arbitrary frontmatter still shows up aesthetically (#67).
+const KNOWN_META_KEYS = new Set([
+    'title', 'date', 'updated', 'modified', 'author', 'category', 'tags',
+    'description', 'summary', 'reading-time', 'image', 'thumbnail', 'draft',
+]);
+
+function renderExtraMetadata(frontmatter: Record<string, unknown>): string {
+    const rows = Object.entries(frontmatter)
+        .filter(([key, value]) => !KNOWN_META_KEYS.has(key) && value != null && value !== '')
+        .map(([key, value]) => {
+            const shown = Array.isArray(value) ? value.join(', ') : String(value);
+            return `<div class="meta-field"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(shown)}</dd></div>`;
+        });
+    return rows.length ? `<dl class="article-fields">${rows.join('')}</dl>` : '';
+}
 
 export { drawContentBehaviors } from './renderer/content-behavior.js';
 
@@ -43,12 +62,16 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
     // parseMarkdown strips the frontmatter and the leading H1, returning the title
     // separately. The standalone renderer prints that title in its page template; the
     // SPA injects this HTML raw, so re-emit the title as an <h1> or it vanishes (#9).
-    const { content, title, contentStartLine } = parseMarkdown(source);
+    const { content, title, frontmatter, contentStartLine } = parseMarkdown(source);
     const file = new VFile({ value: content });
     file.data.contentStartLine = contentStartLine;
     if (opts.baseUrl) file.data.baseUrl = opts.baseUrl;
 
     const result = await processor.process(file);
-    const heading = title ? `<h1 class="glint-doc-title">${escapeHtml(title)}</h1>` : '';
-    return heading + String(result);
+    const titleHtml = title ? `<h1 class="glint-doc-title">${escapeHtml(title)}</h1>` : '';
+    const metaHtml = renderMetadata(frontmatter) + renderExtraMetadata(frontmatter);
+    const header = (titleHtml || metaHtml)
+        ? `<header class="article-header">${titleHtml}${metaHtml}</header>`
+        : '';
+    return header + String(result);
 }

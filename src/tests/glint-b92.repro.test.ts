@@ -9,8 +9,8 @@ title: Space: The final frontier
 ---
 Content`;
         const result = parseMarkdown(content);
-        // The issue says it "breaks". Let's see what result.title and result.frontmatter.title are.
-        assert.equal(result.title, 'Space: The final frontier');
+        // #67: frontmatter `title` is metadata now, not the doc title (which comes from `# `).
+        // The colon-fix still has to parse the value correctly.
         assert.equal(result.frontmatter.title, 'Space: The final frontier');
     });
 
@@ -21,7 +21,8 @@ description: "A: B"
 ---
 Content`;
         const result = parseMarkdown(content);
-        assert.equal(result.title, 'Space: The final frontier');
+        assert.equal(result.frontmatter.title, 'Space: The final frontier');
+        assert.equal(result.frontmatter.description, 'A: B');
     });
 
     await t.test('does NOT break arrays with colons', () => {

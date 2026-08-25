@@ -10,7 +10,9 @@ tags: [a, b]
 ---
 Content`;
         const result = parseMarkdown(content);
-        assert.equal(result.title, 'Hello World');
+        // #67: title comes from the first `# ` heading, not frontmatter. No H1 here.
+        assert.equal(result.title, null);
+        assert.equal(result.frontmatter.title, 'Hello World');
         assert.deepEqual(result.frontmatter.tags, ['a', 'b']);
     });
 
@@ -21,7 +23,7 @@ description: The specific: problem
 ---
 Content`;
         const result = parseMarkdown(content);
-        assert.equal(result.title, 'Project: Zero');
+        assert.equal(result.frontmatter.title, 'Project: Zero');
         assert.equal(result.frontmatter.description, 'The specific: problem');
     });
 
@@ -31,7 +33,7 @@ title: "Project: Zero"
 ---
 Content`;
         const result = parseMarkdown(content);
-        assert.equal(result.title, 'Project: Zero');
+        assert.equal(result.frontmatter.title, 'Project: Zero');
     });
 
     // #52: gray-matter throws in the browser bundle (no Buffer). The fallback must
@@ -51,6 +53,10 @@ Body.`);
             assert.ok(!result.content.includes('title: Leaky'), 'frontmatter must not leak into content');
             assert.ok(!result.content.includes('author'), 'frontmatter must not leak into content');
             assert.ok(result.content.includes('Body.'), 'body must survive');
+            // #67: the browser fallback still exposes frontmatter values.
+            assert.equal(result.frontmatter.title, 'Leaky');
+            assert.equal(result.frontmatter.author, 'Nobody');
+            assert.equal(result.title, 'Head', 'title still comes from the H1');
         } finally {
             (globalThis as { Buffer?: unknown }).Buffer = original;
         }

@@ -15,6 +15,21 @@ export function rehypeGlintSections() {
     return (tree: Root) => {
         const newChildren: Content[] = [];
         const stack: { level: number; section: Element }[] = [];
+        // Everything before the first H2 (frontmatter title, leading prose) is collected
+        // here and wrapped in a headingless section so the editor can open it (#67). A
+        // preamble section carries NO data-section-line, so getSectionRange treats it as
+        // the "lines 1..firstHeading" range.
+        let preamble: Content[] = [];
+        let sawSection = false;
+        const flushPreamble = () => {
+            if (!preamble.length) return;
+            newChildren.push({
+                type: 'element', tagName: 'section',
+                properties: { className: ['glint-section', 'level-1', 'glint-preamble'] },
+                children: preamble as Element['children'],
+            } as Element);
+            preamble = [];
+        };
 
         function getLevel(tagName: string): number {
             if (tagName === 'h1') return 1;
@@ -44,6 +59,9 @@ export function rehypeGlintSections() {
             };
         }
 
+        // Top-level output before any section: buffer into preamble; after: newChildren.
+        const emitTop = (node: Content) => (sawSection ? newChildren : preamble).push(node);
+
         for (const child of tree.children) {
             // Filter out doctype and handle types to satisfy ElementContent
             if (child.type === 'doctype') continue;
@@ -55,7 +73,7 @@ export function rehypeGlintSections() {
                 if (stack.length > 0) {
                     stack[stack.length - 1].section.children.push(node);
                 } else {
-                    newChildren.push(node);
+                    emitTop(node);
                 }
                 continue;
             }
@@ -67,10 +85,13 @@ export function rehypeGlintSections() {
                 if (stack.length > 0) {
                     stack[stack.length - 1].section.children.push(element);
                 } else {
-                    newChildren.push(element);
+                    emitTop(element);
                 }
                 continue;
             }
+
+            // First H2+ heading: close out the preamble before opening real sections.
+            if (!sawSection) { flushPreamble(); sawSection = true; }
 
             while (stack.length > 0 && stack[stack.length - 1].level >= level) {
                 stack.pop();
@@ -88,6 +109,8 @@ export function rehypeGlintSections() {
             stack.push(entry);
         }
 
+        // A document with no H2+ heading: wrap the whole thing so it stays editable (#67).
+        flushPreamble();
         tree.children = newChildren;
     };
 }

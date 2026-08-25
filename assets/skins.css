@@ -57,6 +57,12 @@
 }
 
 [data-skin] .content-wrapper h1 { font-size: 2.1rem; margin: 0 0 0.6rem; }
+
+/* Frontmatter header (#67): left-align to match the skin's left-aligned prose. */
+[data-skin] .article-header { text-align: left; margin-bottom: 1.5rem; }
+[data-skin] .article-header .article-meta,
+[data-skin] .article-header .article-tags { justify-content: flex-start; }
+[data-skin] .article-header .article-description { text-align: left; margin-left: 0; margin-right: 0; }
 [data-skin] .content-wrapper h2 {
     font-size: 1.35rem;
     padding-bottom: 0.4rem;
@@ -336,6 +342,28 @@
 [data-skin] .glint-source-card strong { color: var(--skin-accent); font-family: var(--skin-display); }
 [data-skin] .glint-source-card input,
 [data-skin] .glint-source-card button { border-radius: var(--skin-radius-sm); }
+
+/* ---- Landing: single URL open box (#67) -------------------------------- */
+[data-skin] .glint-url-open { display: flex; flex-direction: column; gap: 0.6rem; }
+[data-skin] .glint-url-open label { font-size: 0.85rem; color: var(--text-dim); font-family: var(--skin-ui); }
+[data-skin] .glint-url-open input {
+    padding: 0.6rem 0.7rem; font-size: 0.95rem; font-family: var(--skin-ui);
+    background: var(--bg-color); color: var(--text-color);
+    border: var(--skin-rule) solid var(--border-color); border-radius: var(--skin-radius-sm);
+}
+[data-skin] .glint-url-open input:focus { outline: 2px solid var(--skin-accent); outline-offset: 1px; }
+[data-skin] .glint-url-error { color: var(--red, #d33); font-size: 0.85rem; margin: 0; }
+[data-skin] .glint-url-error:empty { display: none; }
+[data-skin] .glint-url-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+[data-skin] .glint-url-actions button {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.55rem 0.9rem; font-family: var(--skin-ui); font-size: 0.9rem; cursor: pointer;
+    border-radius: var(--skin-radius-sm); border: var(--skin-rule) solid var(--border-color);
+    background: var(--bg-highlight); color: var(--text-color);
+}
+[data-skin] .glint-url-actions button[type="submit"] { background: var(--skin-accent); color: var(--bg-color); border-color: var(--skin-accent); }
+[data-skin] .glint-url-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+[data-skin] .glint-url-pick svg { width: 1.1em; height: 1.1em; }
 
 @media (max-width: 720px) {
     [data-skin] .glint-landing-cols { grid-template-columns: 1fr; gap: 1.5rem; }

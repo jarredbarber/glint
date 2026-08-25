@@ -58,6 +58,25 @@ function fixDisplayMath(content: string): string {
  * @param stripH1 - Whether to strip the first H1 heading (default: true)
  * @returns Parsed content with metadata
  */
+// Browser-safe fallback frontmatter parser for the common cases gray-matter can't reach
+// without Buffer: `key: scalar`, quoted scalars, and inline `[a, b]` arrays (#67).
+function parseFrontmatterLite(block: string): Record<string, unknown> {
+    const unquote = (s: string) => s.replace(/^["']|["']$/g, '').trim();
+    const data: Record<string, unknown> = {};
+    for (const line of block.split('\n')) {
+        const m = line.match(/^\s*([\w-]+)\s*:\s*(.*)$/);
+        if (!m) continue;
+        const [, key, rawValue] = m;
+        const value = rawValue.trim();
+        if (value.startsWith('[') && value.endsWith(']')) {
+            data[key] = value.slice(1, -1).split(',').map((v) => unquote(v)).filter(Boolean);
+        } else if (value !== '') {
+            data[key] = unquote(value);
+        }
+    }
+    return data;
+}
+
 export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkdown {
     let frontmatter: Record<string, unknown> = {};
     let content = raw;
@@ -98,28 +117,28 @@ export function parseMarkdown(raw: string, stripH1: boolean = true): ParsedMarkd
         frontmatter = result.data;
         content = result.content;
     } catch {
-        // Fallback: YAML parse failed, but still strip the frontmatter block so it
-        // never renders. Frontmatter values are unavailable here (best effort).
+        // Fallback: gray-matter threw (it needs Buffer, absent in the browser bundle — #52).
+        // Strip the block so it never renders, and parse the common key/value + inline-array
+        // shapes ourselves so frontmatter values are still available in the browser (#67).
         content = bodyAfterFrontmatter;
+        if (raw.startsWith('---')) {
+            const end = raw.indexOf('\n---', 3);
+            if (end !== -1) frontmatter = parseFrontmatterLite(raw.substring(3, end));
+        }
     }
 
     // 2. Fix display math (before any line-sensitive operations)
     content = fixDisplayMath(content);
 
-    // 3. Handle H1 stripping
+    // 3. Handle H1 stripping. The first `# ` heading is the canonical title (#67);
+    // a frontmatter `title:` is treated as ordinary metadata, not the doc title.
     let title: string | null = null;
     let additionalLinesStripped = 0;
 
-    // Priority 1: frontmatter title
-    if (frontmatter.title && typeof frontmatter.title === 'string') {
-        title = frontmatter.title;
-    }
-
-    // Priority 2: First H1 (optionally strip it)
-    if (!title || stripH1) {
+    {
         const h1Match = content.match(/^#\s+(.+)$/m);
         if (h1Match) {
-            if (!title) title = h1Match[1].trim();
+            title = h1Match[1].trim();
 
             if (stripH1) {
                 // Find the line number of the H1 in the content

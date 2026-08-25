@@ -51,7 +51,13 @@ export function normalizeProjectRoute(route: string): string | null {
     if (parts[0] !== 'gh' || parts.length < 3) return null;
     const owner = parts[1]?.trim().toLowerCase();
     const repo = parts[2]?.trim().toLowerCase();
-    const tail = parts.slice(3).join('/');
+    // github.com-style `tree/<ref>/<path>` project routes (#67): fold the ref into the
+    // internal `@ref` form below. `blob/...` is a single file, never a project.
+    let tailParts = parts.slice(3);
+    let treeRef = '';
+    if (tailParts[0] === 'blob') return null;
+    if (tailParts[0] === 'tree') { treeRef = tailParts[1] ?? ''; tailParts = tailParts.slice(2); }
+    const tail = treeRef ? `${tailParts.join('/')}@${treeRef}` : tailParts.join('/');
     const at = tail.lastIndexOf('@');
     // No @ref = auto-detect the repo's default branch (#64); keep it out of the route so
     // it stays distinct from an explicit @main pin.

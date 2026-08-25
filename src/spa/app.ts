@@ -10,7 +10,7 @@ import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
-import { parseSingleRoute, buildShareRoute } from './single-route.js';
+import { parseSingleRoute, buildShareRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
 // Public OAuth IDs and the Worker origin are deployment configuration; secrets never
@@ -87,27 +87,6 @@ function sourceUrl(route: string): string {
     return '';
 }
 
-// Landing inputs accept either the short form or a pasted URL (#5).
-// Drive: a folder id, or a .../folders/<id> URL.
-export function parseDriveInput(raw: string): string {
-    const value = raw.trim();
-    return value.match(/\/folders\/([^/?#]+)/)?.[1] ?? value;
-}
-// GitHub: `owner/repo/path@ref`, or a github.com/owner/repo[/tree|blob/ref/path] URL.
-// Returns the `#/gh/<...>` route tail (owner/repo/path optionally @ref).
-export function parseGitHubInput(raw: string): string {
-    const value = raw.trim();
-    const url = value.match(/github\.com\/([^/]+)\/([^/]+)(?:\/(?:tree|blob)\/([^/]+)((?:\/[^?#]*)?))?/);
-    if (url) {
-        const [, owner, repo, ref, path] = url;
-        const repoName = repo.replace(/\.git$/, '');
-        const clean = (path ?? '').replace(/^\/+|\/+$/g, '');
-        const base = clean ? `${owner}/${repoName}/${clean}` : `${owner}/${repoName}`;
-        return ref && ref !== 'main' ? `${base}@${ref}` : base;
-    }
-    return value.replace(/^\/+/, '');
-}
-
 export function parseRoute(hash: string): { backend: string; rest: string[] } | null {
     const m = hash.replace(/^#\/?/, '');
     if (!m) return null;
@@ -120,7 +99,7 @@ export function parseRoute(hash: string): { backend: string; rest: string[] } | 
 // `#/demo` doubles as a visual smoke test. Single-quoted so code-fence backticks stay literal.
 const DEMO_PAGES = [
     { name: 'Home.md', content: [
-        '---', 'title: Glint Demo', 'author: Jarred', 'date: 2026-01-08', '---', '',
+        '---', 'author: Jarred', 'date: 2026-01-08', 'tags: [demo, markdown]', 'status: living document', '---', '',
         '# Glint demo', '',
         'A tour of what the renderer does. Start here, then see [[Tasks]], [[Diagrams]], [[Code]], [[Math]], and [[Comments]].', '',
         '## Prose', '',
@@ -219,14 +198,10 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             return new DriveAdapter(rest[0], CFG.driveClientId ?? '');
         case 'gh':
         case 'github': {
-            // #/gh/owner/repo/path...  (optional @ref on the last segment). No @ref means
-            // auto-detect the repo's default branch (#64), passed as '' to the adapter.
-            const [owner, repo, ...pathParts] = rest;
-            let ref = '';
-            let path = pathParts.join('/');
-            const at = path.lastIndexOf('@');
-            if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
-            return new GitHubAdapter(owner, repo, path, ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
+            // Accepts the tree/legacy project forms (parseGhRoute). Empty ref = auto-detect
+            // the repo's default branch (#64). Blob routes are handled as single files upstream.
+            const t = parseGhRoute(rest);
+            return new GitHubAdapter(t.owner, t.repo, t.path, t.ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
         }
         default: throw new Error(`unknown backend: ${backend}`);
     }
@@ -239,6 +214,10 @@ function pickSingle(rest: string[]): { adapter: StorageAdapter; fileId: string; 
     if (p.backend === 'gh') {
         const adapter = new GitHubAdapter(p.owner!, p.repo!, '', p.ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
         return { adapter, fileId: p.path };
+    }
+    if (p.backend === 'drive') {
+        // Drive reads any file by id (alt=media), so no folder is needed; path is the file id.
+        return { adapter: new DriveAdapter('', CFG.driveClientId ?? ''), fileId: p.path };
     }
     return { adapter: new FakeAdapter(DEMO_PAGES), fileId: '', resolveByPath: p.path };
 }
@@ -1037,7 +1016,8 @@ function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
     const canEdit = adapter.capabilities?.().canEdit ?? true;   // #59: hide write affordances when read-only
-    const shareRoute = currentFileId ? buildShareRoute(location.hash, files.find((f) => f.id === currentFileId)?.path ?? '') : null;
+    const resolvedRef = adapter instanceof GitHubAdapter ? adapter.resolvedRef : undefined;
+    const shareRoute = currentFileId ? buildShareRoute(location.hash, files.find((f) => f.id === currentFileId)?.path ?? '', resolvedRef) : null;
     const pageActions = currentFileId
         ? `<button class="glint-icon-btn" data-export-page title="Export HTML" aria-label="Export HTML">${ICON.export}</button>${shareRoute ? `<button class="glint-icon-btn" data-copy-link title="Copy shareable link" aria-label="Copy shareable link">${ICON.link}</button>` : ''}${canEdit ? `<button class="glint-icon-btn" data-delete-page title="Delete page" aria-label="Delete page">${ICON.trash}</button>` : ''}`
         : '';
@@ -1098,9 +1078,9 @@ function renderSidebar() {
 
 function renderLanding(): void {
     document.body.classList.add('glint-landing');
-    const local = localSupported()
-        ? `<a class="glint-source-card" href="#/local"><span class="glint-source-icon">${ICON.local}</span><strong>Local folder</strong><span>Open Markdown from this device.</span></a>`
-        : `<div class="glint-source-card disabled"><span class="glint-source-icon">${ICON.local}</span><strong>Local folder</strong><span>Needs a Chromium-based browser.</span></div>`;
+    const localPicker = localSupported()
+        ? `<button type="button" class="glint-url-pick" data-pick-local>${ICON.local}<span>Choose a local folder</span></button>`
+        : `<button type="button" class="glint-url-pick" disabled title="Needs a Chromium-based browser">${ICON.local}<span>Local folder (Chromium only)</span></button>`;
     const projectList = appState.projects.length
         ? `<ul class="glint-project-list">${appState.projects.map((project) => {
             const detail = sourceDetail(project.route);
@@ -1121,38 +1101,30 @@ function renderLanding(): void {
                 </section>
                 <section class="glint-landing-col">
                     <h2 class="glint-col-label">Open a source</h2>
-                    <div class="glint-source-grid">
-                        ${local}
-                        <form class="glint-source-card" data-source-form="drive">
-                            <span class="glint-source-icon">${ICON.drive}</span>
-                            <strong>Google Drive</strong><span>Open a shared folder by ID.</span>
-                            <label for="lp-drive">Folder ID</label>
-                            <input id="lp-drive" placeholder="1a2b..." autocomplete="off">
-                            <button>Open Drive folder</button>
-                        </form>
-                        <form class="glint-source-card" data-source-form="gh">
-                            <span class="glint-source-icon">${ICON.github}</span>
-                            <strong>GitHub</strong><span>Open a repository folder with a token.</span>
-                            <label for="lp-gh">Repository path</label>
-                            <input id="lp-gh" placeholder="owner/repo/path@ref" autocomplete="off">
-                            <button>Open GitHub folder</button>
-                        </form>
-                    </div>
+                    <form class="glint-url-open" data-url-form>
+                        <label for="lp-url">Paste a link to a repo, folder, or file</label>
+                        <input id="lp-url" placeholder="github.com/owner/repo · a Drive/GitHub link · owner/repo/blob/main/file.md" autocomplete="off" spellcheck="false">
+                        <p class="glint-url-error" role="alert" data-url-error></p>
+                        <div class="glint-url-actions">
+                            <button type="submit">Open</button>
+                            ${localPicker}
+                        </div>
+                        <p class="glint-setting-note">GitHub and Drive links open the file or project directly. A <code>/blob/</code> link opens a single file.</p>
+                    </form>
                 </section>
             </div>
         </section>`;
     (document.querySelector('.content-wrapper') as HTMLElement).querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
-    const goTo = (hash: string) => { location.hash = hash; };
-    document.querySelector<HTMLFormElement>('[data-source-form="drive"]')?.addEventListener('submit', (event) => {
+    const form = document.querySelector<HTMLFormElement>('[data-url-form]');
+    const errorEl = document.querySelector<HTMLElement>('[data-url-error]');
+    form?.addEventListener('submit', (event) => {
         event.preventDefault();
-        const id = parseDriveInput((document.getElementById('lp-drive') as HTMLInputElement).value);
-        if (id) goTo(`#/drive/${encodeURIComponent(id)}`);
+        const value = (document.getElementById('lp-url') as HTMLInputElement).value;
+        const route = parseLandingUrl(value);
+        if (route) { location.hash = route; return; }
+        if (errorEl) errorEl.textContent = value.trim() ? 'Not a recognizable GitHub or Drive link.' : 'Paste a link first.';
     });
-    document.querySelector<HTMLFormElement>('[data-source-form="gh"]')?.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const path = parseGitHubInput((document.getElementById('lp-gh') as HTMLInputElement).value);
-        if (path) goTo(`#/gh/${path}`);
-    });
+    form?.querySelector<HTMLButtonElement>('[data-pick-local]')?.addEventListener('click', () => { location.hash = '#/local'; });
 }
 
 function closeMobileSidebar(): void {
@@ -1227,10 +1199,16 @@ function showSourceError(error: Error): void {
     (wrapper.querySelector('h1') as HTMLElement).focus();
 }
 
+type SingleTarget = { adapter: StorageAdapter; fileId: string; resolveByPath?: string };
+
 // #/s/<backend>/<address>: render one shared document, no project tree, read-only.
 async function bootSingle(rest: string[]): Promise<void> {
     let single;
     try { single = pickSingle(rest); } catch (error) { showSourceError(error as Error); return; }
+    await bootSingleResolved(single);
+}
+
+async function bootSingleResolved(single: SingleTarget): Promise<void> {
     adapter = single.adapter;
     showLoading('Opening page…');
     try {
@@ -1289,6 +1267,16 @@ export async function boot(): Promise<void> {
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }
     if (route.backend === 's') { await bootSingle(route.rest); return; }
+    // A gh `blob` route is a single file (#67): open it read-only, no project tree.
+    if (route.backend === 'gh' || route.backend === 'github') {
+        let gh;
+        try { gh = parseGhRoute(route.rest); } catch (error) { showSourceError(error as Error); return; }
+        if (gh.mode === 'blob') {
+            const ghAdapter = new GitHubAdapter(gh.owner, gh.repo, '', gh.ref, githubOAuthConfig(), githubCallbackToken, promptGitHubAuth);
+            await bootSingleResolved({ adapter: ghAdapter, fileId: gh.path });
+            return;
+        }
+    }
     adapter = pickAdapter(route.backend, route.rest);
     showLoading('Opening project…');
     try {

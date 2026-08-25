@@ -9,13 +9,12 @@ becomes a wiki. No server, no Glint user database — access control is the back
 |---------|-----------|-------|
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` |
-| GitHub repo | `#/gh/<owner>/<repo>/<path>@<ref>` | GitHub OAuth or an explicit fine-grained PAT |
-
-`@<ref>` is optional; omit it and Glint uses the repo's default branch (`main`, `master`, or whatever it is — #64). An explicit `@<ref>` pins that branch.
+| GitHub repo | `#/gh/<owner>/<repo>` or `#/gh/<owner>/<repo>/tree/<ref>/<path>` | GitHub OAuth or an explicit fine-grained PAT |
+| GitHub single file | `#/gh/<owner>/<repo>/blob/<ref>/<path>` | same GitHub token |
 | Demo (in-memory) | `#/demo` | nothing |
-| Single file | `#/s/<source>/<path>` | same as the underlying source |
+| Single file (Drive/demo) | `#/s/drive/<fileId>` or `#/s/demo/<page>` | same as the underlying source |
 
-`#/s/...` renders one document read-only with no project tree (single-file sharing, #58). `#/s/gh/<owner>/<repo>/<path>@<ref>` reads the file directly (no recursive listing); the path is repo-root relative. `#/s/demo/<page>` shares a demo page. `local` and `drive` have no path-addressable single-file form. The sidebar page-actions **copy-link** button generates the `#/s/...` URL for the current page.
+GitHub routes follow github.com's own URL shape (#67): a `blob` segment means one file (read-only, no recursive listing; the path is repo-root relative), `tree` (or a bare `#/gh/<owner>/<repo>`) means a project folder. Omit the ref on a project route and Glint auto-detects the repo's default branch (`main`, `master`, … — #64); the legacy `#/gh/<owner>/<repo>/<path>@<ref>` form still opens as a project. Drive single files use `#/s/drive/<fileId>` (Drive reads any file by id). The landing page's single link box accepts pasted `github.com/…/blob|tree/…` and `drive.google.com/file|folders/…` URLs, detects the source, and routes accordingly (#67). The sidebar page-actions **copy-link** button generates the single-file URL for the current page.
 
 ## Local dev
 
