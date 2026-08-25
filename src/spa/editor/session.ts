@@ -55,7 +55,9 @@ export function closeSectionEditor(): void {
     hidden = [];
 }
 
-type SavedCallback = (fileId: string, content: string) => void | Promise<void>;
+// version is the native token StorageAdapter.write() returned, so the callback can
+// reconcile File metadata without a second read just to recover it (#63).
+type SavedCallback = (fileId: string, content: string, version: string) => void | Promise<void>;
 
 function showSavingNotice(): HTMLElement {
     const notice = document.createElement('p');
@@ -127,10 +129,11 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
             const next = [...lines];
             next.splice(startLine - 1, endLine - startLine, edited);
             const newContent = next.join('\n');
-            const write = () => adapter.write(fileId, newContent, version);
+            let written: { version: string } | null = null;
+            const write = async () => { written = await adapter.write(fileId, newContent, version); };
             const finish = async () => {
                 closeSectionEditor();                       // close in place, no reload (#54)
-                await onSaved?.(fileId, newContent);
+                await onSaved?.(fileId, newContent, written!.version);
             };
             const saving = showSavingNotice();
             try {

@@ -2,6 +2,7 @@
 import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
+import { reconcileWrite } from './file-mutation.js';
 import { DriveAdapter } from './storage/drive.js';
 import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
@@ -537,12 +538,10 @@ function showLoading(label = 'Loading…'): void {
 
 // Called by the editor after a successful save: refresh the cache and re-render the
 // page in place instead of reloading the SPA (#54).
-async function onSectionSaved(id: string, content: string): Promise<void> {
-    contentCache.set(id, content);
-    const file = files.find((f) => f.id === id);
-    try {
-        if (file) { const { version } = await adapter.read(id); file.version = version; }
-    } catch { /* version refresh is best-effort */ }
+async function onSectionSaved(id: string, content: string, version: string): Promise<void> {
+    // write() already returned the next version; reconcile from it instead of
+    // issuing a second read solely to recover it (#63).
+    reconcileWrite(files, contentCache, { id, content, version });
     await openFile(id);
     showToast('Saved', 'success');
 }
@@ -773,8 +772,10 @@ async function setTaskState(line: number, marker: string): Promise<void> {
         if (updated === lines[idx]) { alert('Could not find a task marker on that line.'); return; }
         lines[idx] = updated;
         const newContent = lines.join('\n');
-        await adapter.write(id, newContent, version);
-        contentCache.set(id, newContent);
+        const { version: nextVersion } = await adapter.write(id, newContent, version);
+        // Record the returned version in FileMeta so the next mutation isn't a
+        // stale-version conflict (#63).
+        reconcileWrite(files, contentCache, { id, content: newContent, version: nextVersion });
         await openFile(id);
     } catch (error) {
         if (error instanceof ConflictError) alert('This page changed elsewhere. Reopen it and try again.');
