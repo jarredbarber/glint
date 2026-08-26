@@ -141,6 +141,7 @@ class GlintEditor {
     private options: GlintEditorOptions;
     private view: EditorView | null = null;
     private wrapper: HTMLElement | null = null;
+    private lastEscapeAt = 0;   // #88: two Escapes within the window cancel the editor
     private currentStartLine: number;
     private currentEndLine: number;
     private expandTopButton: HTMLElement | null = null;
@@ -220,7 +221,21 @@ class GlintEditor {
                 }
             ]),
             this.getLanguageExtension(),
-            EditorView.domEventHandlers({ paste: (event, view) => this.handlePaste(event, view) }),
+            EditorView.domEventHandlers({
+                paste: (event, view) => this.handlePaste(event, view),
+                // #88: double-Escape cancels. Single Escape stays free for vim insert->normal.
+                keydown: (event) => {
+                    if (event.key !== 'Escape' || !this.options.onCancel) return false;
+                    const now = Date.now();
+                    if (now - this.lastEscapeAt < 500) {
+                        this.lastEscapeAt = 0;
+                        this.options.onCancel();
+                        return true;
+                    }
+                    this.lastEscapeAt = now;
+                    return false;
+                },
+            }),
             glintTheme,
             EditorView.theme({
                 "&": {
