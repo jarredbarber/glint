@@ -25,20 +25,9 @@ Glint is a privacy-first Markdown viewer, editor, and wiki. The browser app open
 
 ## Getting started
 
-Glint is hosted at https://jarredbarber.github.io/glint. It is entirely browser-based
+Glint is hosted at https://jarredbarber.github.io/glint. It is entirely browser-based, there's no need to run it locally or deploy it. 
 
-| Source | Route | Requirement |
-| --- | --- | --- |
-| Demo | `#/demo` | None |
-| Local folder | `#/local` | Chromium or Edge File System Access API |
-| Google Drive | `#/drive/<folderId>` | Public Drive OAuth client ID in `src/spa/config.js` |
-| GitHub | `#/gh/<owner>/<repo>` or `#/gh/<owner>/<repo>/tree/<ref>/<path>` | Fine-grained GitHub token entered in the browser |
-| GitHub single file | `#/gh/<owner>/<repo>/blob/<ref>/<path>` | Same GitHub token |
-| Single file (Drive/demo) | `#/s/drive/<fileId>` or `#/s/demo/<page>` | Same as the underlying source |
-
-GitHub routes mirror github.com's own URL shape, so pasting a `github.com/<owner>/<repo>/blob/<ref>/<path>` link opens that one file read-only; a `tree` link (or a bare repo URL) opens the folder as a project. Drive `.../file/d/<id>` links open a single file; `.../folders/<id>` links open a folder. The landing page has one box that takes any of these links (or the short `owner/repo/...` form) and detects the source; the **copy-link** button in the sidebar page actions builds the shareable single-file URL for the current page.
-
-**Settings** (top of any workspace) exposes two independent appearance axes — a **skin** (Reader, warm editorial; or Almanac, printed field-guide) that sets layout and typography, and a **palette** (18 colour themes) that sets colour. Any skin renders under any palette, light or dark. A **Layout** section chooses where comments go — **inline** (anchored beneath the source line) or a **side rail** — and toggles an optional page **top bar** (breadcrumb, export, delete). Settings also holds the Vim-keybindings toggle and per-project management: saved projects carry an editable display **name** (rename there), so a long Drive folder ID never overflows the sidebar. Comments are written with an inline compose box, and GitHub credentials are entered through an in-app dialog and kept in memory only. Resolved comment threads collapse behind a "Show resolved" toggle so active discussion stays uncluttered. When a page has more than one heading, the sidebar shows an "On this page" outline that tracks your reading position. Read-only sources (for example a GitHub token without push access) hide the Save and page-editing controls.
+Glint supports either single files or "projects"; a project is a local folder, Google Drive folder, or GitHub repo. Drive/Github files/projects can be accessed by pasting their URLs into the landing page.
 
 ## Offline rendering
 
@@ -57,7 +46,6 @@ cat notes/paper.md | glint render --stdin --body-only
 ## Development / contribution
 
 We use a very agent-heavy process; see [AGENTS.md](AGENTS.md) for workflows and [docs/spa-setup.md](docs/spa-setup.md) for deployment.
-
 
 ```
 npm install
