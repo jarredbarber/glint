@@ -64,7 +64,9 @@ export function getCurrentSection(headerOffset = 0): HTMLElement | null {
         const dist = Math.abs((rect.top + rect.bottom) / 2 - mid);
         if (dist < bestDist) { bestDist = dist; best = s; }
     }
-    return best ?? wrapper.querySelector<HTMLElement>('[data-source-line]');
+    // Last resort: an empty or section-less doc has neither. Return the wrapper so
+    // `e` opens a whole-document editor instead of dead-ending (#82).
+    return best ?? wrapper.querySelector<HTMLElement>('[data-source-line]') ?? wrapper;
 }
 
 export function closeSectionEditor(): void {
@@ -131,12 +133,20 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     const { startLine, endLine } = getSectionRange(section, eof);
     const sectionText = lines.slice(startLine - 1, endLine - 1).join('\n');
 
-    // Hide the section's own subtree (no ±5 buffer, no global heading scan).
-    hidden = [section];
-    section.style.display = 'none';
     container = document.createElement('div');
     container.className = 'glint-inline-editor-container';
-    section.parentNode!.insertBefore(container, section);
+    const wholeDoc = Array.from(section.classList).includes('content-wrapper') || section === document.body;
+    if (wholeDoc) {
+        // Empty / section-less doc (#82): hide the wrapper's children, edit line 1..eof in place.
+        hidden = Array.from(section.children) as HTMLElement[];
+        hidden.forEach((el) => (el.style.display = 'none'));
+        section.appendChild(container);
+    } else {
+        // Hide the section's own subtree (no ±5 buffer, no global heading scan).
+        hidden = [section];
+        section.style.display = 'none';
+        section.parentNode!.insertBefore(container, section);
+    }
 
     if (typeof (window as any).GlintEditor === 'undefined') {
         closeSectionEditor();
