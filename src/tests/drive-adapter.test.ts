@@ -150,7 +150,7 @@ test('auth reuses an unexpired cached token and skips the GIS request; drops an 
         }
     });
 
-    const key = 'glint.drive.token.client';
+    const key = 'glint.drive.token.v2.client';
 
     // Unexpired cached token: no GIS request at all.
     store.set(key, JSON.stringify({ token: 'cached', expiresAt: Date.now() + 3_600_000 }));

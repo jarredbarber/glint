@@ -54,7 +54,10 @@ Commit `config.js` to enable Drive/GitHub on the deployed site. Client IDs and W
 2. **Authorized JavaScript origins** = your Pages origin (e.g. `https://<user>.github.io`). OAuth needs a
    real origin — `localhost` works for dev (not `file://`, and `localhost` ≠ `127.0.0.1` to Google).
 3. OAuth consent screen in **Testing** mode + add yourself as a test user (zero verification needed).
-4. Scope used: `drive.file` (least privilege). The app recursively lists Markdown files below the folder id.
+4. Scope used: full `drive` (read+write). `drive.file` only exposes files Glint itself created, so a folder
+   of Markdown you made elsewhere would list empty (#83); the editor needs to open and edit pre-existing files.
+   Full `drive` is a Google "restricted" scope — fine in Testing mode, but wide public release needs app
+   verification. The app recursively lists Markdown files below the folder id.
 5. Enable the **Google Drive API** for the project.
 
 ### GitHub — OAuth Worker, with optional fine-grained PAT
@@ -96,7 +99,7 @@ githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
-GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is `drive.file`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
+GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.v2.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is full `drive`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,

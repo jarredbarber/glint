@@ -25,10 +25,10 @@
 
   <h2>What Glint accesses</h2>
   <ul>
-    <li>When you connect Google Drive, Glint requests the <code>drive.file</code>
-        scope. This lets it read and write only the files it creates or that you
-        explicitly open through the Google file picker. It cannot see the rest of
-        your Drive.</li>
+    <li>When you connect Google Drive, Glint requests the <code>drive</code>
+        scope so it can open and edit Markdown files you created elsewhere, not
+        only files Glint itself made. Glint only ever reads or writes files within
+        the folder you point it at; it never sends your Drive contents anywhere.</li>
     <li>Drive access is used solely to list, read, and save Markdown pages and
         comments in the folder you selected.</li>
   </ul>

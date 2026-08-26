@@ -1,12 +1,13 @@
 // Google Drive backend: GIS token client + Drive REST. Server-less, no client secret.
 // REST calls are the ones proven by spike/drive-spa.html (issue #19, GREEN).
-// Scope is `drive.file` (least privilege) per spec; if folder-child listing comes
-// back empty under drive.file, widen SCOPE to `drive.readonly` + `drive.file` or
-// `drive` (the documented tradeoff — spec §Risks) — a one-line change here.
+// Scope is full `drive` (read+write): Glint edits pre-existing folders, and
+// `drive.file` only exposes files the app itself created — so a folder of
+// markdown you made elsewhere lists empty and can't be opened (#83). Full drive
+// is a Google "restricted" scope requiring app verification for wide release.
 import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const SCOPE = 'https://www.googleapis.com/auth/drive';
 const API = 'https://www.googleapis.com';
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
@@ -86,10 +87,12 @@ export class DriveAdapter implements StorageAdapter {
         if (!clientId) throw new Error('Drive backend needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
     }
 
-    // ponytail: Drive tokens are drive.file-scoped and ~1h-lived, so persisting them
+    // ponytail: Drive tokens are ~1h-lived, so persisting them
     // in localStorage skips the popup on every load/route click (#37). This deliberately
     // relaxes the #32/#38 no-storage rule — the real exfil control is the CSP, not token lifetime.
-    private get storageKey(): string { return `glint.drive.token.${this.clientId}`; }
+    // v2: scope widened to full `drive` (#83); old drive.file tokens list empty
+    // instead of 401ing, so the suffix bump discards them rather than waiting ~1h.
+    private get storageKey(): string { return `glint.drive.token.v2.${this.clientId}`; }
 
     private loadCachedToken(): string | null {
         try {
