@@ -100,7 +100,7 @@ GitHub OAuth tokens and PATs stay in memory for the current page only; neither i
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,
-and publishes `dist-spa/` (`index.html`, `config.js`, `llms.txt`, `privacy.html`,
+and publishes `dist-spa/` (`index.html`, `config.js`, `llm.txt`, `privacy.html`,
 `terms.html`, and `assets/`).
 Enable Pages → Source: **GitHub Actions** in repository settings.
 

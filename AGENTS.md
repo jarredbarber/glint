@@ -14,8 +14,9 @@ npm run stage:spa   # Assemble the GitHub Pages deploy root
 npm run bundle      # Rebuild browser assets without type-checking
 npm run start       # Alias for npm run dev
 glint render FILE   # Render one Markdown file to self-contained HTML
-glint skill         # Print the Markdown extension reference
 ```
+
+The Markdown extension reference lives in `skills/glint-markdown/SKILL.md` (published as `/llm.txt` at deploy time).
 
 ## Architecture
 
@@ -35,14 +36,14 @@ Use a hash route while running `npm run dev`:
 - `#/drive/<folderId>` — Drive folder; needs `window.GLINT_CONFIG.driveClientId` in `src/spa/config.js`.
 - `#/gh/<owner>/<repo>/<path>` — GitHub subtree; prompts for a fine-grained token and stores it in browser local storage.
 
-The deploy root is `dist-spa/`: `index.html`, `config.js`, `llms.txt`, and `assets/`. `.github/workflows/pages.yml` stages this same layout before publishing.
+The deploy root is `dist-spa/`: `index.html`, `config.js`, `llm.txt`, and `assets/`. `.github/workflows/pages.yml` stages this same layout before publishing.
 
 ## Change rules
 
 - Preserve source-root-relative `FileMeta.path` values. Folder navigation, wiki rendering, and all adapters rely on it.
 - Keep storage adapters backend-native: do not add a proxy or a Glint credential store.
 - Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/demo` in a browser.
-- Update `README.md`, `docs/spa-setup.md`, and `glint skill` when changing user-facing routes, storage behavior, or Markdown syntax.
+- Update `README.md`, `docs/spa-setup.md`, and `skills/glint-markdown/SKILL.md` when changing user-facing routes, storage behavior, or Markdown syntax.
 - Commit and push directly to `main`. Do not open pull requests for routine work.
 
 ---
