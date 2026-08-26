@@ -9,6 +9,7 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent    |
 | `ready-for-human`          | `ready-for-human`    | Awaiting human review or decision          |
 | `wontfix`                  | `wontfix`            | Will not be actioned                       |
+|                            | `backlog`            | Deferred or undecided; kept for tracking   | 
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
@@ -34,6 +35,7 @@ Do not escalate for:
 - Bug fixes with clear reproduction and testable acceptance criteria
 - Adding config keys, API endpoints, or features where the spec is unambiguous
 - Any task where the agent can run tests or otherwise verify the result
+- Decisions with low subjective ambiguity 
 
 **If the acceptance criteria are testable and the agent can verify them, just do the work and close the issue.**
 
