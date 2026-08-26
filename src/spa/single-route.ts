@@ -76,6 +76,24 @@ export function buildShareRoute(projectRoute: string, pagePath: string, refOverr
     return null;
 }
 
+// A project route can carry the currently-open page as a trailing `/-/<path>` suffix so the
+// URL bar reflects and reloads to that page (#69). `-` is the marker (unlike `blob`, which
+// opens a read-only single file); a bare `-` segment never appears in a real source path.
+export function splitPageRoute(hash: string): { projectRoute: string; pagePath: string | null } {
+    const parts = splitHash(hash);
+    const i = parts.indexOf('-');
+    if (i === -1) return { projectRoute: hash, pagePath: null };
+    const page = parts.slice(i + 1).join('/');
+    return {
+        projectRoute: '#/' + parts.slice(0, i).map(encodeURIComponent).join('/'),
+        pagePath: page || null,
+    };
+}
+
+export function buildPageRoute(projectRoute: string, pagePath: string): string {
+    return `${projectRoute}/-/${encPath(pagePath)}`;
+}
+
 // Detect a service from a pasted URL or short form and return the hash route it opens (#67).
 // Accepts github.com blob/tree URLs, `owner/repo[/...]` short forms, and Drive folder/file
 // URLs or bare ids. Returns null when nothing recognizable is present.

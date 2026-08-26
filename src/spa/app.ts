@@ -11,7 +11,7 @@ import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
-import { parseSingleRoute, buildShareRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 
 // Public OAuth IDs and the Worker origin are deployment configuration; secrets never
@@ -560,6 +560,15 @@ async function openFile(id: string) {
     const gen = bootGeneration;
     currentFileId = id;
     lastFileId = id;
+    // Reflect the open page in the URL bar (#69), so reload/copy lands here. Not in
+    // single-file/read-only view (shared-view), and via replaceState so no re-boot fires.
+    if (!document.body.classList.contains('shared-view')) {
+        const page = files.find((f) => f.id === id);
+        if (page) {
+            const target = buildPageRoute(splitPageRoute(location.hash).projectRoute, page.path);
+            if (location.hash !== target) history.replaceState(null, '', target);
+        }
+    }
     let content = contentCache.get(id);
     if (content === undefined) {
         const read = await adapter.read(id);
@@ -1310,7 +1319,10 @@ export async function boot(): Promise<void> {
             if (returnTo && location.hash !== returnTo) { location.hash = returnTo; return; }
         }
     }
-    const route = parseRoute(location.hash);
+    // A project route may carry the open page as a `/-/<path>` suffix (#69); route on the
+    // project part, remember the page to reopen after listing.
+    const { projectRoute, pagePath } = splitPageRoute(location.hash);
+    const route = parseRoute(projectRoute);
     if (route?.backend !== 'settings') settingsReturn = location.hash;
     if (!route) { renderLanding(); return; }
     if (route.backend === 'settings') { renderSettings(); return; }
@@ -1342,12 +1354,12 @@ export async function boot(): Promise<void> {
     renderSidebar();
     installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved);
     installCommentShortcut();
-    // Returning to the same project (e.g. after Settings) reopens the page you left,
-    // not the default one (#69). A different project always opens its default page.
-    const projectRoute = location.hash;
+    // An explicit page in the route wins (#69: reload/copy lands on it). Otherwise returning
+    // to the same project reopens the page you left; a different project opens its default page.
     const sameProject = lastProjectRoute === projectRoute;
     lastProjectRoute = projectRoute;
-    const reopenId = sameProject && lastFileId && files.some((f) => f.id === lastFileId) ? lastFileId : files[0]?.id;
+    const reopenId = (pagePath && files.find((f) => f.path === pagePath)?.id)
+        || (sameProject && lastFileId && files.some((f) => f.id === lastFileId) ? lastFileId : files[0]?.id);
     if (reopenId) await openFile(reopenId);
 }
 

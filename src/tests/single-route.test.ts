@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSingleRoute, buildShareRoute, parseGhRoute, parseLandingUrl } from '../spa/single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from '../spa/single-route.js';
 
 test('parseGhRoute: bare owner/repo is a project on the default branch', () => {
     assert.deepEqual(parseGhRoute(['o', 'r']), { owner: 'o', repo: 'r', ref: '', path: '', mode: 'tree' });
@@ -96,4 +96,21 @@ test('parseLandingUrl accepts short forms and rejects noise', () => {
     assert.equal(parseLandingUrl('owner/repo'), '#/gh/owner/repo');
     assert.equal(parseLandingUrl('just-one-word'), null);
     assert.equal(parseLandingUrl('   '), null);
+});
+
+test('splitPageRoute: no marker leaves the project route intact', () => {
+    assert.deepEqual(splitPageRoute('#/drive/FOLDER'), { projectRoute: '#/drive/FOLDER', pagePath: null });
+});
+
+test('splitPageRoute: /-/ suffix splits project route from page path', () => {
+    assert.deepEqual(splitPageRoute('#/drive/FOLDER/-/docs/intro.md'),
+        { projectRoute: '#/drive/FOLDER', pagePath: 'docs/intro.md' });
+    assert.deepEqual(splitPageRoute('#/gh/o/r/tree/main/docs/-/a/b.md'),
+        { projectRoute: '#/gh/o/r/tree/main/docs', pagePath: 'a/b.md' });
+});
+
+test('buildPageRoute round-trips through splitPageRoute', () => {
+    for (const [project, page] of [['#/drive/FOLDER', 'a/b.md'], ['#/demo', 'Home.md'], ['#/gh/o/r', 'x.md']] as const) {
+        assert.deepEqual(splitPageRoute(buildPageRoute(project, page)), { projectRoute: project, pagePath: page });
+    }
 });
