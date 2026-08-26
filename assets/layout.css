@@ -1331,7 +1331,9 @@ td {
 
 th {
     background-color: var(--bg-dim);
-    color: var(--green);
+    /* --text-color, not --green: the accent isn't contrast-checked against --bg-dim and
+       failed WCAG AA on light color schemes (#79). Matches the heading color. */
+    color: var(--text-color);
 }
 
 tr:nth-child(even) {
