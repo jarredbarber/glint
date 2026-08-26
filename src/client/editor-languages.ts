@@ -3,7 +3,7 @@
  * Enables context-dependent syntax highlighting in fenced code blocks.
  */
 import { markdown } from "@codemirror/lang-markdown";
-import { LanguageDescription } from "@codemirror/language";
+import { LanguageDescription, LanguageSupport, StreamLanguage } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
@@ -39,6 +39,43 @@ const codeLanguages = [
         name: "latex",
         alias: ["tex"],
         load: async () => latex()
+    }),
+    LanguageDescription.of({
+        name: "rust",
+        alias: ["rs"],
+        load: async () => (await import("@codemirror/lang-rust")).rust()
+    }),
+    LanguageDescription.of({
+        name: "cpp",
+        alias: ["c", "c++", "h", "hpp"],
+        load: async () => (await import("@codemirror/lang-cpp")).cpp()
+    }),
+    LanguageDescription.of({
+        name: "java",
+        load: async () => (await import("@codemirror/lang-java")).java()
+    }),
+    LanguageDescription.of({
+        name: "go",
+        alias: ["golang"],
+        load: async () => (await import("@codemirror/lang-go")).go()
+    }),
+    LanguageDescription.of({
+        name: "haskell",
+        alias: ["hs"],
+        load: async () =>
+            new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/haskell")).haskell))
+    }),
+    LanguageDescription.of({
+        name: "lisp",
+        alias: ["commonlisp", "elisp"],
+        load: async () =>
+            new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/commonlisp")).commonLisp))
+    }),
+    LanguageDescription.of({
+        name: "scheme",
+        alias: ["scm", "racket"],
+        load: async () =>
+            new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/scheme")).scheme))
     }),
 ];
 

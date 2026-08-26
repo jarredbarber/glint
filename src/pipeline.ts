@@ -4,6 +4,10 @@ import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeHighlight from 'rehype-highlight';
+import { common } from 'lowlight';
+import haskell from 'highlight.js/lib/languages/haskell';
+import lisp from 'highlight.js/lib/languages/lisp';
+import scheme from 'highlight.js/lib/languages/scheme';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeStringify from 'rehype-stringify';
@@ -55,7 +59,8 @@ export function createProcessor(config: GlintConfig, linkValidator: (path: strin
         // detect:false — only highlight fences with an explicit language. Auto-
         // detection guesses badly on unlabeled blocks (ascii tables, output dumps),
         // e.g. tagging aligned text as "markdown" and coloring its punctuation.
-        .use(rehypeHighlight, { detect: false })
+        // common set (~37 langs) plus haskell + lisp/scheme, which aren't in it.
+        .use(rehypeHighlight, { detect: false, languages: { ...common, haskell, lisp, scheme } })
         .use(rehypeGlintCodeBlocks)
         .use(rehypeSlug)
         .use(rehypeExtractHeadings)
