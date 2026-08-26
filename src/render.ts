@@ -6,7 +6,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { VFile } from 'vfile';
-import { loadConfig } from './config.js';
+import { DEFAULTS } from './config.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
@@ -129,14 +129,12 @@ export interface RenderFileOptions {
     theme?: string;
     /** KaTeX version for the CDN stylesheet. Resolved from the install if omitted. */
     katexVersion?: string;
-    /** Override the config directory (defaults to the file's directory). */
-    configPath?: string;
 }
 
 export interface RenderMarkdownOptions {
     /** Raw markdown string to render. */
     markdown: string;
-    /** Directory used for config loading and image resolution (defaults to cwd). */
+    /** Directory used for image resolution (defaults to cwd). */
     fileDir?: string;
     /** Theme name override (defaults to the config / 'nord'). */
     theme?: string;
@@ -161,7 +159,7 @@ export interface RenderMarkdownOptions {
  */
 export async function renderFile(opts: RenderFileOptions): Promise<string> {
     const fileDir = path.dirname(opts.filePath);
-    const config = await loadConfig(fileDir, opts.configPath);
+    const config = { ...DEFAULTS };
     if (opts.theme) config.theme = opts.theme;
 
     const raw = await fs.readFile(opts.filePath, 'utf8');
@@ -244,8 +242,7 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
 
 /** Render a raw markdown string to a full static HTML document (or a VimR fragment when nvim). */
 export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<string> {
-    const fileDir = opts.fileDir ?? process.cwd();
-    const config = await loadConfig(fileDir);
+    const config = { ...DEFAULTS };
     if (opts.theme) config.theme = opts.theme;
 
     const { content, frontmatter, contentStartLine, title: fmTitle } = parseMarkdown(
