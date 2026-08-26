@@ -56,7 +56,13 @@
     font-weight: 600;
 }
 
-[data-theme] .content-wrapper h1 { font-size: 2.1rem; margin: 0 0 0.6rem; }
+/* First # is the document title: larger and centered, not a section heading. */
+[data-theme] .content-wrapper h1 {
+    font-size: clamp(2.4rem, 5vw, 3.2rem);
+    text-align: center;
+    margin: 0.2rem auto 1.4rem;
+    letter-spacing: -0.02em;
+}
 
 /* Frontmatter header (#67): left-align to match the theme's left-aligned prose. */
 [data-theme] .article-header { text-align: left; margin-bottom: 1.5rem; }
