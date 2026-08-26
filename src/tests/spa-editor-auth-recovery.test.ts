@@ -135,6 +135,8 @@ test('an expired-auth save silently reconnects once, retries once, then closes i
         },
         create: async (name: string) => ({ id: name, name, path: name, version: '1' }),
         delete: async () => {},
+        createAsset: async () => {},
+        readAsset: async () => new Blob(),
     } satisfies StorageAdapter;
 
     await openSectionEditor(adapter, 'note.md', dom.section, true, (id, content) => { saved.push([id, content]); });
@@ -167,6 +169,8 @@ test('failed silent reauthentication retains the editor and offers interactive r
         write: async () => { throw new ExpiredAuthError(); },
         create: async (name: string) => ({ id: name, name, path: name, version: '1' }),
         delete: async () => {},
+        createAsset: async () => {},
+        readAsset: async () => new Blob(),
     } satisfies StorageAdapter;
 
     await openSectionEditor(adapter, 'note.md', dom.section);

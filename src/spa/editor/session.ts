@@ -5,6 +5,26 @@
 // getSectionRange's boundary math is unit-tested (section-range.test.ts).
 import { getSectionRange } from './section-range.js';
 import { StorageAdapter, AuthExpiredError, ConflictError } from '../storage/types.js';
+import { ASSET_MIME_EXT, MAX_ASSET_BYTES, derivePastePath } from '../assets.js';
+
+// Upload one pasted image beside `pagePath` and return the Markdown reference to insert.
+// Rejects (with a visible reason) anything outside the accepted type/size envelope, and
+// inserts nothing until the upload succeeds, so a save can never point at a missing file.
+function buildImagePaste(adapter: StorageAdapter, pagePath: string) {
+    return async (file: File): Promise<{ markdown: string; selectText: string } | null> => {
+        const ext = ASSET_MIME_EXT[file.type];
+        if (!ext) { alert(`Cannot paste ${file.type || 'this file'}: only PNG, JPEG, GIF, or WebP images.`); return null; }
+        if (file.size === 0 || file.size > MAX_ASSET_BYTES) { alert(`Image must be between 1 byte and ${MAX_ASSET_BYTES.toLocaleString()} bytes.`); return null; }
+        const { assetPath, ref } = derivePastePath(pagePath, ext);
+        try {
+            await adapter.createAsset(assetPath, file);
+        } catch (error) {
+            alert(`Image upload failed: ${(error as Error).message}`);
+            return null;
+        }
+        return { markdown: `![Describe image](${ref})`, selectText: 'Describe image' };
+    };
+}
 
 let active: any = null;                 // GlintEditor instance
 let container: HTMLElement | null = null;
@@ -100,7 +120,7 @@ function isAuthExpired(error: unknown): boolean {
     return error instanceof AuthExpiredError || (error instanceof Error && error.name === 'AuthExpiredError');
 }
 
-export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement, vimMode = true, onSaved?: SavedCallback): Promise<void> {
+export async function openSectionEditor(adapter: StorageAdapter, fileId: string, section: HTMLElement, vimMode = true, onSaved?: SavedCallback, pagePath?: string): Promise<void> {
     closeSectionEditor();
     const generation = editorGeneration;
 
@@ -125,6 +145,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     const editor = new (window as any).GlintEditor(container, {
         initialValue: sectionText,
         vimMode,
+        onImagePaste: pagePath ? buildImagePaste(adapter, pagePath) : undefined,
         onSave: async (edited: string) => {
             const next = [...lines];
             next.splice(startLine - 1, endLine - startLine, edited);
@@ -185,7 +206,7 @@ export async function openSectionEditor(adapter: StorageAdapter, fileId: string,
     active = editor;
 }
 
-export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true, onSaved?: SavedCallback): void {
+export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: () => string | null, vimMode: () => boolean = () => true, onSaved?: SavedCallback, currentPagePath: () => string | null = () => null): void {
     trackPointer();
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'e' || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -200,6 +221,6 @@ export function installEditorShortcuts(adapter: StorageAdapter, currentFileId: (
         const section = getCurrentSection(64);
         if (!section) { alert('Scroll to a section first.'); return; }   // never a silent no-op (#8 §2/§4)
         e.preventDefault();
-        void openSectionEditor(adapter, id, section, vimMode(), onSaved);
+        void openSectionEditor(adapter, id, section, vimMode(), onSaved, currentPagePath() ?? undefined);
     });
 }

@@ -60,6 +60,16 @@ function fromB64(b: string): string {
     return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
 }
 
+// Base64 of arbitrary bytes (GitHub Contents API is base64), chunked so a 5 MB image
+// doesn't blow the argument limit of String.fromCharCode(...spread).
+function bytesToB64(bytes: Uint8Array): string {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
+}
+
 export class GitHubAdapter implements StorageAdapter {
     private token: string | null = null;
     private userName = 'GitHub User';
@@ -266,5 +276,27 @@ export class GitHubAdapter implements StorageAdapter {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         this.reads.delete(id);
         this.listedVersions.delete(id);
+    }
+
+    // Sidecar assets (#30/#70): create-only commit (no sha → 422 if it already exists),
+    // raw read. Image upload and Markdown save are deliberately separate commits.
+    async createAsset(path: string, content: Blob): Promise<void> {
+        const b64 = bytesToB64(new Uint8Array(await content.arrayBuffer()));
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(path))}`, {
+            method: 'PUT',
+            body: JSON.stringify({ message: `Add ${path} via Glint`, content: b64, branch: this.ref }),
+        });
+        if (r.status === 401) { clearCachedGitHubToken(); throw new AuthExpiredError('GitHub authentication expired'); }
+        if (r.status === 422) throw new Error(`asset already exists: ${path}`);
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+    }
+
+    async readAsset(path: string): Promise<Blob> {
+        const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(path))}?ref=${encodeURIComponent(this.ref)}`, {
+            headers: { Accept: 'application/vnd.github.raw' },
+        });
+        if (r.status === 401) { clearCachedGitHubToken(); throw new AuthExpiredError('GitHub authentication expired'); }
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        return await r.blob();
     }
 }

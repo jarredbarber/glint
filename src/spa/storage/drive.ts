@@ -241,6 +241,57 @@ export class DriveAdapter implements StorageAdapter {
     async delete(id: string): Promise<void> {
         await this.api(`/drive/v3/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
     }
+
+    // Look up a single non-trashed child by name under a parent folder id.
+    private async childId(parentId: string, name: string, folderOnly: boolean): Promise<string | null> {
+        const clauses = [`'${parentId}' in parents`, `name = '${name.replace(/'/g, "\\'")}'`, 'trashed = false'];
+        if (folderOnly) clauses.push(`mimeType = '${FOLDER_MIME_TYPE}'`);
+        const q = encodeURIComponent(clauses.join(' and '));
+        const r = await this.api(`/drive/v3/files?q=${q}&fields=files(id)&pageSize=1`);
+        return (await r.json()).files?.[0]?.id ?? null;
+    }
+
+    private async resolveFolderId(folderPath: string): Promise<string> {
+        let id = this.folderId;
+        for (const seg of folderPath.split('/').filter(Boolean)) {
+            const child = await this.childId(id, seg, true);
+            if (!child) throw new Error(`No such folder: ${seg}`);
+            id = child;
+        }
+        return id;
+    }
+
+    // Sidecar assets (#30/#70): create the image in the page's own parent folder (no
+    // sidecar folder) via one multipart upload; read it back with alt=media as a Blob.
+    async createAsset(path: string, content: Blob): Promise<void> {
+        const segs = path.split('/').filter(Boolean);
+        const name = segs.pop();
+        if (!name) throw new Error('asset path is required');
+        const parentId = await this.resolveFolderId(segs.join('/'));
+        if (await this.childId(parentId, name, false)) throw new Error(`asset already exists: ${name}`);
+        const boundary = `glint-${crypto.randomUUID()}`;
+        const metadata = JSON.stringify({ name, mimeType: content.type, parents: [parentId] });
+        const body = new Blob([
+            `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${content.type}\r\n\r\n`,
+            content,
+            `\r\n--${boundary}--`,
+        ]);
+        await this.api('/upload/drive/v3/files?uploadType=multipart&fields=id', {
+            method: 'POST',
+            headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+            body,
+        });
+    }
+
+    async readAsset(path: string): Promise<Blob> {
+        const segs = path.split('/').filter(Boolean);
+        const name = segs.pop();
+        if (!name) throw new Error('asset path is required');
+        const parentId = await this.resolveFolderId(segs.join('/'));
+        const id = await this.childId(parentId, name, false);
+        if (!id) throw new Error(`No such asset: ${path}`);
+        return await (await this.api(`/drive/v3/files/${id}?alt=media`)).blob();
+    }
     private mapComment(comment: z.infer<typeof driveCommentSchema>): Discussion {
         let anchor: DiscussionAnchor | null = null;
         if (comment.anchor) {

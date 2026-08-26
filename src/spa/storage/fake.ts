@@ -71,4 +71,15 @@ export class FakeAdapter implements StorageAdapter {
     async delete(id: string): Promise<void> {
         if (!this.entries.delete(id)) throw new Error(`no such file: ${id}`);
     }
+
+    private assets = new Map<string, Blob>();
+    async createAsset(path: string, content: Blob): Promise<void> {
+        if (this.assets.has(path)) throw new Error(`asset already exists: ${path}`);
+        this.assets.set(path, content);
+    }
+    async readAsset(path: string): Promise<Blob> {
+        const blob = this.assets.get(path);
+        if (!blob) throw new Error(`no such asset: ${path}`);
+        return blob;
+    }
 }

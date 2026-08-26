@@ -43,6 +43,11 @@ export interface StorageAdapter {
     write(id: string, content: string, version: string): Promise<{ version: string }>;
     create(name: string, content: string): Promise<FileMeta>;
     delete(id: string): Promise<void>;
+    // Portable image sidecars (#30/#70). `path` is a workspace-root-relative POSIX path
+    // that resolves to a sibling of an existing page. createAsset is create-only (never
+    // overwrites) and makes no directories; readAsset returns opaque bytes.
+    createAsset(path: string, content: Blob): Promise<void>;
+    readAsset(path: string): Promise<Blob>;
     discussions?: DiscussionCapability;
 }
 

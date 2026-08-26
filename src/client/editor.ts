@@ -117,6 +117,10 @@ interface GlintEditorOptions {
     height?: string;
     onSave?: (content: string) => boolean | Promise<boolean>;
     onCancel?: () => void;
+    // Paste-to-upload (#70): called for a single pasted image file. Returns the Markdown
+    // reference to insert (and optional text to select for replacement), or null if the
+    // paste was rejected/failed. Ordinary text and multi-file pastes bypass this.
+    onImagePaste?: (file: File) => Promise<{ markdown: string; selectText?: string } | null>;
     vimMode?: boolean;
     language?: string;
     // Context expansion options
@@ -216,6 +220,7 @@ class GlintEditor {
                 }
             ]),
             this.getLanguageExtension(),
+            EditorView.domEventHandlers({ paste: (event, view) => this.handlePaste(event, view) }),
             glintTheme,
             EditorView.theme({
                 "&": {
@@ -459,6 +464,34 @@ class GlintEditor {
         }
 
         this.wrapper.appendChild(toolbar);
+    }
+
+    // One image file per paste; ordinary text and multi-file pastes fall through to the
+    // editor's default handling. Serialized so a burst of pastes can't interleave uploads.
+    private pasting = false;
+    private handlePaste(event: ClipboardEvent, view: EditorView): boolean {
+        if (!this.options.onImagePaste) return false;
+        const files = event.clipboardData?.files;
+        if (!files || files.length !== 1 || !files[0].type.startsWith('image/')) return false;
+        event.preventDefault();
+        if (this.pasting) return true;
+        this.pasting = true;
+        void this.options.onImagePaste(files[0]).then((result) => {
+            if (result && this.view) {
+                const { from, to } = this.view.state.selection.main;
+                this.view.dispatch({
+                    changes: { from, to, insert: result.markdown },
+                    selection: (() => {
+                        const at = result.selectText ? result.markdown.indexOf(result.selectText) : -1;
+                        return at >= 0
+                            ? { anchor: from + at, head: from + at + result.selectText!.length }
+                            : { anchor: from + result.markdown.length };
+                    })(),
+                });
+                this.view.focus();
+            }
+        }).finally(() => { this.pasting = false; });
+        return true;
     }
 
     public getValue(): string {

@@ -143,4 +143,31 @@ export class LocalAdapter implements StorageAdapter {
         const { dir, name } = await this.parentFor(id);
         await dir.removeEntry(name);
     }
+
+    // Sidecar assets live in the page's existing parent, so parentFor walks (never
+    // creates) directories; only the leaf file is created, create-only (#30/#70).
+    async createAsset(path: string, content: Blob): Promise<void> {
+        const { dir, name } = await this.parentFor(path);
+        try {
+            await dir.getFileHandle(name);
+            throw new Error(`asset already exists: ${name}`);
+        } catch (error) {
+            if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error;
+        }
+        const fh = await dir.getFileHandle(name, { create: true });
+        try {
+            const writable = await fh.createWritable();
+            await writable.write(content);
+            await writable.close();
+        } catch (error) {
+            await dir.removeEntry(name).catch(() => {});
+            throw error;
+        }
+    }
+
+    async readAsset(path: string): Promise<Blob> {
+        const { dir, name } = await this.parentFor(path);
+        const fh = await dir.getFileHandle(name);
+        return await fh.getFile();
+    }
 }

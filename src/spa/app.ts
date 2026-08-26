@@ -6,6 +6,7 @@ import { reconcileWrite } from './file-mutation.js';
 import { DriveAdapter } from './storage/drive.js';
 import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
+import { isManagedSrc, resolveAssetPath } from './assets.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
@@ -556,8 +557,59 @@ function pageSourceLinkHtml(id: string): string {
     return `<a class="glint-source-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${ICON.github}<span>Open on GitHub</span></a>`;
 }
 
+// Object URLs minted for managed images in the current render. Revoked when the page
+// changes/re-renders/unloads; never immediately after assigning src (#30/#70).
+let managedObjectUrls: string[] = [];
+function revokeManagedImages(): void {
+    for (const url of managedObjectUrls) URL.revokeObjectURL(url);
+    managedObjectUrls = [];
+}
+window.addEventListener('beforeunload', revokeManagedImages);
+
+function markImageError(img: HTMLImageElement, label: string, retry: () => void): void {
+    img.classList.add('glint-image-broken');
+    if (!img.alt) img.alt = label;
+    if (img.nextElementSibling?.classList.contains('glint-image-error')) img.nextElementSibling.remove();
+    const note = document.createElement('span');
+    note.className = 'glint-image-error';
+    note.textContent = `Image unavailable: ${label} `;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Retry';
+    button.addEventListener('click', () => { note.remove(); void retry(); });
+    note.appendChild(button);
+    img.after(note);
+}
+
+// Resolve one managed <img> through the adapter into an object URL. External and data:
+// images are left untouched by isManagedSrc; a failure shows a per-image error, not a blank page.
+async function resolveManagedImage(img: HTMLImageElement, pagePath: string, gen: number): Promise<void> {
+    const src = img.getAttribute('data-glint-src') ?? '';
+    if (!isManagedSrc(src)) return;
+    const path = resolveAssetPath(pagePath, src);
+    if (!path) { markImageError(img, src || '(empty)', () => resolveManagedImage(img, pagePath, bootGeneration)); return; }
+    try {
+        const blob = await adapter.readAsset(path);
+        if (gen !== bootGeneration) return;
+        const url = URL.createObjectURL(blob);
+        managedObjectUrls.push(url);
+        img.src = url;
+        img.classList.remove('glint-image-broken');
+    } catch {
+        markImageError(img, path, () => resolveManagedImage(img, pagePath, bootGeneration));
+    }
+}
+
+async function resolveManagedImages(root: ParentNode, pagePath: string, gen: number): Promise<void> {
+    for (const img of root.querySelectorAll<HTMLImageElement>('img[data-glint-src]')) {
+        if (gen !== bootGeneration) return;
+        await resolveManagedImage(img, pagePath, gen);
+    }
+}
+
 async function openFile(id: string) {
     const gen = bootGeneration;
+    revokeManagedImages();
     currentFileId = id;
     lastFileId = id;
     // Reflect the open page in the URL bar (#69), so reload/copy lands here. Not in
@@ -586,6 +638,7 @@ async function openFile(id: string) {
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
     wireWikiLinks();
     wireTaskCheckboxes();
+    void resolveManagedImages(wrapper, files.find((f) => f.id === id)?.path ?? id, gen);
     await renderDiscussions(content);
     renderContentBar();
     renderSidebar();
@@ -666,6 +719,38 @@ async function copyShareLink(route: string): Promise<void> {
     }
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+}
+
+// Inline every managed image as a data: URL for the standalone export (its CSP permits
+// data: but not blob:). Strips all data-glint-src. Aborts with the full failure list
+// rather than emitting a knowingly broken file (#30/#70 AC7).
+async function inlineAssetsForExport(renderedHtml: string, pagePath: string): Promise<string> {
+    const template = document.createElement('template');
+    template.innerHTML = renderedHtml;
+    const failures: string[] = [];
+    for (const img of template.content.querySelectorAll<HTMLImageElement>('img[data-glint-src]')) {
+        const src = img.getAttribute('data-glint-src') ?? '';
+        img.removeAttribute('data-glint-src');
+        if (!isManagedSrc(src)) continue;   // external/data images stay as-is
+        const path = resolveAssetPath(pagePath, src);
+        if (!path) { failures.push(src || '(empty)'); continue; }
+        try {
+            img.setAttribute('src', await blobToDataUrl(await adapter.readAsset(path)));
+        } catch {
+            failures.push(path);
+        }
+    }
+    if (failures.length) throw new Error(`Export aborted: could not resolve ${failures.length} image(s):\n${failures.join('\n')}`);
+    return template.innerHTML;
+}
+
 async function exportCurrentPage(): Promise<void> {
     const id = currentFileId;
     const page = files.find((file) => file.id === id);
@@ -675,7 +760,14 @@ async function exportCurrentPage(): Promise<void> {
         content = (await adapter.read(id)).content;
         contentCache.set(id, content);
     }
-    const html = await GlintRender.renderMarkdown(content, { knownPaths: files.map((file) => file.name) });
+    const rendered = await GlintRender.renderMarkdown(content, { knownPaths: files.map((file) => file.name) });
+    let html: string;
+    try {
+        html = await inlineAssetsForExport(rendered, page.path);
+    } catch (error) {
+        alert((error as Error).message);   // abort rather than download a knowingly broken file
+        return;
+    }
     const url = URL.createObjectURL(new Blob([createStandaloneHtml(page.name, html)], { type: 'text/html;charset=utf-8' }));
     const download = document.createElement('a');
     download.href = url;
@@ -1352,7 +1444,7 @@ export async function boot(): Promise<void> {
     }
     rememberCurrentProject(adapter instanceof LocalAdapter ? adapter.folderName() : undefined);
     renderSidebar();
-    installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved);
+    installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved, () => files.find((f) => f.id === currentFileId)?.path ?? null);
     installCommentShortcut();
     // An explicit page in the route wins (#69: reload/copy lands on it). Otherwise returning
     // to the same project reopens the page you left; a different project opens its default page.

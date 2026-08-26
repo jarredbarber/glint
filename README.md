@@ -8,6 +8,7 @@ Glint is a static Markdown wiki and a self-contained HTML renderer. The browser 
 
 - Render GitHub-Flavored Markdown with KaTeX, Mermaid, syntax highlighting, citations, task widgets, and comment blocks.
 - Browse nested Markdown folders, follow wiki links, and edit document sections in place.
+- Paste an image into the editor to store it as a portable sidecar beside the page (`page.md.<id>.png`); the reference stays backend-neutral so `glint render` and export inline it.
 - Persist changes through the selected local, Drive, or GitHub storage adapter with optimistic concurrency checks.
 - Export the current page from the SPA, or render one Markdown file as portable HTML with `glint render`.
 

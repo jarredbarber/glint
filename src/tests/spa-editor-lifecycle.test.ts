@@ -77,6 +77,8 @@ test('editor opens replace unconditionally and stale opens cannot create phantom
         write: async () => ({ version: '2' }),
         create: async (name: string) => ({ id: name, name, path: name, version: '1' }),
         delete: async () => {},
+        createAsset: async () => {},
+        readAsset: async () => new Blob(),
     } satisfies StorageAdapter;
     const domSection = section as unknown as HTMLElement; // Test double supplies the DOM members used by the editor session.
 
@@ -97,6 +99,8 @@ test('editor opens replace unconditionally and stale opens cannot create phantom
         write: async () => ({ version: '2' }),
         create: async (name: string) => ({ id: name, name, path: name, version: '1' }),
         delete: async () => {},
+        createAsset: async () => {},
+        readAsset: async () => new Blob(),
     } satisfies StorageAdapter;
 
     closeSectionEditor();

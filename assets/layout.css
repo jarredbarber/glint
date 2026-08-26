@@ -551,6 +551,25 @@ body {
     transform: scale(1.01);
 }
 
+/* Managed image that failed to resolve (#70): dim it, keep alt text, offer a retry. */
+img.glint-image-broken {
+    outline: 1px dashed var(--border-color, rgba(128, 128, 128, 0.5));
+    opacity: 0.5;
+    min-width: 2rem;
+    min-height: 2rem;
+}
+.glint-image-error {
+    display: inline-block;
+    margin: 0.25rem 0;
+    font-size: 0.85em;
+    color: var(--muted, #a33);
+}
+.glint-image-error button {
+    margin-left: 0.4rem;
+    font: inherit;
+    cursor: pointer;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

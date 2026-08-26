@@ -16,6 +16,12 @@ becomes a wiki. No server, no Glint user database — access control is the back
 
 GitHub routes follow github.com's own URL shape (#67): a `blob` segment means one file (read-only, no recursive listing; the path is repo-root relative), `tree` (or a bare `#/gh/<owner>/<repo>`) means a project folder. Omit the ref on a project route and Glint auto-detects the repo's default branch (`main`, `master`, … — #64); the legacy `#/gh/<owner>/<repo>/<path>@<ref>` form still opens as a project. Drive single files use `#/s/drive/<fileId>` (Drive reads any file by id). The landing page's single link box accepts pasted `github.com/…/blob|tree/…` and `drive.google.com/file|folders/…` URLs, detects the source, and routes accordingly (#67). The sidebar page-actions **copy-link** button generates the single-file URL for the current page.
 
+The open page is reflected in the URL bar as a `/-/<path>` suffix on the project route (#69), e.g. `#/demo/-/Home.md` or `#/gh/o/r/tree/main/docs/-/intro.md`. This is the editable project view (distinct from the read-only `blob` single-file shares); reloading or copying it lands on that page.
+
+## Image assets
+
+Paste an image into the section editor to store it as a flat sidecar beside the page, named `<page-filename>.<shortid>.<ext>` (#30/#70). The Markdown reference is page-relative and backend-neutral, so it works on every backend and `glint render`/export inline it. Accepted: PNG, JPEG, GIF, WebP, up to 5,000,000 bytes; one image per paste. Uploads go through the active storage adapter (Drive multipart into the page's own folder, GitHub create-only commit, Local File System Access, in-memory for demo) and are create-only, never overwriting. The Markdown never stores a Drive ID, GitHub URL, `blob:`, or `data:` reference; standalone export inlines each asset as `data:` and aborts rather than emit a broken file.
+
 ## Local dev
 
 ```bash
