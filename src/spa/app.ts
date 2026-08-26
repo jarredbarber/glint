@@ -675,7 +675,7 @@ async function createPage(rawName: string): Promise<void> {
         return;
     }
     try {
-        const created = await adapter.create(name, '');
+        const created = await adapter.create(name, `# ${name.replace(/\.md$/i, '')}\n`);
         files = [...files, created];
         renderSidebar();
         await openFile(created.id);
