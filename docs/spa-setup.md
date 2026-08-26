@@ -94,8 +94,20 @@ GitHub OAuth tokens and PATs stay in memory for the current page only; neither i
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,
-and publishes `dist-spa/` (`index.html`, `config.js`, `llms.txt`, and `assets/`).
+and publishes `dist-spa/` (`index.html`, `config.js`, `llms.txt`, `privacy.html`,
+`terms.html`, and `assets/`).
 Enable Pages → Source: **GitHub Actions** in repository settings.
 
 After deploy, register the Pages origin as the Google **Authorized JS origin** (step 2 above) and
 run one round-trip on the live site (auth → list → open → edit → save → persist).
+
+### OAuth policy URLs
+
+Google's OAuth verification asks for a privacy policy and terms of service URL.
+Glint ships two static pages for this, served from the same Pages origin as the app:
+
+- `https://<pages-domain>/privacy.html`
+- `https://<pages-domain>/terms.html`
+
+Enter these in the OAuth consent screen. Same-origin with the app satisfies Google's
+policy-URL requirement. The pages are self-contained, with no external requests.

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'">
+  <title>Glint Privacy Policy</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { max-width: 42rem; margin: 3rem auto; padding: 0 1.25rem; line-height: 1.6;
+           font-family: system-ui, -apple-system, sans-serif; }
+    h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+    .updated { color: #888; font-size: 0.9rem; }
+    ul { padding-left: 1.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Glint Privacy Policy</h1>
+  <p class="updated">Last updated 25 August 2026</p>
+
+  <p>Glint is a client-side static wiki. It runs entirely in your browser. There
+     is no Glint server, no user database, and no analytics. Glint stores and
+     transmits no user data outside your own browser and the Google Drive folder
+     you choose to open.</p>
+
+  <h2>What Glint accesses</h2>
+  <ul>
+    <li>When you connect Google Drive, Glint requests the <code>drive.file</code>
+        scope. This lets it read and write only the files it creates or that you
+        explicitly open through the Google file picker. It cannot see the rest of
+        your Drive.</li>
+    <li>Drive access is used solely to list, read, and save Markdown pages and
+        comments in the folder you selected.</li>
+  </ul>
+
+  <h2>What Glint stores</h2>
+  <ul>
+    <li>Your Google OAuth access token is kept in your browser's local storage so
+        you are not prompted on every page load. It is short-lived (about one hour)
+        and never leaves your browser.</li>
+    <li>Glint collects no personal information, sends nothing to any third party,
+        and has no back end to receive your data.</li>
+  </ul>
+
+  <h2>Removing access</h2>
+  <p>You can revoke Glint's access to your Google account at any time from
+     <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.
+     Clearing your browser's site data removes any stored token.</p>
+
+  <h2>Contact</h2>
+  <p>Glint is an open-source project. Questions and issues:
+     <a href="https://github.com/jarredbarber/glint">github.com/jarredbarber/glint</a>.</p>
+</body>
+</html>
