@@ -17,7 +17,7 @@ Glint is a privacy-first Markdown viewer, editor, and wiki. The browser app open
   - Wiki links
   - References / Citations
   - [Supported Markdown agent skill](https://jarredbarber.github.io/glint/llm.txt)
-- In-place editing and commenting (on supported backends)
+- In-place editing (hit `e` to edit the section under the mouse cursor) and commenting (on supported backends)
 - Paste-based image uploading: paste an image into the editor to store it as a portable sidecar beside the page (`page.md.<id>.png`)
 - Export the current page from the SPA, or
 - Offline rendering to portable HTML with `glint render` CLI.
