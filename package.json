@@ -18,8 +18,8 @@
     "test": "tsx --test src/tests/**/*.test.ts"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Jarred Barber",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
