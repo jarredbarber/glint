@@ -31,6 +31,7 @@ const driveFileListSchema = z.object({
         name: z.string(),
         mimeType: z.string(),
         modifiedTime: z.string().optional(),
+        owners: z.array(z.object({ displayName: z.string().optional() })).optional(),
     })).default([]),
     nextPageToken: z.string().optional(),
 });
@@ -187,14 +188,14 @@ export class DriveAdapter implements StorageAdapter {
         let pageToken: string | undefined;
         do {
             const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
-            const response = await this.api(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,modifiedTime)&pageSize=100&orderBy=name${token}`);
+            const response = await this.api(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,modifiedTime,owners(displayName))&pageSize=100&orderBy=name${token}`);
             const page = driveFileListSchema.parse(await response.json());
             for (const file of page.files) {
                 const path = prefix ? `${prefix}/${file.name}` : file.name;
                 if (file.mimeType === FOLDER_MIME_TYPE) {
                     files.push(...await this.listFolder(file.id, path, visited));
                 } else if (file.name.endsWith('.md') && file.modifiedTime) {
-                    files.push({ id: file.id, name: file.name, path, version: file.modifiedTime });
+                    files.push({ id: file.id, name: file.name, path, version: file.modifiedTime, modifiedTime: file.modifiedTime, author: file.owners?.[0]?.displayName });
                 }
             }
             pageToken = page.nextPageToken;

@@ -188,6 +188,8 @@ export class GitHubAdapter implements StorageAdapter {
     // One recursive Git Trees call yields the whole repo tree, instead of one
     // /contents/ request per directory (#66). Returns null when GitHub truncates
     // the tree (>100k entries) or the call fails, so list() falls back to the walk.
+    // ponytail: no author/modifiedTime (#87) — the tree/contents API omits them;
+    // each would need a per-file commit lookup. Add via the commits API if wanted.
     private async listTree(): Promise<FileMeta[] | null> {
         const r = await this.gh(`/repos/${this.owner}/${this.repo}/git/trees/${encodeURIComponent(this.ref)}?recursive=1`);
         if (!r.ok) return null;

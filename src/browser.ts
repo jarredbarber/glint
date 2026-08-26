@@ -33,6 +33,8 @@ export interface RenderOptions {
     baseUrl?: string;
     /** Known document paths for wiki-link validation (default: all links treated as unknown) */
     knownPaths?: string[];
+    /** Backend metadata used as fallback when frontmatter omits the field (#87). Frontmatter wins. */
+    defaultMeta?: { author?: string; updated?: string };
 }
 
 const DEFAULT_CONFIG: GlintConfig = {
@@ -72,7 +74,10 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
 
     const result = await processor.process(file);
     const titleHtml = title ? `<h1 class="glint-doc-title">${escapeHtml(title)}</h1>` : '';
-    const metaHtml = renderMetadata(frontmatter) + renderExtraMetadata(frontmatter);
+    // Backend metadata fills in only what frontmatter leaves out (#87). Drop empty
+    // defaults so `{ ...{author: undefined}, ...fm }` can't shadow a real value.
+    const defaults = Object.fromEntries(Object.entries(opts.defaultMeta ?? {}).filter(([, v]) => v));
+    const metaHtml = renderMetadata({ ...defaults, ...frontmatter }) + renderExtraMetadata(frontmatter);
     const header = (titleHtml || metaHtml)
         ? `<header class="article-header">${titleHtml}${metaHtml}</header>`
         : '';

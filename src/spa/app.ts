@@ -631,7 +631,11 @@ async function openFile(id: string) {
         contentCache.set(id, content);
     }
     const knownPaths = files.map((f) => f.name);
-    const html = await GlintRender.renderMarkdown(content, { knownPaths });
+    const page = files.find((f) => f.id === id);
+    const html = await GlintRender.renderMarkdown(content, {
+        knownPaths,
+        defaultMeta: { author: page?.author, updated: page?.modifiedTime },
+    });
     if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = pageSourceLinkHtml(id) + html;

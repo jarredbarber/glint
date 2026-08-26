@@ -1,7 +1,10 @@
 // The storage seam: one interface, four implementations (Fake, Drive, GitHub, Local).
 // `version` is the backend's native concurrency token (Drive modifiedTime,
 // GitHub blob sha, local lastModified). A write with a stale version is a conflict.
-export interface FileMeta { id: string; name: string; path: string; version: string; }
+// `author`/`modifiedTime` are optional backend-provided metadata (#87), used as
+// defaults when a document's YAML frontmatter omits them. Absent on backends that
+// don't expose them (frontmatter still wins where present).
+export interface FileMeta { id: string; name: string; path: string; version: string; author?: string; modifiedTime?: string; }
 
 export type DiscussionAnchor = {
     version: 1;

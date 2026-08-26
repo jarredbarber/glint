@@ -27,7 +27,7 @@ test('recursively lists Drive folders with source-relative paths', async () => {
     const responses = new Map([
         ['root', { files: [
             { id: 'notes', name: 'Notes', mimeType: 'application/vnd.google-apps.folder' },
-            { id: 'home', name: 'Home.md', mimeType: 'text/markdown', modifiedTime: '1' },
+            { id: 'home', name: 'Home.md', mimeType: 'text/markdown', modifiedTime: '1', owners: [{ displayName: 'Ada' }] },
         ] }],
         ['notes', { files: [
             { id: 'draft', name: 'Draft.md', mimeType: 'text/markdown', modifiedTime: '2' },
@@ -39,9 +39,10 @@ test('recursively lists Drive folders with source-relative paths', async () => {
         )),
     });
 
+    // #87: modifiedTime and owner surface as backend metadata; author is undefined when absent.
     assert.deepEqual(await adapter.list(), [
-        { id: 'home', name: 'Home.md', path: 'Home.md', version: '1' },
-        { id: 'draft', name: 'Draft.md', path: 'Notes/Draft.md', version: '2' },
+        { id: 'home', name: 'Home.md', path: 'Home.md', version: '1', modifiedTime: '1', author: 'Ada' },
+        { id: 'draft', name: 'Draft.md', path: 'Notes/Draft.md', version: '2', modifiedTime: '2', author: undefined },
     ]);
 });
 
