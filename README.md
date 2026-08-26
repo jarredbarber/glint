@@ -37,7 +37,7 @@ npm run build
 npm link
 
 glint render notes/paper.md
-glint render notes/paper.md --output output.html --theme nord
+glint render notes/paper.md --output output.html --color-scheme nord
 
 # Piped mode for use as a markdown processor
 cat notes/paper.md | glint render --stdin --body-only 

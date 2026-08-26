@@ -32,8 +32,8 @@ export const renderHtml = (options: RenderOptions) => {
     return `
 <!DOCTYPE html>
 <html lang="en">
-    ${renderHead(title, config.theme, styles)}
-    <body class="${config.theme} ${isShared ? 'shared-view' : ''}" data-access="${isStatic ? 'view' : (access || 'edit')}" data-path="${escapeHtml(currentPath)}">
+    ${renderHead(title, config.colorScheme, styles)}
+    <body class="${config.colorScheme} ${isShared ? 'shared-view' : ''}" data-access="${isStatic ? 'view' : (access || 'edit')}" data-path="${escapeHtml(currentPath)}">
         <div class="mobile-toggle">☰</div>
         <div class="mobile-overlay"></div>
         <div id="command-palette-overlay" class="command-palette-overlay" style="display: none;">
@@ -91,7 +91,7 @@ export const renderHtml = (options: RenderOptions) => {
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
-    ${renderSidebar({ fileTree, currentPath, headings, currentTheme: config.theme, isShared, static: isStatic, standalone })}
+    ${renderSidebar({ fileTree, currentPath, headings, currentColorScheme: config.colorScheme, isShared, static: isStatic, standalone })}
     <main class="content">
         <div class="content-wrapper">
             ${!isShared ? renderBreadcrumbs(currentPath, isStatic) : ''}

@@ -4,7 +4,7 @@ import { renderScripts } from '../renderer/scripts.js';
 import { renderSidebar } from '../renderer/sidebar.js';
 import { renderHtml } from '../renderer.js';
 
-const config = { theme: 'nord' } as any;
+const config = { colorScheme: 'nord' } as any;
 const fileTree = [] as any;
 
 // Static uses native navigation, so the SPA router is dropped too.
@@ -56,9 +56,9 @@ test('standalone render hides file tree and the home branding link', () => {
     assert.ok(!out.includes('<a href="/"'), 'no home branding link in standalone');
 });
 
-test('theme switcher derives stylesheet from existing href (prefix-safe), not a hardcoded /assets path', () => {
+test('color scheme switcher derives stylesheet from existing href (prefix-safe), not a hardcoded /assets path', () => {
     const out = renderSidebar({ fileTree: [], currentPath: 'x.md' });
     // Must reuse the already-(prefix-)rendered <link> href instead of rebuilding an absolute path.
-    assert.ok(out.includes('themeLink.href.replace('), 'theme switch reuses existing href');
-    assert.ok(!out.includes("'/assets/themes/'"), 'no hardcoded absolute themes path in JS');
+    assert.ok(out.includes('colorSchemeLink.href.replace('), 'color scheme switch reuses existing href');
+    assert.ok(!out.includes("'/assets/color-schemes/'"), 'no hardcoded absolute color-schemes path in JS');
 });

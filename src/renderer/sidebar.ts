@@ -1,12 +1,12 @@
 import { FileNode, renderFileTree } from '../filetree.js';
 import { HeadingNode } from '../rehype-extract-headings.js';
-import { AVAILABLE_THEMES } from '../config.js';
+import { AVAILABLE_COLOR_SCHEMES } from '../config.js';
 
 export interface SidebarOptions {
     fileTree: FileNode[];
     currentPath: string;
     headings?: HeadingNode[];
-    currentTheme?: string;
+    currentColorScheme?: string;
     isShared?: boolean;
     static?: boolean;
     /** Static share page: suppress the branding home link. Chrome hiding is carried via isShared. */
@@ -14,7 +14,7 @@ export interface SidebarOptions {
 }
 
 export const renderSidebar = (options: SidebarOptions) => {
-    const { fileTree, currentPath, headings = [], currentTheme = 'nord', isShared = false, standalone = false } = options;
+    const { fileTree, currentPath, headings = [], currentColorScheme = 'nord', isShared = false, standalone = false } = options;
     const minimalChrome = options.isShared || options.static;
 
     // Views section (Task View) — dynamic server routes, omitted from static/shared
@@ -73,14 +73,14 @@ export const renderSidebar = (options: SidebarOptions) => {
         ${filesSection}
     </div>
     <footer class="sidebar-footer">
-        <select class="theme-select" onchange="
-            const theme = this.value;
-            document.body.className = document.body.className.replace(/\\S+/, theme);
-            const themeLink = document.querySelector('link[href*=\\'themes/\\']');
-            if (themeLink) themeLink.href = themeLink.href.replace(/[^/]*\\.css$/, theme + '.css');
-            ${!minimalChrome ? `fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });` : ''}
+        <select class="color-scheme-select" onchange="
+            const colorScheme = this.value;
+            document.body.className = document.body.className.replace(/\\S+/, colorScheme);
+            const colorSchemeLink = document.querySelector('link[href*=\\'color-schemes/\\']');
+            if (colorSchemeLink) colorSchemeLink.href = colorSchemeLink.href.replace(/[^/]*\\.css$/, colorScheme + '.css');
+            ${!minimalChrome ? `fetch('/api/color-scheme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ colorScheme }) });` : ''}
         ">
-            ${AVAILABLE_THEMES.map(t => `<option value="${t}" ${t === currentTheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
+            ${AVAILABLE_COLOR_SCHEMES.map(t => `<option value="${t}" ${t === currentColorScheme ? 'selected' : ''}>${t.replace('-', ' ')}</option>`).join('')}
         </select>
         ${!minimalChrome ? `
         <label class="vim-toggle">

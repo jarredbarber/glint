@@ -1,11 +1,11 @@
 /* Layout - Sidebar + Content */
 :root {
-    /* Palette aliases: older UI colours referenced vars no theme defines
+    /* Color scheme aliases: older UI colours referenced vars no color scheme defines
        (--accent-color, --bg-primary, --text-primary, …), so they fell back to
-       hardcoded Nord values and clashed with every other palette — e.g. the
-       near-unreadable light-purple citations. Map them onto the real theme vars
-       so all colour flows through the active palette (only these orphans; vars
-       like --bg-secondary are already theme-defined). */
+       hardcoded Nord values and clashed with every other color scheme — e.g. the
+       near-unreadable light-purple citations. Map them onto the real color scheme vars
+       so all colour flows through the active color scheme (only these orphans; vars
+       like --bg-secondary are already color-scheme-defined). */
     --accent-color: var(--link-color, var(--blue));
     --accent-color-bright: var(--link-color, var(--blue));
     --bg-primary: var(--bg-color);
@@ -286,7 +286,7 @@ ul.contains-task-list .glint-task {
 
 /* SPA task-state dropdown (#69). Positioned with fixed viewport coords set inline
    from getBoundingClientRect; without position:fixed it fell into body flow at the
-   bottom of the page and ignored the theme. */
+   bottom of the page and ignored the color scheme. */
 .glint-task-picker {
     position: fixed;
     z-index: 1100;
@@ -318,7 +318,7 @@ ul.contains-task-list .glint-task {
     background: var(--bg-color);
 }
 .glint-task-picker-item.is-current {
-    color: var(--skin-accent, var(--link-color));
+    color: var(--theme-accent, var(--link-color));
     font-weight: 600;
 }
 
@@ -684,7 +684,7 @@ kbd {
     background-color: var(--bg-dim);
 }
 
-.theme-select {
+.color-scheme-select {
     width: 100%;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
@@ -2278,7 +2278,7 @@ h6:hover .heading-edit-icon,
     .section-edit-btn,
     .code-edit-btn,
     .copy-btn,
-    .theme-select,
+    .color-scheme-select,
     .vim-toggle,
     .share-sidebar-button,
     .modal-overlay {
@@ -3129,15 +3129,15 @@ h6:hover .heading-edit-icon,
    SHARED VIEW STYLES
    ============================================ */
 
-/* Hide sidebar on shared pages. [data-skin] prefix to outspecify `[data-skin] .sidebar`. */
+/* Hide sidebar on shared pages. [data-theme] prefix to outspecify `[data-theme] .sidebar`. */
 .sidebar.shared-view,
-[data-skin] .sidebar.shared-view {
+[data-theme] .sidebar.shared-view {
     display: none;
 }
 
 /* Adjust content width when sidebar is hidden */
 body.shared-view .content,
-[data-skin] body.shared-view .content {
+[data-theme] body.shared-view .content {
     margin-left: 0;
     max-width: 100%;
 }
@@ -3406,7 +3406,7 @@ body:has(.glint-inline-editor-container) .drag-handle {
     .section-edit-btn,
     .code-edit-btn,
     .copy-btn,
-    .theme-select,
+    .color-scheme-select,
     .vim-toggle,
     .share-sidebar-button,
     .modal-overlay,

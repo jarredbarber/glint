@@ -7,7 +7,7 @@ import type { HeadingNode } from '../rehype-extract-headings.js';
 const mockConfig = {
     port: 3000,
     host: '0.0.0.0',
-    theme: 'nord',
+    colorScheme: 'nord',
     baseFile: 'README.md',
     storage: {
         default: 'local',

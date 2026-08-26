@@ -1,7 +1,7 @@
 /**
- * Available theme names for Glint.
+ * Available color scheme names for Glint.
  */
-export const AVAILABLE_THEMES = [
+export const AVAILABLE_COLOR_SCHEMES = [
     'default',
     'ayu-dark',
     'ayu-light',
@@ -23,12 +23,12 @@ export const AVAILABLE_THEMES = [
 
 // Render configuration shared by the CLI renderer and the browser pipeline.
 export interface GlintConfig {
-    theme: string;
+    colorScheme: string;
     baseFile: string;
     'latex-macros'?: Record<string, string>;
 }
 
 export const DEFAULTS: GlintConfig = {
-    theme: 'nord',
+    colorScheme: 'nord',
     baseFile: 'README.md',
 };

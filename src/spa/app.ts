@@ -10,7 +10,7 @@ import { isManagedSrc, resolveAssetPath } from './assets.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
-import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Skin, SKINS } from './app-state.js';
+import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Theme, THEMES } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
 import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
@@ -224,7 +224,7 @@ function pickSingle(rest: string[]): { adapter: StorageAdapter; fileId: string; 
     return { adapter: new FakeAdapter(DEMO_PAGES), fileId: '', resolveByPath: p.path };
 }
 
-const THEMES = ['ayu-dark', 'ayu-light', 'catppuccin-latte', 'catppuccin-mocha', 'default', 'dracula', 'everforest-dark', 'github-light', 'glint', 'gruvbox-dark', 'kanagawa', 'moonlight', 'nord', 'nvim', 'one-dark', 'rose-pine', 'rose-pine-dawn', 'solarized-light', 'tokyo-night'] as const;
+const COLOR_SCHEMES = ['ayu-dark', 'ayu-light', 'catppuccin-latte', 'catppuccin-mocha', 'default', 'dracula', 'everforest-dark', 'github-light', 'glint', 'gruvbox-dark', 'kanagawa', 'moonlight', 'nord', 'nvim', 'one-dark', 'rose-pine', 'rose-pine-dawn', 'solarized-light', 'tokyo-night'] as const;
 let appState: PersistedStateV1 = DEFAULT_STATE;
 let statePersistent = true;
 let stateNotice = '';
@@ -253,18 +253,18 @@ const expandedFolders = new Set<string>();
 let lastProjectRoute: string | null = null;
 let lastFileId: string | null = null;
 
-function applyTheme(theme: string): void {
-    const link = document.querySelector<HTMLLinkElement>('#glint-theme');
-    if (link) link.href = `./assets/themes/${theme}.css`;
+function applyColorScheme(colorScheme: string): void {
+    const link = document.querySelector<HTMLLinkElement>('#glint-color-scheme');
+    if (link) link.href = `./assets/color-schemes/${colorScheme}.css`;
 }
 
-// Skin is the layout/type/ornament axis; palette (theme) is colour. They are set
-// independently, the skin is a root attribute the per-skin CSS keys off.
-function applySkin(skin: Skin): void {
-    document.documentElement.dataset.skin = skin;
+// Theme is the layout/type/ornament axis; color scheme is colour. They are set
+// independently, the theme is a root attribute the per-theme CSS keys off.
+function applyTheme(theme: Theme): void {
+    document.documentElement.dataset.theme = theme;
 }
 
-const SKIN_LABELS: Record<Skin, { title: string; blurb: string }> = {
+const THEME_LABELS: Record<Theme, { title: string; blurb: string }> = {
     reader: { title: 'Reader', blurb: 'Warm editorial with serif prose and soft, rounded controls.' },
     almanac: { title: 'Almanac', blurb: 'Printed field guide with a ruled index, small caps, and marginalia.' },
 };
@@ -275,7 +275,7 @@ const COMMENT_LABELS: Record<CommentLayout, { title: string; blurb: string }> = 
 };
 
 // Comment placement (inline vs. right rail) and the content top-bar are root
-// attributes the CSS keys off, applied the way applySkin swaps the skin.
+// attributes the CSS keys off, applied the way applyTheme swaps the theme.
 function applyCommentLayout(layout: CommentLayout): void {
     document.documentElement.dataset.comments = layout;
 }
@@ -358,7 +358,7 @@ function promptGitHubAuth(ctx: { owner: string; repo: string; ref: string; hasOA
 function persistState(): boolean {
     if (!statePersistent || !browserStorage) return false;
     try {
-        saveState(browserStorage, appState, THEMES);
+        saveState(browserStorage, appState, COLOR_SCHEMES);
         return true;
     } catch {
         statePersistent = false;
@@ -406,9 +406,9 @@ function closeSettings(): void {
 
 function renderSettings(): void {
     document.body.classList.add('glint-landing');
-    const skinCards = SKINS.map((skin) => `<button type="button" class="glint-skin-card${skin === appState.settings.skin ? ' selected' : ''}" data-skin-choice="${skin}"><strong>${escapeHtml(SKIN_LABELS[skin].title)}</strong><span>${escapeHtml(SKIN_LABELS[skin].blurb)}</span></button>`).join('');
-    const themeOptions = THEMES.map((theme) => `<option value="${theme}"${theme === appState.settings.theme ? ' selected' : ''}>${theme}</option>`).join('');
-    const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-skin-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
+    const themeCards = THEMES.map((theme) => `<button type="button" class="glint-theme-card${theme === appState.settings.theme ? ' selected' : ''}" data-theme-choice="${theme}"><strong>${escapeHtml(THEME_LABELS[theme].title)}</strong><span>${escapeHtml(THEME_LABELS[theme].blurb)}</span></button>`).join('');
+    const colorSchemeOptions = COLOR_SCHEMES.map((cs) => `<option value="${cs}"${cs === appState.settings.colorScheme ? ' selected' : ''}>${cs}</option>`).join('');
+    const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-theme-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
     const rows = appState.projects.map((project, index) => {
         const detail = sourceDetail(project.route);
         return `<li class="glint-project-row"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span>${detail ? `<span class="glint-project-source">${escapeHtml(detail)}</span>` : ''}</span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`;
@@ -420,13 +420,13 @@ function renderSettings(): void {
         </header>
         <p role="status">${escapeHtml(stateNotice)}</p>
         <section class="glint-setting-group"><h2>Appearance</h2>
-            <p class="glint-setting-note">Skin sets the layout and type; palette sets the colours.</p>
-            <div class="glint-skin-grid">${skinCards}</div>
-            <label class="glint-field">Palette <select data-theme>${themeOptions}</select></label>
+            <p class="glint-setting-note">Theme sets the layout and type; color scheme sets the colours.</p>
+            <div class="glint-theme-grid">${themeCards}</div>
+            <label class="glint-field">Color scheme <select data-color-scheme>${colorSchemeOptions}</select></label>
         </section>
         <section class="glint-setting-group"><h2>Layout</h2>
             <p class="glint-setting-note">Where comments go, and whether pages get a top bar.</p>
-            <div class="glint-skin-grid">${commentCards}</div>
+            <div class="glint-theme-grid">${commentCards}</div>
             <label class="glint-toggle"><input type="checkbox" data-content-bar${appState.settings.contentBar ? ' checked' : ''}> Show a page top bar (breadcrumb, export, delete)</label>
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
@@ -442,19 +442,19 @@ function renderSettings(): void {
         </section></section>`;
     const wrapper = document.querySelector('.content-wrapper')!;
     wrapper.querySelector('[data-close-settings]')?.addEventListener('click', closeSettings);
-    wrapper.querySelectorAll<HTMLButtonElement>('[data-skin-choice]').forEach((button) => button.addEventListener('click', () => {
-        const skin = button.dataset.skinChoice as Skin;
-        const previous = appState.settings.skin;
-        appState = { ...appState, settings: { ...appState.settings, skin } };
-        applySkin(skin);
-        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, skin: previous } }; applySkin(previous); }
+    wrapper.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
+        const theme = button.dataset.themeChoice as Theme;
+        const previous = appState.settings.theme;
+        appState = { ...appState, settings: { ...appState.settings, theme } };
+        applyTheme(theme);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, theme: previous } }; applyTheme(previous); }
         renderSettings();
     }));
-    wrapper.querySelector<HTMLSelectElement>('[data-theme]')?.addEventListener('change', (event) => {
-        const previous = appState.settings.theme;
-        appState = { ...appState, settings: { ...appState.settings, theme: (event.target as HTMLSelectElement).value } };
-        applyTheme(appState.settings.theme);
-        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, theme: previous } }; applyTheme(previous); renderSettings(); }
+    wrapper.querySelector<HTMLSelectElement>('[data-color-scheme]')?.addEventListener('change', (event) => {
+        const previous = appState.settings.colorScheme;
+        appState = { ...appState, settings: { ...appState.settings, colorScheme: (event.target as HTMLSelectElement).value } };
+        applyColorScheme(appState.settings.colorScheme);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, colorScheme: previous } }; applyColorScheme(previous); renderSettings(); }
     });
     wrapper.querySelectorAll<HTMLButtonElement>('[data-comment-choice]').forEach((button) => button.addEventListener('click', () => {
         const layout = button.dataset.commentChoice as CommentLayout;
@@ -500,8 +500,8 @@ function renderSettings(): void {
     wrapper.querySelector('[data-reset-projects]')?.addEventListener('click', () => {
         if (!confirm('Reset local Projects and settings? Backend files will not be changed.')) return;
         appState = { version: 1, projects: [], settings: { ...DEFAULT_STATE.settings } };
-        applySkin(appState.settings.skin);
         applyTheme(appState.settings.theme);
+        applyColorScheme(appState.settings.colorScheme);
         applyCommentLayout(appState.settings.commentLayout);
         applyContentBar(appState.settings.contentBar);
         browserStorage?.removeItem(LEGACY_GITHUB_TOKEN_KEY);
@@ -1109,7 +1109,7 @@ function installCommentShortcut(): void {
 }
 
 // "On this page" dock: built from the rendered document (headings already carry
-// rehype-slug ids), styled per skin, IntersectionObserver-tracked (#56).
+// rehype-slug ids), styled per theme, IntersectionObserver-tracked (#56).
 const TOC_COLLAPSED_KEY = 'glint.toc.collapsed';
 let tocObserver: IntersectionObserver | null = null;
 
@@ -1411,7 +1411,7 @@ export async function boot(): Promise<void> {
     let loaded;
     try {
         browserStorage = window.localStorage;
-        loaded = loadState(browserStorage, THEMES);
+        loaded = loadState(browserStorage, COLOR_SCHEMES);
         browserStorage.removeItem(LEGACY_GITHUB_TOKEN_KEY);
     } catch {
         browserStorage = null;
@@ -1420,8 +1420,8 @@ export async function boot(): Promise<void> {
     appState = loaded.state;
     statePersistent = loaded.persistent;
     stateNotice = loaded.notice ?? '';
+    applyColorScheme(appState.settings.colorScheme);
     applyTheme(appState.settings.theme);
-    applySkin(appState.settings.skin);
     applyCommentLayout(appState.settings.commentLayout);
     applyContentBar(appState.settings.contentBar);
     const oauth = githubOAuthConfig();

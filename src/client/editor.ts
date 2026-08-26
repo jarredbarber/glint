@@ -16,7 +16,7 @@ import { css } from "@codemirror/lang-css"
 
 /**
  * Glint Custom Theme
- * Uses CSS variables from Glint's theme system to stay in sync.
+ * Uses CSS variables from Glint's color scheme system to stay in sync.
  */
 const glintTheme = EditorView.theme({
     "&": {

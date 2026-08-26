@@ -7,3 +7,5 @@
 - **Storage Adapter** — the seam that gives the SPA file operations for one Source.
 - **Discussion** — backend-owned commentary about a file; it is not part of that file's Markdown bytes.
 - **Project** — a browser-local bookmark to a Source, never a copy, account, or permission object.
+- **Theme** — the layout, type, and ornament axis of the reading surface (Reader, Almanac). Set on the root as `data-theme`; the color scheme is orthogonal. (Formerly called "skin".)
+- **Color scheme** — the colour palette applied to a theme (nord, one-dark, and the rest). Swapped by loading one `assets/color-schemes/<name>.css` file. (Formerly called "theme".)

@@ -27,8 +27,8 @@ export { drawContentBehaviors } from './renderer/content-behavior.js';
 export interface RenderOptions {
     /** KaTeX macros, e.g. { '\\R': '\\mathbb{R}' } */
     macros?: Record<string, string>;
-    /** Theme name (affects nothing in pure HTML output; reserved for future use) */
-    theme?: string;
+    /** Color scheme name (affects nothing in pure HTML output; reserved for future use) */
+    colorScheme?: string;
     /** Base URL for resolving relative image paths (default: '') */
     baseUrl?: string;
     /** Known document paths for wiki-link validation (default: all links treated as unknown) */
@@ -36,7 +36,7 @@ export interface RenderOptions {
 }
 
 const DEFAULT_CONFIG: GlintConfig = {
-    theme: 'nord',
+    colorScheme: 'nord',
     baseFile: 'README.md',
 };
 
@@ -52,7 +52,7 @@ const DEFAULT_CONFIG: GlintConfig = {
 export async function renderMarkdown(source: string, opts: RenderOptions = {}): Promise<string> {
     const config: GlintConfig = {
         ...DEFAULT_CONFIG,
-        theme: opts.theme ?? DEFAULT_CONFIG.theme,
+        colorScheme: opts.colorScheme ?? DEFAULT_CONFIG.colorScheme,
         'latex-macros': opts.macros,
     };
 

@@ -1,8 +1,8 @@
 export const STATE_KEY = 'glint-spa-state';
 export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
 
-export const SKINS = ['reader', 'almanac'] as const;
-export type Skin = (typeof SKINS)[number];
+export const THEMES = ['reader', 'almanac'] as const;
+export type Theme = (typeof THEMES)[number];
 
 export const COMMENT_LAYOUTS = ['inline', 'rail'] as const;
 export type CommentLayout = (typeof COMMENT_LAYOUTS)[number];
@@ -12,8 +12,8 @@ export type PersistedStateV1 = {
     version: 1;
     projects: ProjectV1[];
     settings: {
-        theme: string;
-        skin: Skin;
+        colorScheme: string;
+        theme: Theme;
         commentLayout: CommentLayout;
         contentBar: boolean;
         vimMode: boolean;
@@ -24,7 +24,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { theme: 'nord', skin: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
+    settings: { colorScheme: 'nord', theme: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -72,7 +72,7 @@ export function normalizeProjectRoute(route: string): string | null {
     return sub ? `${prefix}/${sub}` : prefix;
 }
 
-function validatedState(value: unknown, themes: readonly string[]): PersistedStateV1 | null {
+function validatedState(value: unknown, colorSchemes: readonly string[]): PersistedStateV1 | null {
     if (!value || typeof value !== 'object') return null;
     const source = value as Record<string, unknown>;
     if (source.version !== 1 || !Array.isArray(source.projects) || !source.settings || typeof source.settings !== 'object') return null;
@@ -91,22 +91,22 @@ function validatedState(value: unknown, themes: readonly string[]): PersistedSta
     if (typeof settings.vimMode !== 'boolean' || (settings.activeProjectRoute !== null && typeof settings.activeProjectRoute !== 'string')) return null;
     const activeProjectRoute = settings.activeProjectRoute === null ? null : normalizeProjectRoute(settings.activeProjectRoute as string);
     if (settings.activeProjectRoute !== null && (!activeProjectRoute || !routes.has(activeProjectRoute))) return null;
-    const theme = typeof settings.theme === 'string' && themes.includes(settings.theme) ? settings.theme : 'nord';
-    // Skin/layout backfill like theme (fallback, never reject) so records written before
+    const colorScheme = typeof settings.colorScheme === 'string' && colorSchemes.includes(settings.colorScheme) ? settings.colorScheme : 'nord';
+    // Theme/layout backfill like color scheme (fallback, never reject) so records written before
     // these axes existed keep loading.
-    const skin: Skin = settings.skin === 'almanac' ? 'almanac' : 'reader';
+    const theme: Theme = settings.theme === 'almanac' ? 'almanac' : 'reader';
     const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
     const contentBar = settings.contentBar === true;
-    return { version: 1, projects, settings: { theme, skin, commentLayout, contentBar, vimMode: settings.vimMode, activeProjectRoute } };
+    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, vimMode: settings.vimMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };
 
-export function loadState(storage: Storage, themes: readonly string[]): StateLoad {
+export function loadState(storage: Storage, colorSchemes: readonly string[]): StateLoad {
     try {
         const raw = storage.getItem(STATE_KEY);
         if (raw === null) return { state: copyDefault(), persistent: true };
-        const state = validatedState(JSON.parse(raw), themes);
+        const state = validatedState(JSON.parse(raw), colorSchemes);
         if (state) return { state, persistent: true };
         storage.setItem(STATE_KEY, JSON.stringify(copyDefault()));
         return { state: copyDefault(), persistent: true, notice: 'Local Projects and settings were reset because stored data was not supported.' };
@@ -115,8 +115,8 @@ export function loadState(storage: Storage, themes: readonly string[]): StateLoa
     }
 }
 
-export function saveState(storage: Storage, state: PersistedStateV1, themes: readonly string[]): boolean {
-    const valid = validatedState(state, themes);
+export function saveState(storage: Storage, state: PersistedStateV1, colorSchemes: readonly string[]): boolean {
+    const valid = validatedState(state, colorSchemes);
     if (!valid) throw new Error('refusing to save invalid Projects state');
     storage.setItem(STATE_KEY, JSON.stringify(valid));
     return true;

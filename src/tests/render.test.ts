@@ -52,9 +52,9 @@ test('inlineStylesheets preserves links not present in the map (e.g. CDN)', () =
     assert.equal(inlineStylesheets(html, new Map()), html);
 });
 
-test('inlineStylesheets handles the id attribute on the theme link', () => {
-    const html = '<link rel="stylesheet" href="/assets/themes/default.css" id="theme-stylesheet">';
-    const css = new Map([['/assets/themes/default.css', '.t{}']]);
+test('inlineStylesheets handles the id attribute on the color scheme link', () => {
+    const html = '<link rel="stylesheet" href="/assets/color-schemes/default.css" id="color-scheme-stylesheet">';
+    const css = new Map([['/assets/color-schemes/default.css', '.t{}']]);
     assert.equal(inlineStylesheets(html, css), '<style>.t{}</style>');
 });
 
@@ -141,8 +141,8 @@ test('body-only fragment: forces Glint theme colors, no colorscheme bridge by de
     assert.ok(!/var\(--nvim-color/.test(out), 'no --nvim-* bridge under the default theme');
 });
 
-test('body-only fragment: --theme=nvim inherits the host colorscheme via the theme file', async () => {
-    const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true, theme: 'nvim' });
+test('body-only fragment: --color-scheme=nvim inherits the host colorscheme via the color scheme file', async () => {
+    const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true, colorScheme: 'nvim' });
     assert.match(out, /--text-color: ?var\(--nvim-color/, 'nvim theme aliases text to the host fg');
     assert.match(out, /--green: ?var\(--nvim-string-color/, 'accents borrow the host syntax colors');
     assert.match(out, /color-mix\(in srgb/, 'surfaces synthesized with color-mix');
