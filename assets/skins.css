@@ -751,6 +751,14 @@
     padding: 1.5rem 0 2rem;
     font-family: var(--skin-ui);
 }
+[data-skin] .glint-rail-toggle {
+    display: block; margin: 0 0 0.75rem auto; padding: 0.1rem 0.5rem;
+    background: none; border: var(--skin-rule) solid var(--border-color); border-radius: 0.25rem;
+    color: var(--text-dim); cursor: pointer; font: inherit; font-size: 0.8rem;
+}
+[data-skin] .glint-comment-rail.collapsed { flex-basis: auto; }
+[data-skin] .glint-comment-rail.collapsed > :not(.glint-rail-toggle) { display: none; }
+[data-skin] .glint-comment-rail.collapsed .glint-rail-toggle { margin-bottom: 0; writing-mode: vertical-rl; }
 [data-skin] .glint-comment-rail .glint-discussion-controls { margin-top: 0; }
 [data-skin] .glint-comment-rail .glint-discussion { margin: 0.6rem 0; }
 [data-skin] .glint-discussion-anchor { margin: 0 0 0.35rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }

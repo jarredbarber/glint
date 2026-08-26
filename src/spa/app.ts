@@ -963,6 +963,27 @@ async function createDiscussion(): Promise<void> {
     form.querySelector('textarea')?.focus();
 }
 
+// ponytail: collapse state is a single global flag in localStorage, not per-file.
+const RAIL_COLLAPSED_KEY = 'glint:comments-collapsed';
+function makeRailToggle(rail: HTMLElement): HTMLButtonElement {
+    const toggle = document.createElement('button');
+    toggle.className = 'glint-rail-toggle';
+    const sync = () => {
+        const collapsed = rail.classList.contains('collapsed');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute('aria-label', collapsed ? 'Expand comments' : 'Collapse comments');
+        toggle.textContent = collapsed ? 'Comments ›' : '‹';
+    };
+    if (localStorage.getItem(RAIL_COLLAPSED_KEY) === '1') rail.classList.add('collapsed');
+    sync();
+    toggle.addEventListener('click', () => {
+        const collapsed = rail.classList.toggle('collapsed');
+        try { localStorage.setItem(RAIL_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* private mode */ }
+        sync();
+    });
+    return toggle;
+}
+
 async function renderDiscussions(content: string): Promise<void> {
     const id = currentFileId;
     const capability = adapter.discussions;
@@ -1000,7 +1021,10 @@ async function renderDiscussions(content: string): Promise<void> {
         toggle.addEventListener('click', () => { root.classList.toggle('glint-show-resolved'); sync(); });
         controls.append(toggle);
     }
-    if (useRail && rail) { rail.hidden = false; rail.append(controls); } else wrapper.append(controls);
+    if (useRail && rail) {
+        rail.hidden = false;
+        rail.append(makeRailToggle(rail), controls);
+    } else wrapper.append(controls);
     const unanchored = document.createElement('section');
     unanchored.className = 'glint-unanchored-discussions';
     const heading = document.createElement('h2');
