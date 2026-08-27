@@ -1,5 +1,5 @@
 import { escapeHtml } from '../utils/html.js';
-import { MERMAID_CDN, ABCJS_CDN, ABCJS_CSS } from './content-behavior.js';
+import { MERMAID_CDN } from './content-behavior.js';
 
 export const renderHead = (title: string, colorScheme: string, styles: string[] = []) => `
 <head>
@@ -15,7 +15,5 @@ export const renderHead = (title: string, colorScheme: string, styles: string[] 
     <link rel="stylesheet" href="/assets/highlight.css">
     ${styles.map(s => `<link rel="stylesheet" href="${s}">`).join('\n')}
     <script src="${MERMAID_CDN}"></script>
-    <link rel="stylesheet" href="${ABCJS_CSS}">
-    <script src="${ABCJS_CDN}"></script>
 </head>
 `;

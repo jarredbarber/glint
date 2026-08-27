@@ -11,7 +11,7 @@ import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
 import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
-import { contentBehaviorInit, contentBehaviorLoaders, MERMAID_CDN, ABCJS_CDN } from './renderer/content-behavior.js';
+import { contentBehaviorInit, contentBehaviorLoaders, MERMAID_CDN } from './renderer/content-behavior.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 /**
@@ -34,18 +34,17 @@ export async function resolveKatexVersion(): Promise<string> {
  * external `<script src>` tags. The single-file render is fully static, so no
  * client JS is emitted. Pure.
  *
- * With `keepMermaid`/`keepAbcjs`, renderer-owned scripts survive: the shared
- * init block (tagged `data-glint`) and the exact mermaid/abcjs CDN loader URLs.
+ * With `keepMermaid`, renderer-owned scripts survive: the shared
+ * init block (tagged `data-glint`) and the exact mermaid CDN loader URL.
  * Everything else is dropped — a user `<script>` that merely mentions "mermaid"
  * in its body no longer executes in static output (#65).
  */
-export function stripScripts(html: string, opts: { keepMermaid?: boolean; keepAbcjs?: boolean } = {}): string {
-    const keepInline = opts.keepMermaid || opts.keepAbcjs;
+export function stripScripts(html: string, opts: { keepMermaid?: boolean } = {}): string {
+    const keepInline = opts.keepMermaid;
     return html.replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (tag, attrs: string) => {
         if (keepInline && /\bdata-glint\b/.test(attrs)) return tag;
         const src = attrs.match(/\bsrc="([^"]*)"/i)?.[1];
         if (opts.keepMermaid && src === MERMAID_CDN) return tag;
-        if (opts.keepAbcjs && src === ABCJS_CDN) return tag;
         return '';
     });
 }
@@ -143,7 +142,7 @@ export interface RenderMarkdownOptions {
     /**
      * When true, emit a body fragment for embedding in an external page template
      * (VimR's Markdown preview) instead of a full-page document: inlined CSS,
-     * KaTeX CDN link, conditional mermaid/abcjs loaders, and inline widget
+     * KaTeX CDN link, conditional mermaid loader, and inline widget
      * interaction. The fragment forces Glint's own color scheme so it reads as a
      * self-contained island; pair with `colorScheme: 'nvim'` to instead inherit the
      * host editor's colorscheme. VimR substitutes this verbatim into its own
@@ -230,10 +229,9 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     // stripped and would otherwise leak the original asset path.
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
-    // Drop client JS. Keep CDN loaders for client-rendered content (mermaid, abcjs).
+    // Drop client JS. Keep CDN loaders for client-rendered content (mermaid).
     const hasMermaid = /<div class="mermaid">/.test(html);
-    const hasAbcjs = /class="abcjs-notation"/.test(html);
-    html = stripScripts(html, { keepMermaid: hasMermaid, keepAbcjs: hasAbcjs });
+    html = stripScripts(html, { keepMermaid: hasMermaid });
 
     return html;
 }
@@ -312,7 +310,7 @@ document.addEventListener('click',function(e){
 });
 </script>`;
 
-        // Mermaid / abcjs: shared loaders + init (renderer/content-behavior.ts),
+        // Mermaid: shared loaders + init (renderer/content-behavior.ts),
         // gated so plain documents pull no CDN libraries.
         const clientScripts = `${widgetScript}\n${contentBehaviorLoaders(body)}\n${contentBehaviorInit()}`;
         // Render the article header (title + frontmatter metadata) matching the full Glint page.
@@ -354,8 +352,7 @@ document.addEventListener('click',function(e){
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
     const hasMermaid = /<div class="mermaid">/.test(html);
-    const hasAbcjs = /class="abcjs-notation"/.test(html);
-    html = stripScripts(html, { keepMermaid: hasMermaid, keepAbcjs: hasAbcjs });
+    html = stripScripts(html, { keepMermaid: hasMermaid });
 
     return html;
 }

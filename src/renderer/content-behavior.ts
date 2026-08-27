@@ -1,12 +1,10 @@
 // Client-side behavior for *rendered content* (as opposed to app-shell chrome):
-// drawing mermaid diagrams and abcjs scores that the pipeline emits as inert
+// drawing mermaid diagrams that the pipeline emits as inert
 // placeholder markup. Shared by the full-page renderer (renderer.ts) and the VimR
 // fragment (render.ts) so the init logic and CDN URLs live in exactly one
 // place — the two used to drift, which is how a stale selector shipped.
 
 export const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-export const ABCJS_CDN = 'https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js';
-export const ABCJS_CSS = 'https://cdn.jsdelivr.net/npm/abcjs@6/abcjs-audio.css';
 
 // Mermaid theming reads the *active palette's* CSS custom properties (defined on
 // :root by every theme file) instead of a hand-maintained per-theme table. That
@@ -50,7 +48,7 @@ function mermaidInitOptions(): Record<string, unknown> {
 }
 
 /**
- * A `<script>` that draws mermaid diagrams and abcjs scores on DOMContentLoaded.
+ * A `<script>` that draws mermaid diagrams on DOMContentLoaded.
  * Colours come from the active palette's CSS variables at runtime (see the
  * mermaid helpers above, embedded here via .toString() so the standalone page
  * and the SPA share one implementation). Requires the CDN loaders from
@@ -67,47 +65,19 @@ export function contentBehaviorInit(): string {
         if (typeof mermaid !== 'undefined') {
             mermaid.initialize(Object.assign({ startOnLoad: true }, mermaidInitOptions()));
         }
-
-        if (typeof ABCJS !== 'undefined') {
-            var isDark = paletteIsDark();
-            document.querySelectorAll('.abcjs-notation').forEach(function(el) {
-                var abc = el.getAttribute('data-abc') || '';
-                var tune = ABCJS.renderAbc(el, abc, {
-                    responsive: 'resize',
-                    add_classes: true,
-                    staffwidth: 680,
-                    paddingright: 0,
-                    paddingleft: 0,
-                    format: { gchordfont: 'Inter 12' }
-                })[0];
-                if (isDark) el.classList.add('abcjs-dark');
-                if (tune && ABCJS.synth && ABCJS.synth.supportsAudio()) {
-                    var playerEl = document.createElement('div');
-                    playerEl.className = 'abcjs-player';
-                    el.parentNode.insertBefore(playerEl, el.nextSibling);
-                    var synth = new ABCJS.synth.SynthController();
-                    synth.load(playerEl, null, { displayLoop: true, displayRestart: true, displayPlay: true, displayProgress: true, displayWarp: false });
-                    synth.setTune(tune, false);
-                }
-            });
-        }
     });
 </script>`;
 }
 
 /**
- * CDN loader tags for mermaid / abcjs, emitted only when the rendered HTML
- * actually contains that kind of block. Keeps documents that use neither from
- * pulling two libraries off a CDN.
+ * CDN loader tags for mermaid, emitted only when the rendered HTML
+ * actually contains a diagram. Keeps documents that use none from
+ * pulling a library off a CDN.
  */
 export function contentBehaviorLoaders(html: string): string {
     const parts: string[] = [];
     if (/class="mermaid"/.test(html)) {
         parts.push(`<script src="${MERMAID_CDN}"></script>`);
-    }
-    if (/class="abcjs-notation"/.test(html)) {
-        parts.push(`<link rel="stylesheet" href="${ABCJS_CSS}">`);
-        parts.push(`<script src="${ABCJS_CDN}"></script>`);
     }
     return parts.join('\n');
 }
@@ -138,14 +108,6 @@ function loadScriptOnce(src: string): Promise<void> {
     return p;
 }
 
-function loadStyleOnce(href: string): void {
-    if (document.querySelector(`link[href="${href}"]`)) return;
-    const l = document.createElement('link');
-    l.rel = 'stylesheet';
-    l.href = href;
-    document.head.appendChild(l);
-}
-
 async function drawMermaid(root: ParentNode): Promise<void> {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>('.mermaid:not([data-processed])'));
     if (nodes.length === 0) return;
@@ -161,50 +123,11 @@ async function drawMermaid(root: ParentNode): Promise<void> {
     }
 }
 
-async function drawAbc(root: ParentNode): Promise<void> {
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>('.abcjs-notation:not([data-processed])'));
-    if (nodes.length === 0) return;
-    loadStyleOnce(ABCJS_CSS);
-    await loadScriptOnce(ABCJS_CDN);
-    const ABCJS = (window as unknown as { ABCJS?: any }).ABCJS;
-    if (!ABCJS) return;
-    const isDark = paletteIsDark();
-    for (const el of nodes) {
-        el.setAttribute('data-processed', 'true');
-        const abc = el.getAttribute('data-abc') || '';
-        let tune: any;
-        try {
-            tune = ABCJS.renderAbc(el, abc, {
-                responsive: 'resize', add_classes: true, staffwidth: 680,
-                paddingright: 0, paddingleft: 0, format: { gchordfont: 'Inter 12' },
-            })[0];
-        } catch (err) {
-            console.error('[glint] abcjs render failed', err);
-            continue;
-        }
-        if (isDark) el.classList.add('abcjs-dark');
-        // Audio is best-effort: soundfont fetches may be blocked by CSP; a failure
-        // here must not stop the notation from having rendered.
-        try {
-            if (tune && ABCJS.synth && ABCJS.synth.supportsAudio()) {
-                const playerEl = document.createElement('div');
-                playerEl.className = 'abcjs-player';
-                el.parentNode!.insertBefore(playerEl, el.nextSibling);
-                const synth = new ABCJS.synth.SynthController();
-                synth.load(playerEl, null, { displayLoop: true, displayRestart: true, displayPlay: true, displayProgress: true, displayWarp: false });
-                synth.setTune(tune, false);
-            }
-        } catch (err) {
-            console.error('[glint] abcjs audio setup failed', err);
-        }
-    }
-}
-
 /**
- * Draw mermaid diagrams and abcjs scores inside `root` (default: whole document),
- * loading each CDN library only when that kind of block is present. Idempotent:
+ * Draw mermaid diagrams inside `root` (default: whole document),
+ * loading the CDN library only when a diagram is present. Idempotent:
  * already-drawn nodes are skipped, so it is safe to call after every re-render.
  */
 export async function drawContentBehaviors(root: ParentNode = document): Promise<void> {
-    await Promise.all([drawMermaid(root), drawAbc(root)]);
+    await drawMermaid(root);
 }

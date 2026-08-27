@@ -109,7 +109,7 @@ const DEMO_PAGES = [
         'Text with *emphasis*, **strong**, `inline code`, and a [link](https://github.com/jarredbarber/glint).', '',
         '> A blockquote, for good measure.', '',
         '## Table', '',
-        '| Feature | Fenced as | Renders |', '| --- | --- | --- |', '| Diagrams | `mermaid` | SVG flowchart |', '| Music | `abcjs` | staff + playback |', '| Math | `$$` | KaTeX |', '',
+        '| Feature | Fenced as | Renders |', '| --- | --- | --- |', '| Diagrams | `mermaid` | SVG flowchart |', '| Math | `$$` | KaTeX |', '',
     ].join('\n') },
     { name: 'Tasks.md', content: [
         '# Tasks', '',
@@ -120,8 +120,6 @@ const DEMO_PAGES = [
         '# Diagrams', '',
         'A flow chart:', '',
         '```mermaid', 'graph TD;', '  A[Start] --> B{Works?};', '  B -- Yes --> C[Ship];', '  B -- No --> D[Debug];', '  D --> B;', '```', '',
-        'And music, via abcjs (with playback):', '',
-        '```abcjs', 'X:1', 'T:Ode to Joy (Theme)', 'M:4/4', 'L:1/8', 'K:C', 'E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E3 D D4 |', '```', '',
     ].join('\n') },
     { name: 'Code.md', content: [
         '# Code', '',
@@ -672,7 +670,7 @@ async function openFile(id: string) {
     if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = pageSourceLinkHtml(id) + html;
-    void GlintRender.drawContentBehaviors(wrapper);   // mermaid/abcjs: innerHTML never runs the emitted scripts
+    void GlintRender.drawContentBehaviors(wrapper);   // mermaid: innerHTML never runs the emitted scripts
     wireWikiLinks();
     wireTaskCheckboxes();
     void resolveManagedImages(wrapper, files.find((f) => f.id === id)?.path ?? id, gen);

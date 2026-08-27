@@ -49,8 +49,8 @@ const DEFAULT_CONFIG: GlintConfig = {
  *
  * Widgets (tasks, comments) render as static markup.
  * Wiki-links whose targets are not in knownPaths render as plain text.
- * Mermaid and abcjs emit their placeholder markup; the host page must load
- * the respective CDN loaders to draw them.
+ * Mermaid emits placeholder markup; the host page must load
+ * the CDN loader to draw it.
  */
 export async function renderMarkdown(source: string, opts: RenderOptions = {}): Promise<string> {
     // Parse first because document-local KaTeX macros are render configuration.

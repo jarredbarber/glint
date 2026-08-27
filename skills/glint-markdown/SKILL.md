@@ -1,6 +1,6 @@
 ---
 name: glint-markdown
-description: Reference for Glint-flavored Markdown extensions (math, diagrams, music, tasks, wiki links, citations)
+description: Reference for Glint-flavored Markdown extensions (math, diagrams, tasks, wiki links, citations)
 ---
 
 # Glint Markdown Extensions
@@ -57,19 +57,6 @@ graph LR
 ```
 
 Rendered client-side. Any valid Mermaid diagram type is supported.
-
-## ABC Music Notation (abcjs)
-
-```abcjs
-X:1
-T:Scale
-M:4/4
-L:1/8
-K:C
-CDEFGAB c|
-```
-
-Renders as an interactive music score. Use language `abcjs` or `abc`. See https://abcjs.net for syntax.
 
 ## Wiki Links
 

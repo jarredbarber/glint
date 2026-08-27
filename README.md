@@ -12,7 +12,6 @@
   - Syntax highlighted code blocks
   - LaTeX equations (inline + display mode)
   - [Mermaid](https://mermaid.js.org/) diagrams
-  - [ABCjs](https://www.abcjs.net/) music notation
   - Task lists
   - Wiki links
   - References / Citations
