@@ -28,6 +28,24 @@ test('renderMarkdown with custom macros', async () => {
     assert.ok(html.includes('katex'), 'macro-using math rendered');
 });
 
+test('display equation numbering is opt-in (#106)', async () => {
+    const plain = await renderMarkdown('$$\nx = 1\n$$');
+    assert.ok(!plain.includes('class="tag"'), 'plain display equation stays unnumbered');
+
+    const manual = await renderMarkdown(String.raw`$$
+x = 1 \tag{A}
+$$`);
+    assert.ok(manual.includes('class="tag"'), '\\tag adds a manual equation number');
+
+    const automatic = await renderMarkdown(String.raw`$$
+\begin{align}
+x &= 1 \\
+y &= 2
+\end{align}
+$$`);
+    assert.ok(automatic.includes('class="eqn-num"'), 'unstarred align numbers its rows');
+});
+
 test('defaultMeta backfills author/updated from the backend (#87)', async () => {
     const meta = { author: 'Ada Lovelace', updated: '2026-08-01T00:00:00Z' };
 

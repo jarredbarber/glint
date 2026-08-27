@@ -18,6 +18,25 @@ $$
 $$
 ```
 
+Numbering is opt-in. Add `\tag{label}` to number one display equation:
+
+```
+$$
+E = mc^2 \tag{1}
+$$
+```
+
+Use an unstarred KaTeX environment such as `align` to number each row automatically; use `align*` to suppress numbering:
+
+```
+$$
+\begin{align}
+x &= 1 \\
+y &= 2
+\end{align}
+$$
+```
+
 ## Mermaid Diagrams
 
 ```mermaid
