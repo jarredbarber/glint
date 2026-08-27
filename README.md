@@ -1,6 +1,6 @@
 # Glint
 
-]Glint](https://glint.jbarb.io) is a privacy-first Markdown viewer, editor, and wiki. The browser app opens Markdown from a local folder, Google Drive, or a GitHub repository; files remain in their selected backend. See [Live Demo Site](https://glint.jbarb.io/#/demo)
+[Glint](https://glint.jbarb.io) is a privacy-first Markdown viewer, editor, and wiki. The browser app opens Markdown from a local folder, Google Drive, or a GitHub repository; files remain in their selected backend. See [Live Demo Site](https://glint.jbarb.io/#/demo)
 
 <img width="600" alt="Demo Screenshot" src="https://github.com/user-attachments/assets/2865c87f-6f21-42c8-a082-ad5b825cb0ba" />
 
@@ -16,7 +16,7 @@
   - Task lists
   - Wiki links
   - References / Citations
-  - [Supported Markdown agent skill](https://jarredbarber.github.io/glint/llm.txt)
+  - [Supported Markdown agent skill](https://glint.jbarb.io/llm.txt)
 - In-place editing (hit `e` to edit the section under the mouse cursor) and commenting (on supported backends)
 - Paste-based image uploading: paste an image into the editor to store it as a portable sidecar beside the page (`page.md.<id>.png`)
 - Export the current page from the SPA, or
