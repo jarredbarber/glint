@@ -1209,6 +1209,41 @@ function renderFileTree(nodes: TreeNode[]): string {
     }).join('');
 }
 
+// Draggable sidebar width, persisted per browser (#113). clientX is the width
+// because the sidebar hugs the viewport's left edge.
+const SIDEBAR_W_KEY = 'glint.sidebar.width';
+const SIDEBAR_W_MIN = 180;
+const SIDEBAR_W_MAX = 520;
+function applySidebarWidth(px: number): void {
+    document.documentElement.style.setProperty('--sidebar-w', `${px}px`);
+}
+function initSidebarWidth(): void {
+    const saved = parseInt(localStorage.getItem(SIDEBAR_W_KEY) ?? '', 10);
+    if (saved >= SIDEBAR_W_MIN && saved <= SIDEBAR_W_MAX) applySidebarWidth(saved);
+}
+function wireSidebarResize(nav: HTMLElement): void {
+    const handle = nav.querySelector<HTMLElement>('.sidebar-resize');
+    if (!handle) return;
+    handle.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        try { handle.setPointerCapture(event.pointerId); } catch { /* capture is best-effort */ }
+        nav.classList.add('resizing');
+        document.body.classList.add('sidebar-resizing');
+        const clamp = (x: number) => Math.min(SIDEBAR_W_MAX, Math.max(SIDEBAR_W_MIN, Math.round(x)));
+        const move = (ev: PointerEvent) => applySidebarWidth(clamp(ev.clientX));
+        const up = (ev: PointerEvent) => {
+            try { handle.releasePointerCapture(event.pointerId); } catch { /* was never captured */ }
+            nav.classList.remove('resizing');
+            document.body.classList.remove('sidebar-resizing');
+            handle.removeEventListener('pointermove', move);
+            handle.removeEventListener('pointerup', up);
+            try { localStorage.setItem(SIDEBAR_W_KEY, String(clamp(ev.clientX))); } catch { /* private mode */ }
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up);
+    });
+}
+
 function renderSidebar() {
     document.body.classList.remove('glint-landing');
     const nav = document.querySelector('.sidebar') as HTMLElement;
@@ -1235,7 +1270,9 @@ function renderSidebar() {
             ${pageActions}
             <button class="glint-icon-btn" data-open-source title="Open another source" aria-label="Open another source">${ICON.source}</button>
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
-        </footer>`;
+        </footer>
+        <div class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize"></div>`;
+    wireSidebarResize(nav);
     wireProjectControls(nav);
     wireTocDock(nav);
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
@@ -1534,6 +1571,7 @@ export async function boot(): Promise<void> {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    initSidebarWidth();
     wireMobileSidebar();
     void boot();
 });

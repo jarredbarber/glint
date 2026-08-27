@@ -31,7 +31,7 @@
 [data-theme] { --theme-accent: var(--link-color, var(--blue)); }
 
 /* ---- Shared chrome (both themes) --------------------------------------- */
-[data-theme] .sidebar { font-family: var(--theme-ui); width: 280px; min-width: 280px; }
+[data-theme] .sidebar { font-family: var(--theme-ui); width: var(--sidebar-w, 280px); min-width: var(--sidebar-w, 280px); }
 
 [data-theme] .content-wrapper {
     font-family: var(--theme-body);
@@ -779,4 +779,9 @@
 @media (max-width: 900px) {
     [data-comments="rail"] .glint-content-body { flex-direction: column; }
     [data-theme] .glint-comment-rail { position: static; flex-basis: auto; width: 100%; border-top: var(--theme-rule) solid var(--border-color); }
+}
+
+/* Mobile overlay: ignore the desktop resize var (matches [data-theme] specificity). */
+@media (max-width: 768px) {
+    [data-theme] .sidebar { width: 280px; min-width: 0; }
 }
