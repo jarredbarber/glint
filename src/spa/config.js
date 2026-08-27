@@ -6,5 +6,5 @@ window.GLINT_CONFIG = {
     driveAppId: '833335009551', // Google Cloud project number required by Picker with drive.file
     githubClientId: 'Ov23liHgd7cWeAo4KjRZ',
     githubOAuthWorkerOrigin: 'https://glint-github-oauth.hector-ea.workers.dev',
-    githubRedirectUri: 'https://jarredbarber.github.io/glint/',
+    githubRedirectUri: 'https://glint.jbarb.io/',
 };

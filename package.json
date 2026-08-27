@@ -7,7 +7,7 @@
     "glint": "./dist/cli.js"
   },
   "scripts": {
-    "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/config.js src/spa/privacy.html src/spa/terms.html dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
+    "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/config.js src/spa/privacy.html src/spa/terms.html src/spa/CNAME dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
     "dev": "npm run build && npm run stage:spa && python3 -m http.server 8080 --directory dist-spa",
     "bundle:editor": "esbuild src/client/editor.ts --bundle --minify --outfile=assets/editor.bundle.js",
     "bundle:render": "esbuild src/browser.ts --bundle --minify --platform=browser --global-name=GlintRender --outfile=assets/glint-render.bundle.js",
