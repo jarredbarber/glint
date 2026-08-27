@@ -515,7 +515,7 @@ function renderSettings(): void {
 
 // Native HTML5 drag-and-drop to reorder saved projects (#96). ponytail: no DnD library —
 // dragstart records the source row, drop commits the move via reorderProject + persist.
-function wireProjectReorder(list: HTMLElement | null): void {
+function wireProjectReorder(list: HTMLElement | null, rerender: () => void = renderSettings): void {
     if (!list) return;
     let dragIndex: number | null = null;
     const rowIndex = (target: EventTarget | null): number | null => {
@@ -540,7 +540,7 @@ function wireProjectReorder(list: HTMLElement | null): void {
         if (dragIndex === null || to === null || to === dragIndex) return;
         appState = reorderProject(appState, dragIndex, to);
         persistState();
-        renderSettings();
+        rerender();
     });
 }
 
@@ -1321,9 +1321,9 @@ function renderLanding(): void {
         ? `<button type="button" class="glint-url-pick" data-pick-drive>${ICON.drive}<span>Google Drive</span></button>`
         : '';
     const projectList = appState.projects.length
-        ? `<ul class="glint-project-list">${appState.projects.map((project) => {
+        ? `<ul class="glint-project-list">${appState.projects.map((project, index) => {
             const detail = sourceDetail(project.route);
-            return `<li class="glint-project-row"><a class="glint-project-open" href="${escapeHtml(project.route)}"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(detail || sourceLabel(project.route))}</span></span></a></li>`;
+            return `<li class="glint-project-row" draggable="true" data-project-index="${index}"><span class="glint-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span><a class="glint-project-open" draggable="false" href="${escapeHtml(project.route)}"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(detail || sourceLabel(project.route))}</span></span></a></li>`;
         }).join('')}</ul>`
         : '<p class="glint-setting-note">No projects saved yet. Open a source to start one.</p>';
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `
@@ -1355,6 +1355,7 @@ function renderLanding(): void {
             <p class="glint-setting-note"><a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a></p>
         </section>`;
     (document.querySelector('.content-wrapper') as HTMLElement).querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
+    wireProjectReorder(document.querySelector<HTMLElement>('.glint-landing-page .glint-project-list'), renderLanding);
     const form = document.querySelector<HTMLFormElement>('[data-url-form]');
     const errorEl = document.querySelector<HTMLElement>('[data-url-error]');
     form?.addEventListener('submit', (event) => {
