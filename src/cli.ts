@@ -40,7 +40,10 @@ program
             }
         }
 
-        if (options.stdin && !options.output) {
+        // --body-only exists for embedding hosts (VimR) that read the fragment from
+        // stdout; writing a sidecar .html file for it makes no sense (#95). Stream to
+        // stdout for --stdin or --body-only unless an explicit --output is given.
+        if ((options.stdin || options.bodyOnly) && !options.output) {
             process.stdout.write(html);
         } else {
             const outPath = options.output
