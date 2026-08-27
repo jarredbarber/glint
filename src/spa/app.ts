@@ -990,11 +990,10 @@ async function createDiscussion(): Promise<void> {
         form.querySelector('textarea')?.focus();
         return;
     }
-    const existing = target.nextElementSibling;
-    if (existing instanceof HTMLElement && existing.classList.contains('glint-compose')) {
-        existing.querySelector('textarea')?.focus();
-        return;
-    }
+    // Only one new-comment compose open at a time. The anchor tracks the mouse,
+    // so guard globally, not just at this target (replies live inside articles).
+    const open = [...document.querySelectorAll('.content-wrapper .glint-compose')].find((form) => !form.closest('.glint-discussion'));
+    if (open instanceof HTMLElement) { open.querySelector('textarea')?.focus(); return; }
     const form = makeForm();
     target.insertAdjacentElement('afterend', form);
     form.querySelector('textarea')?.focus();

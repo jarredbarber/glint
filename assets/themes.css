@@ -683,7 +683,7 @@
 [data-theme="almanac"] .glint-project-name { font-variant: normal; font-weight: 600; }
 [data-theme="almanac"] .glint-project-source { font-variant: all-small-caps; letter-spacing: 0.06em; }
 /* Drop cap on the opening paragraph. */
-[data-theme="almanac"] .content-wrapper .glint-section:first-of-type > p:first-of-type::first-letter {
+[data-theme="almanac"] .content-wrapper > .glint-section:first-of-type > p:first-of-type::first-letter {
     float: left;
     font-family: var(--theme-display);
     font-size: 3.1em;
@@ -764,9 +764,13 @@
     background: none; border: var(--theme-rule) solid var(--border-color); border-radius: 0.25rem;
     color: var(--text-dim); cursor: pointer; font: inherit; font-size: 0.8rem;
 }
-[data-theme] .glint-comment-rail.collapsed { flex-basis: auto; }
+[data-theme] .glint-comment-rail.collapsed { flex: 0 0 2rem; padding-top: 0; }
 [data-theme] .glint-comment-rail.collapsed > :not(.glint-rail-toggle) { display: none; }
-[data-theme] .glint-comment-rail.collapsed .glint-rail-toggle { margin-bottom: 0; writing-mode: vertical-rl; }
+[data-theme] .glint-comment-rail.collapsed .glint-rail-toggle {
+    writing-mode: vertical-rl; margin: 0; padding: 0.85rem 0.4rem;
+    letter-spacing: 0.06em; border-radius: var(--theme-radius-sm);
+}
+[data-theme] .glint-rail-toggle:hover { background: var(--bg-highlight); color: var(--text-color); }
 [data-theme] .glint-comment-rail .glint-discussion-controls { margin-top: 0; }
 [data-theme] .glint-comment-rail .glint-discussion { margin: 0.6rem 0; }
 [data-theme] .glint-discussion-anchor { margin: 0 0 0.35rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
