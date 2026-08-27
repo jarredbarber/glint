@@ -131,6 +131,17 @@ export function addProject(state: PersistedStateV1, name: string, route: string)
     return { ...state, projects: [...state.projects, { name: label, route: normalized }], settings: { ...state.settings, activeProjectRoute: normalized } };
 }
 
+// Move the project at `from` to sit at `to`, shifting the rest (#96). Out-of-range or
+// no-op moves return state unchanged.
+export function reorderProject(state: PersistedStateV1, from: number, to: number): PersistedStateV1 {
+    const n = state.projects.length;
+    if (from === to || from < 0 || to < 0 || from >= n || to >= n) return state;
+    const projects = [...state.projects];
+    const [moved] = projects.splice(from, 1);
+    projects.splice(to, 0, moved!);
+    return { ...state, projects };
+}
+
 export function renameProject(state: PersistedStateV1, route: string, name: string): PersistedStateV1 {
     const label = name.trim();
     if (!label) return state;

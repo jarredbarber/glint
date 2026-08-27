@@ -11,7 +11,7 @@ import { isManagedSrc, resolveAssetPath } from './assets.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
-import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, saveState, Theme, THEMES } from './app-state.js';
+import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, reorderProject, saveState, Theme, THEMES } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
 import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
@@ -412,7 +412,7 @@ function renderSettings(): void {
     const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-theme-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
     const rows = appState.projects.map((project, index) => {
         const detail = sourceDetail(project.route);
-        return `<li class="glint-project-row"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span>${detail ? `<span class="glint-project-source">${escapeHtml(detail)}</span>` : ''}</span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`;
+        return `<li class="glint-project-row" draggable="true" data-project-index="${index}"><span class="glint-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span>${detail ? `<span class="glint-project-source">${escapeHtml(detail)}</span>` : ''}</span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`;
     }).join('');
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell glint-settings">
         <header class="glint-page-head">
@@ -493,6 +493,7 @@ function renderSettings(): void {
         persistState();
         renderSettings();
     }));
+    wireProjectReorder(wrapper.querySelector('.glint-project-list'));
     wrapper.querySelector('[data-forget-github]')?.addEventListener('click', () => {
         forgetGitHubToken();
         showToast('Signed out of GitHub', 'success');
@@ -510,6 +511,37 @@ function renderSettings(): void {
         renderSettings();
     });
     (wrapper.querySelector('h1') as HTMLElement).focus();
+}
+
+// Native HTML5 drag-and-drop to reorder saved projects (#96). ponytail: no DnD library —
+// dragstart records the source row, drop commits the move via reorderProject + persist.
+function wireProjectReorder(list: HTMLElement | null): void {
+    if (!list) return;
+    let dragIndex: number | null = null;
+    const rowIndex = (target: EventTarget | null): number | null => {
+        const row = (target as HTMLElement | null)?.closest<HTMLElement>('.glint-project-row');
+        const i = row ? Number(row.dataset.projectIndex) : NaN;
+        return Number.isInteger(i) ? i : null;
+    };
+    list.addEventListener('dragstart', (event) => {
+        dragIndex = rowIndex(event.target);
+        if (dragIndex === null) return;
+        (event as DragEvent).dataTransfer!.effectAllowed = 'move';
+        (event.target as HTMLElement).closest('.glint-project-row')?.classList.add('glint-dragging');
+    });
+    list.addEventListener('dragover', (event) => { if (dragIndex !== null) event.preventDefault(); });
+    list.addEventListener('dragend', () => {
+        list.querySelector('.glint-dragging')?.classList.remove('glint-dragging');
+        dragIndex = null;
+    });
+    list.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const to = rowIndex(event.target);
+        if (dragIndex === null || to === null || to === dragIndex) return;
+        appState = reorderProject(appState, dragIndex, to);
+        persistState();
+        renderSettings();
+    });
 }
 
 // Extract the target filename from a wiki-link href (`/f/Target.md`).

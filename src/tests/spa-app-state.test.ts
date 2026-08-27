@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addProject, DEFAULT_STATE, loadState, normalizeProjectRoute, saveState } from '../spa/app-state.js';
+import { addProject, DEFAULT_STATE, loadState, normalizeProjectRoute, reorderProject, saveState } from '../spa/app-state.js';
 
 const colorSchemes = ['nord', 'one-dark'];
 
@@ -49,4 +49,17 @@ test('theme backfills to reader for records with no or invalid theme', () => {
     assert.equal(loadState(storage as unknown as Storage, colorSchemes).state.settings.theme, 'reader');
     storage.setItem('glint-spa-state', JSON.stringify({ version: 1, projects: [], settings: { colorScheme: 'nord', theme: 'almanac', vimMode: false, activeProjectRoute: null } }));
     assert.equal(loadState(storage as unknown as Storage, colorSchemes).state.settings.theme, 'almanac');
+});
+
+test('reorderProject moves an entry and shifts the rest (#96)', () => {
+    let state = addProject(DEFAULT_STATE, 'A', '#/gh/o/a');
+    state = addProject(state, 'B', '#/gh/o/b');
+    state = addProject(state, 'C', '#/gh/o/c');
+    // Move C (index 2) to the front.
+    const moved = reorderProject(state, 2, 0);
+    assert.deepEqual(moved.projects.map((p) => p.name), ['C', 'A', 'B']);
+    // No-op and out-of-range moves return state unchanged.
+    assert.equal(reorderProject(state, 1, 1), state);
+    assert.equal(reorderProject(state, 5, 0), state);
+    assert.equal(reorderProject(state, 0, -1), state);
 });

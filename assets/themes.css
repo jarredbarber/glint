@@ -428,6 +428,8 @@
     padding: 0.7rem 0.2rem;
     border-bottom: var(--theme-rule) solid var(--border-color);
 }
+[data-theme] .glint-drag-handle { cursor: grab; color: var(--text-dim); user-select: none; line-height: 1; font-size: 1.1rem; flex-shrink: 0; }
+[data-theme] .glint-project-row.glint-dragging { opacity: 0.5; }
 [data-theme] .glint-project-id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 [data-theme] .glint-project-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-theme] .glint-project-source { color: var(--text-dim); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
