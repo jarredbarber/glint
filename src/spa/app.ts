@@ -1282,7 +1282,7 @@ function renderLanding(): void {
     // #92: drive.file grants folder access only through the Google Picker, so the landing
     // page opens it in browse mode; the pasted-link form keeps parsing Drive URLs unchanged.
     const drivePicker = (CFG.driveClientId && CFG.drivePickerKey && CFG.driveAppId)
-        ? `<button type="button" class="glint-url-pick" data-pick-drive>${ICON.drive}<span>Open Google Drive</span></button>`
+        ? `<button type="button" class="glint-url-pick" data-pick-drive>${ICON.drive}<span>Google Drive</span></button>`
         : '';
     const projectList = appState.projects.length
         ? `<ul class="glint-project-list">${appState.projects.map((project) => {
@@ -1313,7 +1313,6 @@ function renderLanding(): void {
                             ${drivePicker}
                             ${localPicker}
                         </div>
-                        <p class="glint-setting-note">GitHub and Drive links open the file or project directly. A <code>/blob/</code> link opens a single file.</p>
                     </form>
                 </section>
             </div>
