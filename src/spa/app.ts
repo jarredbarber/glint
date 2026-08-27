@@ -1316,6 +1316,7 @@ function renderLanding(): void {
                     </form>
                 </section>
             </div>
+            <p class="glint-setting-note"><a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a></p>
         </section>`;
     (document.querySelector('.content-wrapper') as HTMLElement).querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
     const form = document.querySelector<HTMLFormElement>('[data-url-form]');

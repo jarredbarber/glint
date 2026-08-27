@@ -16,36 +16,46 @@
 </head>
 <body>
   <h1>Glint Privacy Policy</h1>
-  <p class="updated">Last updated 25 August 2026</p>
+  <p class="updated">Last updated 27 August 2026</p>
 
-  <p>Glint is a client-side static wiki. It runs entirely in your browser. There
-     is no Glint server, no user database, and no analytics. Glint stores and
-     transmits no user data outside your own browser and the Google Drive folder
-     you choose to open.</p>
+  <p>Glint is a client-side static wiki with local folder, Google Drive, GitHub,
+     and in-memory demo backends. There is no Glint server, user database, or
+     analytics service.</p>
 
   <h2>What Glint accesses</h2>
   <ul>
-    <li>When you connect Google Drive, Glint requests the <code>drive</code>
-        scope so it can open and edit Markdown files you created elsewhere, not
-        only files Glint itself made. Glint only ever reads or writes files within
-        the folder you point it at; it never sends your Drive contents anywhere.</li>
-    <li>Drive access is used solely to list, read, and save Markdown pages and
-        comments in the folder you selected.</li>
+    <li>The local folder backend reads and writes only the directory you select
+        through your browser's File System Access API.</li>
+    <li>The Google Drive backend requests the <code>drive.file</code> scope. It
+        can access files Glint creates and files or folders you authorize through
+        Google Picker, then sends Drive operations directly to Google APIs.</li>
+    <li>The GitHub backend sends repository operations directly to the GitHub API
+        using the OAuth token or fine-grained personal access token you provide.</li>
   </ul>
 
   <h2>What Glint stores</h2>
   <ul>
-    <li>Your Google OAuth access token is kept in your browser's local storage so
-        you are not prompted on every page load. It is short-lived (about one hour)
-        and never leaves your browser.</li>
-    <li>Glint collects no personal information, sends nothing to any third party,
-        and has no back end to receive your data.</li>
+    <li>Google Drive and GitHub credentials are stored in your browser's local
+        storage so reloads do not require another sign-in. Google access tokens
+        are short-lived, typically about one hour. GitHub credentials remain
+        until you sign out or clear this site's browser data.</li>
+    <li>Project preferences, source routes, and cached application state are also
+        stored in the browser. Your Markdown content remains in the backend you
+        selected.</li>
   </ul>
 
+  <h2>Third-party services</h2>
+  <p>Depending on the backend and features you use, your browser contacts Google
+     APIs, GitHub, and the configured GitHub OAuth exchange service. It also
+     downloads fonts and KaTeX styles from the jsDelivr CDN, which receives
+     ordinary request metadata such as your IP address and browser headers.
+     Glint does not send your Markdown documents to jsDelivr.</p>
+
   <h2>Removing access</h2>
-  <p>You can revoke Glint's access to your Google account at any time from
-     <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.
-     Clearing your browser's site data removes any stored token.</p>
+  <p>Use Glint's sign-out controls or clear this site's browser data to remove
+     locally stored credentials. You can revoke Google access from
+     <a href="https://myaccount.google.com/permissions">Google Account permissions</a>
+     and revoke GitHub access from your GitHub application or token settings.</p>
 
   <h2>Contact</h2>
   <p>Glint is an open-source project. Questions and issues:

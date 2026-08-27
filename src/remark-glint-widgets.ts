@@ -1,4 +1,4 @@
-import { visit, SKIP, CONTINUE, EXIT } from 'unist-util-visit';
+import { visit } from 'unist-util-visit';
 import type { Root } from 'mdast';
 import type { Node, Parent } from 'unist';
 import type { VFile } from 'vfile';
@@ -15,7 +15,7 @@ export function remarkGlintWidgets() {
                 if (handler.match(node)) {
                     // Pass offset to handler via node data
                     if (!node.data) node.data = {};
-                    (node.data as any).sourceLineOffset = offset;
+                    Object.assign(node.data, { sourceLineOffset: offset });
 
                     const result = handler.transform(node, index, parent);
                     if (result !== undefined) {

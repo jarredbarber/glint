@@ -8,7 +8,7 @@ becomes a wiki. No server, no Glint user database — access control is the back
 | Backend | Hash route | Needs |
 |---------|-----------|-------|
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
-| Google Drive | `#/drive/<folderId>` | `driveClientId` + `drivePickerKey` (Picker authorizes the folder, #92) |
+| Google Drive | `#/drive/<folderId>` | `driveClientId` + `drivePickerKey` + numeric `driveAppId` (Picker authorizes the folder, #92) |
 | GitHub repo | `#/gh/<owner>/<repo>` or `#/gh/<owner>/<repo>/tree/<ref>/<path>` | GitHub OAuth or an explicit fine-grained PAT |
 | GitHub single file | `#/gh/<owner>/<repo>/blob/<ref>/<path>` | same GitHub token |
 | Demo (in-memory) | `#/demo` | nothing |
@@ -106,7 +106,7 @@ githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
-GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.v3.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is `drive.file`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
+GitHub OAuth tokens and PATs are cached in `localStorage` (key `glint.github.token`) until the user signs out or clears site data. The Drive access token is also cached in `localStorage` (key `glint.drive.token.v3.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. The CSP is the primary control that prevents credential exfiltration.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,

@@ -1,4 +1,4 @@
-import { StorageAdapter, FileMeta, ConflictError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, Discussion, DiscussionCapability, DiscussionReply } from './types.js';
 
 interface Entry { meta: FileMeta; content: string; v: number; }
 

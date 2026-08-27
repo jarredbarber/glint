@@ -1,7 +1,7 @@
 // Client-side behavior for *rendered content* (as opposed to app-shell chrome):
 // drawing mermaid diagrams and abcjs scores that the pipeline emits as inert
-// placeholder markup. Shared by the full page (renderer/scripts.ts) and the
-// VimR fragment (render.ts) so the init logic and CDN URLs live in exactly one
+// placeholder markup. Shared by the full-page renderer (renderer.ts) and the VimR
+// fragment (render.ts) so the init logic and CDN URLs live in exactly one
 // place — the two used to drift, which is how a stale selector shipped.
 
 export const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';

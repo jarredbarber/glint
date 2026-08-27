@@ -9,10 +9,6 @@ import { tags as t } from "@lezer/highlight"
 import { emojiCompletionSource } from "./emoji-completion.js"
 import { createMarkdownWithNesting } from "./editor-languages.js"
 import { vim, Vim } from "@replit/codemirror-vim"
-import { javascript } from "@codemirror/lang-javascript"
-import { python } from "@codemirror/lang-python"
-import { html } from "@codemirror/lang-html"
-import { css } from "@codemirror/lang-css"
 
 /**
  * Glint Custom Theme
@@ -122,7 +118,6 @@ interface GlintEditorOptions {
     // paste was rejected/failed. Ordinary text and multi-file pastes bypass this.
     onImagePaste?: (file: File) => Promise<{ markdown: string; selectText?: string } | null>;
     vimMode?: boolean;
-    language?: string;
     // Context expansion options
     fullFileContent?: string; // Full file content for context expansion
     startLineInFile?: number; // 1-indexed line number of first line in editor
@@ -220,9 +215,9 @@ class GlintEditor {
                     }
                 }
             ]),
-            this.getLanguageExtension(),
+            createMarkdownWithNesting(),
             EditorView.domEventHandlers({
-                paste: (event, view) => this.handlePaste(event, view),
+                paste: (event) => this.handlePaste(event),
                 // #88: double-Escape cancels. Single Escape stays free for vim insert->normal.
                 keydown: (event) => {
                     if (event.key !== 'Escape' || !this.options.onCancel) return false;
@@ -385,7 +380,6 @@ class GlintEditor {
         const lines = this.options.fullFileContent.split('\n');
         const linesToAdd = 10;
         const newStartLine = Math.max(1, this.currentStartLine - linesToAdd);
-        const actualLinesToAdd = this.currentStartLine - newStartLine;
 
         // Get the additional lines
         const additionalLines = lines.slice(newStartLine - 1, this.currentStartLine - 1);
@@ -437,24 +431,6 @@ class GlintEditor {
         this.updateExpandButtonVisibility();
     }
 
-    private getLanguageExtension() {
-        switch (this.options.language?.toLowerCase()) {
-            case 'js':
-            case 'javascript':
-            case 'typescript':
-            case 'ts':
-                return javascript({ typescript: true });
-            case 'py':
-            case 'python':
-                return python();
-            case 'html':
-                return html();
-            case 'css':
-                return css();
-            default:
-                return createMarkdownWithNesting();
-        }
-    }
 
     private createToolbar() {
         if (!this.wrapper) return;
@@ -484,7 +460,7 @@ class GlintEditor {
     // One image file per paste; ordinary text and multi-file pastes fall through to the
     // editor's default handling. Serialized so a burst of pastes can't interleave uploads.
     private pasting = false;
-    private handlePaste(event: ClipboardEvent, view: EditorView): boolean {
+    private handlePaste(event: ClipboardEvent): boolean {
         if (!this.options.onImagePaste) return false;
         const files = event.clipboardData?.files;
         if (!files || files.length !== 1 || !files[0].type.startsWith('image/')) return false;

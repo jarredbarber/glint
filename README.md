@@ -25,7 +25,7 @@
 
 ## Getting started
 
-Glint is hosted at https://jarredbarber.github.io/glint. It is entirely browser-based, there's no need to run it locally or deploy it. 
+Glint is hosted at https://glint.jbarb.io. It is entirely browser-based, so there's no need to run it locally or deploy it.
 
 Glint supports either single files or "projects"; a project is a local folder, Google Drive folder, or GitHub repo. Drive/Github files/projects can be accessed by pasting their URLs into the landing page.
 

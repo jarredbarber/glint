@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GitHubAdapter } from '../spa/storage/github.js';
 
-test('keeps supplied GitHub credentials in memory and reserves token entry for the in-app prompt', async (t) => {
+test('uses supplied GitHub credentials without opening the in-app prompt', async (t) => {
     const descriptors = Object.fromEntries(
         ['localStorage', 'fetch', 'prompt'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
     );
@@ -254,4 +254,50 @@ test('reuses a valid cached token from localStorage without prompting (#53)', as
     await adapter.auth();
     assert.equal(authPrompts, 0);
     assert.equal(sawToken, 'Bearer cached-token');
+});
+
+test('writes multibyte and one-megabyte text as UTF-8 base64 (#117)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const encodedBodies: string[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (_url: string, opts: RequestInit) => {
+            encodedBodies.push(JSON.parse(String(opts.body)).content);
+            return new Response(JSON.stringify({ content: { name: 'note.md', path: 'note.md', sha: `sha-${encodedBodies.length}` } }));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'tok');
+    const contents = ['Zażółć gęślą jaźń — こんにちは', 'x'.repeat(1_000_000)];
+    for (const [index, content] of contents.entries()) {
+        await adapter.write('note.md', content, `old-${index}`);
+        const bytes = Uint8Array.from(atob(encodedBodies[index]), (char) => char.charCodeAt(0));
+        assert.equal(new TextDecoder().decode(bytes), content);
+    }
+});
+
+test('returns a source-root-relative path when creating in a subtree (#118)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async () => new Response(JSON.stringify({
+            content: { name: 'New.md', path: 'docs/New.md', sha: 'created-sha' },
+        })),
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', 'docs', 'main', undefined, 'tok');
+    assert.deepEqual(await adapter.create('New.md', '# New'), {
+        id: 'New.md',
+        name: 'New.md',
+        path: 'New.md',
+        version: 'created-sha',
+    });
 });

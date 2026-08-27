@@ -1,11 +1,11 @@
-import type { Node, Parent } from 'unist';
+import type { Node } from 'unist';
 import type { BlockContent, ListItem, Paragraph, Text } from 'mdast';
 import { CONTINUE } from 'unist-util-visit';
 import type { WidgetHandler, CustomTextNode, CustomParagraphNode, HASTElement } from './types.js';
 
 export const taskHandler: WidgetHandler = {
     match: (node: Node) => node.type === 'listItem',
-    transform: (node: Node, index: number | undefined, parent: Parent | undefined) => {
+    transform: (node: Node) => {
         const listItem = node as ListItem;
 
         // Find first paragraph

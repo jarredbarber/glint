@@ -1,4 +1,4 @@
-// GitHub backend: OAuth or a fine-grained PAT kept only in memory.
+// GitHub backend: OAuth or a fine-grained PAT cached in localStorage.
 import { beginGitHubOAuth, GitHubOAuthConfig } from '../github-oauth.js';
 import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
@@ -53,7 +53,7 @@ export function forgetGitHubToken(): void { clearCachedGitHubToken(); }
 
 // UTF-8-safe base64 (GitHub Contents API is base64).
 function toB64(s: string): string {
-    return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+    return bytesToB64(new TextEncoder().encode(s));
 }
 function fromB64(b: string): string {
     const bin = atob(b.replace(/\n/g, ''));
@@ -259,7 +259,7 @@ export class GitHubAdapter implements StorageAdapter {
         });
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const created = githubMutationSchema.parse(await r.json()).content;
-        const file = { id: created.name, name: created.name, path: created.path, version: created.sha };
+        const file = { id: name, name: name.split('/').pop()!, path: name, version: created.sha };
         this.reads.set(file.id, { content, version: file.version });
         this.listedVersions.set(file.id, file.version);
         return file;

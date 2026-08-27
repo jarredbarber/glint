@@ -180,12 +180,9 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
         content: String(vfile),
         title,
         config,
-        fileTree: [],
         currentPath,
         headings,
         frontmatter,
-        static: true,
-        standalone: true,
     });
 
     const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
@@ -338,12 +335,9 @@ document.addEventListener('click',function(e){
         content: String(vfile),
         title,
         config,
-        fileTree: [],
         currentPath,
         headings,
         frontmatter,
-        static: true,
-        standalone: true,
     });
 
     html = rewriteStaticHtml(html);
