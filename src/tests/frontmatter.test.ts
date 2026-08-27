@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
 import { parseMarkdown } from '../markdown.js';
 
 test('frontmatter parsing', async (t) => {
@@ -34,6 +35,27 @@ title: "Project: Zero"
 Content`;
         const result = parseMarkdown(content);
         assert.equal(result.frontmatter.title, 'Project: Zero');
+    });
+
+    // GHSA-h67p-54hq-rp68: repeated aliases in a merge sequence caused
+    // quadratic work in js-yaml before 3.15.0.
+    await t.test('bounds repeated merge-alias frontmatter parsing', () => {
+        const size = 6_000;
+        const keys = Array.from({ length: size }, (_, i) => `k${i}: 0`).join(', ');
+        const aliases = Array.from({ length: size }, () => '*base').join(', ');
+        const content = `---
+base: &base { ${keys} }
+merged:
+  <<: [${aliases}]
+---
+Body`;
+
+        const startedAt = performance.now();
+        const result = parseMarkdown(content);
+        const elapsedMs = performance.now() - startedAt;
+
+        assert.equal(result.content, 'Body');
+        assert.ok(elapsedMs < 500, `pathological frontmatter took ${elapsedMs.toFixed(1)}ms`);
     });
 
     // #65: single-line display math must not shift the line count, or every
