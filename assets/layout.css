@@ -2410,7 +2410,7 @@ h6:hover .heading-edit-icon,
 
     /* Sidebar as Overlay */
     .sidebar {
-        display: block !important;
+        display: flex !important; /* keep flex column so .sidebar-scrollable can scroll on iOS */
         position: fixed;
         top: 0;
         left: 0;
