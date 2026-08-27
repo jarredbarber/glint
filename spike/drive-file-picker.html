@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>drive.file folder-cascade spike</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+  button { font-size: 15px; padding: .5rem 1rem; cursor: pointer; }
+  #log { white-space: pre-wrap; background: #111; color: #ddd; padding: 1rem; border-radius: 6px; margin-top: 1rem; }
+  .ok { color: #6f6; } .bad { color: #f66; } .info { color: #9cf; }
+</style>
+
+<h1>drive.file folder cascade test</h1>
+<p>Scope requested: <b>drive.file only</b>. Pick a folder containing markdown you made
+   <i>elsewhere</i> (not created by this app). We then try to list + read a nested file.</p>
+<button id="go">1. Sign in &amp; pick folder</button>
+<div id="log"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script>
+const CLIENT_ID = '833335009551-iar5dhp95n4o753f41snc05ls89i28er.apps.googleusercontent.com';
+const PICKER_KEY = 'AIzaSyBWFgEtZJjwJS8-7qMSjOmBYnsXIyiOfa4';
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+const logEl = document.getElementById('log');
+const log = (msg, cls='') => logEl.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+
+let token = null;
+gapi.load('picker', () => log('Picker API loaded.', 'info'));
+
+const tokenClient = () => google.accounts.oauth2.initTokenClient({
+  client_id: CLIENT_ID,
+  scope: SCOPE,
+  callback: (resp) => {
+    if (resp.error) { log('Token error: ' + resp.error, 'bad'); return; }
+    token = resp.access_token;
+    log('Got drive.file token.', 'ok');
+    openPicker();
+  },
+});
+
+document.getElementById('go').onclick = () => tokenClient().requestAccessToken();
+
+function openPicker() {
+  const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+    .setSelectFolderEnabled(true)
+    .setIncludeFolders(true)
+    .setMimeTypes('application/vnd.google-apps.folder');
+  const picker = new google.picker.PickerBuilder()
+    .setOAuthToken(token)
+    .setDeveloperKey(PICKER_KEY)
+    .addView(view)
+    .setCallback(pickerCb)
+    .build();
+  picker.setVisible(true);
+}
+
+async function pickerCb(data) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const folder = data.docs[0];
+  log(`\nPicked folder: ${folder.name} (${folder.id})`, 'info');
+  await runTests(folder.id);
+}
+
+async function api(path) {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/${path}`, {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  return { status: r.status, body: r.headers.get('content-type')?.includes('json') ? await r.json() : await r.text() };
+}
+
+async function runTests(folderId) {
+  log('\n--- TEST 1: list children of picked folder ---', 'info');
+  const list = await api(`files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)&pageSize=50`);
+  log('HTTP ' + list.status, list.status === 200 ? 'ok' : 'bad');
+  const files = list.body.files || [];
+  log(`Listed ${files.length} file(s):`);
+  files.forEach(f => log(`  - ${f.name} [${f.mimeType}]`));
+
+  const md = files.find(f => f.name.endsWith('.md')) || files.find(f => f.mimeType.startsWith('text/')) || files[0];
+  if (!md) { log('No file to read. Put a .md file in the folder and retry.', 'bad'); return; }
+
+  log(`\n--- TEST 2: read content of "${md.name}" (app did not create it) ---`, 'info');
+  const read = await api(`files/${md.id}?alt=media`);
+  log('HTTP ' + read.status, read.status === 200 ? 'ok' : 'bad');
+  if (read.status === 200) {
+    const text = typeof read.body === 'string' ? read.body : JSON.stringify(read.body);
+    log('First 200 chars:\n' + text.slice(0, 200), 'ok');
+    log('\n=== GREEN: drive.file + folder pick cascades to nested files. Revert is safe. ===', 'ok');
+  } else {
+    log('Body: ' + JSON.stringify(read.body), 'bad');
+    log('\n=== RED: cannot read nested file under drive.file. Nav must change. ===', 'bad');
+  }
+}
+</script>

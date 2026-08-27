@@ -5,6 +5,7 @@ import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
 import { DriveAdapter, browseDriveFolder } from './storage/drive.js';
 import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
+import { withSilentReauth } from './storage/reauth.js';
 import { createStandaloneHtml } from './export.js';
 import { isManagedSrc, resolveAssetPath } from './assets.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
@@ -623,7 +624,7 @@ async function openFile(id: string) {
     }
     let content = contentCache.get(id);
     if (content === undefined) {
-        const read = await adapter.read(id);
+        const read = await withSilentReauth(adapter, () => adapter.read(id));
         // A newer boot or a newer openFile superseded this read: discard it so a
         // slow backend can't replace the page the user actually selected (#65).
         if (gen !== bootGeneration || currentFileId !== id) return;
@@ -869,7 +870,7 @@ async function setTaskState(line: number, marker: string): Promise<void> {
     const id = currentFileId;
     if (!id) return;
     try {
-        const { content, version } = await adapter.read(id);
+        const { content, version } = await withSilentReauth(adapter, () => adapter.read(id));
         const lines = content.split('\n');
         const idx = line - 1;
         if (idx < 0 || idx >= lines.length) { alert('Could not locate the task line to update.'); return; }
@@ -877,7 +878,7 @@ async function setTaskState(line: number, marker: string): Promise<void> {
         if (updated === lines[idx]) { alert('Could not find a task marker on that line.'); return; }
         lines[idx] = updated;
         const newContent = lines.join('\n');
-        const { version: nextVersion } = await adapter.write(id, newContent, version);
+        const { version: nextVersion } = await withSilentReauth(adapter, () => adapter.write(id, newContent, version));
         // Record the returned version in FileMeta so the next mutation isn't a
         // stale-version conflict (#63).
         reconcileWrite(files, contentCache, { id, content: newContent, version: nextVersion });
@@ -1341,7 +1342,7 @@ async function refreshFilesOnFocus(): Promise<void> {
     if (!id) return;
     const previous = new Map(files.map((file) => [file.id, file]));
     try {
-        const refreshed = await adapter.list();
+        const refreshed = await withSilentReauth(adapter, () => adapter.list());
         const refreshedById = new Map(refreshed.map((file) => [file.id, file]));
         for (const file of refreshed) {
             if (previous.get(file.id)?.version !== file.version) contentCache.delete(file.id);
@@ -1488,7 +1489,7 @@ export async function boot(): Promise<void> {
         showSourceError(error as Error);
         return;
     }
-    rememberCurrentProject(adapter instanceof LocalAdapter ? adapter.folderName() : undefined);
+    rememberCurrentProject(adapter instanceof LocalAdapter || adapter instanceof DriveAdapter ? adapter.folderName() : undefined);
     renderSidebar();
     installEditorShortcuts(adapter, () => currentFileId, () => appState.settings.vimMode, onSectionSaved, () => files.find((f) => f.id === currentFileId)?.path ?? null);
     installCommentShortcut();

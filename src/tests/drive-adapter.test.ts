@@ -11,9 +11,9 @@ test('lists every Drive API page before returning Markdown files', async () => {
     ];
     Object.defineProperty(adapter, 'api', {
         value: async (path: string) => {
-            // #92: list() probes folder visibility first (files/<id>?fields=id); answer it
-            // without consuming a listing page.
-            if (/\?fields=id$/.test(path)) return new Response(JSON.stringify({ id: 'folder' }));
+            // #92: list() probes folder visibility first (files/<id>?fields=id,name); answer it
+            // without consuming a listing page. #100: the probe also carries the folder title.
+            if (/\?fields=id,name$/.test(path)) return new Response(JSON.stringify({ id: 'folder', name: 'My Notes' }));
             paths.push(path);
             return new Response(JSON.stringify(pages.shift()));
         },
@@ -23,6 +23,7 @@ test('lists every Drive API page before returning Markdown files', async () => {
 
     assert.deepEqual(files.map((file) => file.name), ['First.md', 'Second.md']);
     assert.match(paths[1]!, /pageToken=next-page/);
+    assert.equal(adapter.folderName(), 'My Notes');   // #100: project named after the folder
 });
 
 test('recursively lists Drive folders with source-relative paths', async () => {

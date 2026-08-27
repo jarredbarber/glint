@@ -171,6 +171,7 @@ export class DriveAdapter implements StorageAdapter {
         setResolved: (fileId, discussionId, resolved) => this.setDiscussionResolved(fileId, discussionId, resolved),
     };
     private userName = 'Drive User';
+    private folderTitle = '';
 
     constructor(private folderId: string, private clientId: string, private pickerKey = '', private appId = '') {
         if (!clientId) throw new Error('Drive backend needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
@@ -241,6 +242,7 @@ export class DriveAdapter implements StorageAdapter {
 
     capabilities() { return { canEdit: true, canComment: true }; }
     identity() { return { name: this.userName }; }
+    folderName(): string | undefined { return this.folderTitle || undefined; }
 
     private headers(): Record<string, string> {
         if (!this.token) throw new Error('call auth() first');
@@ -301,9 +303,15 @@ export class DriveAdapter implements StorageAdapter {
 
     // A folder metadata probe: 200 = authorized (list will work), 404/403 = drive.file hides it
     // (needs a Picker grant). Goes through api() so tests stub it and 401 still expires the token.
+    // Captures the folder's title so the project can be named after it (#100).
     private async folderVisible(id: string): Promise<boolean> {
         try {
-            await this.api(`/drive/v3/files/${encodeURIComponent(id)}?fields=id`);
+            const res = await this.api(`/drive/v3/files/${encodeURIComponent(id)}?fields=id,name`);
+            // Name capture is best-effort (#100): a missing/odd body must not fail the probe.
+            if (id === this.folderId) {
+                try { const meta = await res.json(); if (typeof meta?.name === 'string') this.folderTitle = meta.name; }
+                catch { /* keep the id-based default */ }
+            }
             return true;
         } catch (error) {
             if (error instanceof AuthExpiredError) throw error;
