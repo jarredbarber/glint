@@ -1577,6 +1577,10 @@ tr:nth-child(even) {
     align-items: center;
     gap: 0.35rem;
     float: right;
+    /* ponytail: floated link sits behind the next section box, which ate the
+       clicks (#112). Raise it in paint order so the whole button is hittable. */
+    position: relative;
+    z-index: 1;
     margin: 0 0 0.5rem 1rem;
     padding: 0.25rem 0.6rem;
     font-family: 'Inter', sans-serif;
