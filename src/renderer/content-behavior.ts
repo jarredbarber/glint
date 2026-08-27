@@ -113,7 +113,7 @@ export function contentBehaviorLoaders(html: string): string {
 }
 
 // --- SPA runtime draw ---------------------------------------------------------
-// The standalone `glint render` output ships the loaders + init script above and
+// The standalone `glint-md render` output ships the loaders + init script above and
 // the browser runs them on DOMContentLoaded. The SPA renders Markdown to an HTML
 // string and injects it with innerHTML, where <script> tags never execute — so it
 // must load the CDNs and run the same draw logic itself, on demand, per injected

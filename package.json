@@ -1,11 +1,29 @@
 {
-  "name": "glint",
+  "name": "glint-md",
   "version": "0.1.0",
   "description": "Static Markdown wiki and self-contained HTML renderer",
   "main": "dist/render.js",
+  "types": "dist/render.d.ts",
   "bin": {
-    "glint": "./dist/cli.js"
+    "glint-md": "./dist/cli.js"
   },
+  "files": [
+    "dist/cli.*",
+    "dist/render.*",
+    "dist/renderer.*",
+    "dist/renderer",
+    "dist/config.*",
+    "dist/markdown.*",
+    "dist/pipeline.*",
+    "dist/rehype-*",
+    "dist/remark-*",
+    "dist/url-rewrite.*",
+    "dist/utils",
+    "dist/widgets",
+    "assets/layout.css",
+    "assets/highlight.css",
+    "assets/color-schemes"
+  ],
   "scripts": {
     "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/config.js src/spa/privacy.html src/spa/terms.html src/spa/CNAME dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
     "dev": "npm run build && npm run stage:spa && python3 -m http.server 8080 --directory dist-spa",
@@ -15,13 +33,34 @@
     "bundle": "rm -f assets/*.bundle.js && npm run bundle:editor && npm run bundle:render && npm run bundle:spa",
     "build": "tsc && npm run bundle",
     "start": "npm run dev",
-    "test": "tsx --test src/tests/**/*.test.ts"
+    "test": "tsx --test src/tests/**/*.test.ts",
+    "prepack": "tsc"
   },
   "keywords": [],
   "author": "Jarred Barber",
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "commander": "^14.0.2",
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.11.1",
+    "lowlight": "^3.3.0",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
+    "rehype-slug": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "vfile": "^6.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260116.0",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-cpp": "^6.0.3",
@@ -41,31 +80,12 @@
     "@codemirror/view": "^6.39.9",
     "@replit/codemirror-vim": "^6.3.0",
     "codemirror-lang-latex": "^0.2.0",
-    "commander": "^14.0.2",
-    "gray-matter": "^4.0.3",
-    "highlight.js": "^11.11.1",
-    "lowlight": "^3.3.0",
-    "rehype-autolink-headings": "^7.1.0",
-    "rehype-highlight": "^7.0.2",
-    "rehype-katex": "^7.0.1",
-    "rehype-raw": "^7.0.0",
-    "rehype-slug": "^6.0.0",
-    "rehype-stringify": "^10.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0",
-    "zod": "^4.3.5"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260116.0",
     "@types/node": "^25.0.3",
     "esbuild": "^0.27.2",
     "rehype-parse": "^9.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "zod": "^4.3.5",
     "wrangler": "^4.59.2"
   }
 }

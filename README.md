@@ -20,8 +20,8 @@
 - In-place editing (hit `e` to edit the section under the mouse cursor) and commenting (on supported backends)
 - Paste-based image uploading: paste an image into the editor to store it as a portable sidecar beside the page (`page.md.<id>.png`)
 - Export the current page from the SPA, or
-- Offline rendering to portable HTML with `glint render` CLI.
-- Offline markdown processor for e.g. [VimR](https://github.com/qvacua/vimr) via `glint render --stdin --body-only`
+- Offline rendering to portable HTML with the `glint-md render` CLI.
+- Offline markdown processor for e.g. [VimR](https://github.com/qvacua/vimr) via `glint-md render --stdin --body-only`
 
 ## Getting started
 
@@ -33,14 +33,13 @@ Glint supports either single files or "projects"; a project is a local folder, G
 
 Install the CLI:
 ```bash
-npm run build
-npm link
+npm install --global glint-md
 
-glint render notes/paper.md
-glint render notes/paper.md --output output.html --color-scheme nord
+glint-md render notes/paper.md
+glint-md render notes/paper.md --output output.html --color-scheme nord
 
 # Piped mode for use as a markdown processor
-cat notes/paper.md | glint render --stdin --body-only 
+cat notes/paper.md | glint-md render --stdin --body-only
 ```
 
 ## Development / contribution
@@ -51,3 +50,20 @@ We use a very agent-heavy process; see [AGENTS.md](AGENTS.md) for workflows and 
 npm install
 npm run build
 ```
+
+## Publishing the CLI
+
+Package maintainers publish `glint-md` from a clean `main` checkout:
+
+```bash
+npm install
+npm test
+npm run build
+npm pack --dry-run
+npm login
+npm version <patch|minor|major>
+npm publish
+git push --follow-tags
+```
+
+Check the dry-run manifest before changing the version: it should contain `dist/`, the renderer styles under `assets/`, and the `glint-md` executable. `npm publish` runs the `prepack` TypeScript build; it does not publish the SPA.

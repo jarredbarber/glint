@@ -4,12 +4,16 @@ import path from 'path';
 import fs from 'node:fs/promises';
 import { renderFile, renderMarkdown } from './render.js';
 
+const { version } = JSON.parse(
+    await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string };
+
 const program = new Command();
 
 program
-    .name('glint')
+    .name('glint-md')
     .description('Render Markdown (with server-side math) to self-contained HTML. The wiki/editing surface is the static SPA (src/spa).')
-    .version('0.1.0');
+    .version(version);
 
 program
     .command('render')

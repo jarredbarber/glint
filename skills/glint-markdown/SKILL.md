@@ -5,7 +5,7 @@ description: Reference for Glint-flavored Markdown extensions (math, diagrams, m
 
 # Glint Markdown Extensions
 
-Glint renders standard Markdown plus the extensions below. Use this as a reference when writing content for the static SPA or the `glint render` command.
+Glint renders standard Markdown plus the extensions below. Use this as a reference when writing content for the static SPA or the `glint-md render` command.
 
 ## Math (KaTeX)
 

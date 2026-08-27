@@ -13,7 +13,7 @@ npm run dev         # Build, stage dist-spa/, and serve http://localhost:8080
 npm run stage:spa   # Assemble the GitHub Pages deploy root
 npm run bundle      # Rebuild browser assets without type-checking
 npm run start       # Alias for npm run dev
-glint render FILE   # Render one Markdown file to self-contained HTML
+glint-md render FILE # Render one Markdown file to self-contained HTML
 ```
 
 The Markdown extension reference lives in `skills/glint-markdown/SKILL.md` (published as `/llm.txt` at deploy time).
@@ -24,7 +24,7 @@ The Markdown extension reference lives in `skills/glint-markdown/SKILL.md` (publ
 - `src/browser.ts` exports the browser-safe `GlintRender` bundle used by `src/spa/app.ts`.
 - `src/spa/storage/types.ts` defines the adapter seam. `id` is the backend read/write key, `path` is source-root-relative for navigation, and `version` is the backend concurrency token.
 - `src/spa/editor/session.ts` edits one document section and saves through the active adapter. Conflicts and expired authentication are explicit states.
-- `src/render.ts` and `src/cli.ts` retain the standalone `glint render` surface; it produces one portable HTML file.
+- `src/render.ts` and `src/cli.ts` retain the standalone `glint-md render` surface; it produces one portable HTML file.
 - `assets/` contains checked-in CSS and generated browser bundles. `npm run build` regenerates the bundles.
 
 ## SPA development

@@ -20,7 +20,7 @@ The open page is reflected in the URL bar as a `/-/<path>` suffix on the project
 
 ## Image assets
 
-Paste an image into the section editor to store it as a flat sidecar beside the page, named `<page-filename>.<shortid>.<ext>` (#30/#70). The Markdown reference is page-relative and backend-neutral, so it works on every backend and `glint render`/export inline it. Accepted: PNG, JPEG, GIF, WebP, up to 5,000,000 bytes; one image per paste. Uploads go through the active storage adapter (Drive multipart into the page's own folder, GitHub create-only commit, Local File System Access, in-memory for demo) and are create-only, never overwriting. The Markdown never stores a Drive ID, GitHub URL, `blob:`, or `data:` reference; standalone export inlines each asset as `data:` and aborts rather than emit a broken file.
+Paste an image into the section editor to store it as a flat sidecar beside the page, named `<page-filename>.<shortid>.<ext>` (#30/#70). The Markdown reference is page-relative and backend-neutral, so it works on every backend and `glint-md render`/export inline it. Accepted: PNG, JPEG, GIF, WebP, up to 5,000,000 bytes; one image per paste. Uploads go through the active storage adapter (Drive multipart into the page's own folder, GitHub create-only commit, Local File System Access, in-memory for demo) and are create-only, never overwriting. The Markdown never stores a Drive ID, GitHub URL, `blob:`, or `data:` reference; standalone export inlines each asset as `data:` and aborts rather than emit a broken file.
 
 ## Local dev
 
