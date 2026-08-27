@@ -1,6 +1,6 @@
 # Glint
 
-Glint is a privacy-first Markdown viewer, editor, and wiki. The browser app opens Markdown from a local folder, Google Drive, or a GitHub repository; files remain in their selected backend. See [Live Demo Site](https://jarredbarber.github.io/glint/#/demo)
+]Glint](https://glint.jbarb.io) is a privacy-first Markdown viewer, editor, and wiki. The browser app opens Markdown from a local folder, Google Drive, or a GitHub repository; files remain in their selected backend. See [Live Demo Site](https://glint.jbarb.io/#/demo)
 
 <img width="600" alt="Demo Screenshot" src="https://github.com/user-attachments/assets/2865c87f-6f21-42c8-a082-ad5b825cb0ba" />
 
