@@ -41,6 +41,7 @@ type PickerDocsView = InstanceType<typeof google.picker.DocsView>;
 interface PickerBuilder {
     setOAuthToken(t: string): PickerBuilder;
     setDeveloperKey(k: string): PickerBuilder;
+    setAppId(id: string): PickerBuilder;
     addView(v: PickerDocsView): PickerBuilder;
     setCallback(cb: (data: { action: string; docs?: { id: string }[] }) => void): PickerBuilder;
     build(): { setVisible(v: boolean): void };
@@ -129,7 +130,7 @@ function loadPicker(): Promise<void> {
 // cancel. No pre-navigation: we don't know the target's parent, so the user browses from root.
 // ponytail: no setParent pre-fill — its "select the folder you're inside" semantics are unclear
 // (#92 open question); add when hunting for a deep folder is a real complaint.
-async function pickDriveFolder(token: string, developerKey: string): Promise<string | null> {
+async function pickDriveFolder(token: string, developerKey: string, appId: string): Promise<string | null> {
     await loadPicker();
     return new Promise((resolve) => {
         const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
@@ -139,6 +140,7 @@ async function pickDriveFolder(token: string, developerKey: string): Promise<str
         new google.picker.PickerBuilder()
             .setOAuthToken(token)
             .setDeveloperKey(developerKey)
+            .setAppId(appId)
             .addView(view)
             .setCallback((data) => {
                 if (data.action === google.picker.Action.PICKED) resolve(data.docs?.[0]?.id ?? null);
@@ -151,12 +153,13 @@ async function pickDriveFolder(token: string, developerKey: string): Promise<str
 
 // Landing "Open Google Drive" entry: mint a token, cache it under the shared key so the
 // subsequent #/drive/<id> route reuses it, and browse for a folder. Returns its id or null.
-export async function browseDriveFolder(clientId: string, pickerKey: string): Promise<string | null> {
+export async function browseDriveFolder(clientId: string, pickerKey: string, appId: string): Promise<string | null> {
     if (!clientId) throw new Error('Drive needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
     if (!pickerKey) throw new Error('Drive needs the Google Picker key (GLINT_CONFIG.drivePickerKey).');
+    if (!appId) throw new Error('Drive needs the Google Cloud project number (GLINT_CONFIG.driveAppId).');
     const { token, expiresAt } = await mintAccessToken(clientId, '');
     try { localStorage.setItem(driveTokenKey(clientId), JSON.stringify({ token, expiresAt })); } catch { /* non-fatal */ }
-    return pickDriveFolder(token, pickerKey);
+    return pickDriveFolder(token, pickerKey, appId);
 }
 
 export class DriveAdapter implements StorageAdapter {
@@ -169,7 +172,7 @@ export class DriveAdapter implements StorageAdapter {
     };
     private userName = 'Drive User';
 
-    constructor(private folderId: string, private clientId: string, private pickerKey = '') {
+    constructor(private folderId: string, private clientId: string, private pickerKey = '', private appId = '') {
         if (!clientId) throw new Error('Drive backend needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
     }
 
@@ -288,7 +291,8 @@ export class DriveAdapter implements StorageAdapter {
     private async ensureFolderAccess(): Promise<void> {
         if (!this.folderId || await this.folderVisible(this.folderId)) return;
         if (!this.pickerKey) throw new Error('Drive folder access needs the Google Picker (GLINT_CONFIG.drivePickerKey).');
-        const picked = await pickDriveFolder(this.token!, this.pickerKey);
+        if (!this.appId) throw new Error('Drive folder access needs the Google Cloud project number (GLINT_CONFIG.driveAppId).');
+        const picked = await pickDriveFolder(this.token!, this.pickerKey, this.appId);
         if (picked === null) throw new Error('Drive access needs you to pick the folder. Reopen the link and choose it in the Google Picker.');
         if (!(await this.folderVisible(this.folderId))) {
             throw new Error('That was not the folder this link points to. Reopen the link and pick the linked folder, or a folder that contains it.');

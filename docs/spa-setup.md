@@ -41,6 +41,7 @@ Copy `src/spa/config.example.js` → `src/spa/config.js` and fill in the public 
 window.GLINT_CONFIG = {
   driveClientId: '...',
   drivePickerKey: '...',   // public Google Picker API key (Drive folder access, #92)
+  driveAppId: '123456789012', // numeric Google Cloud project number
   githubClientId: '...',
   githubOAuthWorkerOrigin: 'https://glint-github-oauth.<account>.workers.dev',
   githubRedirectUri: 'https://<user>.github.io/glint/',
@@ -63,7 +64,8 @@ Commit `config.js` to enable Drive/GitHub on the deployed site. Client IDs and W
    assessment that the full `drive` "restricted" scope requires for public release (the #83 tradeoff, reverted).
 5. Enable the **Google Drive API** and the **Google Picker API** for the project.
 6. Create a **Picker API key** (Credentials → API key), restrict it to the Picker API and your HTTP referrers,
-   and set it as `drivePickerKey`. It is public (referrer-restricted); no secret.
+   and set it as `drivePickerKey`. Set `driveAppId` to the project's numeric **project number** from IAM & Admin
+   → Settings; Picker requires `setAppId(projectNumber)` with the `drive.file` scope. Both values are public.
 
 ### GitHub — OAuth Worker, with optional fine-grained PAT
 

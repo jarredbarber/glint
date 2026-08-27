@@ -19,7 +19,7 @@ import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 // enter the SPA.
 declare global {
     interface Window {
-        GLINT_CONFIG?: { driveClientId?: string; drivePickerKey?: string; githubClientId?: string; githubOAuthWorkerOrigin?: string; githubRedirectUri?: string };
+        GLINT_CONFIG?: { driveClientId?: string; drivePickerKey?: string; driveAppId?: string; githubClientId?: string; githubOAuthWorkerOrigin?: string; githubRedirectUri?: string };
     }
 }
 const CFG = window.GLINT_CONFIG ?? {};
@@ -197,7 +197,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             return new LocalAdapter();
         case 'drive':
             // #/drive/<folderId>
-            return new DriveAdapter(rest[0], CFG.driveClientId ?? '', CFG.drivePickerKey ?? '');
+            return new DriveAdapter(rest[0], CFG.driveClientId ?? '', CFG.drivePickerKey ?? '', CFG.driveAppId ?? '');
         case 'gh':
         case 'github': {
             // Accepts the tree/legacy project forms (parseGhRoute). Empty ref = auto-detect
@@ -1248,7 +1248,7 @@ function renderLanding(): void {
         : `<button type="button" class="glint-url-pick" disabled title="Needs a Chromium-based browser">${ICON.local}<span>Local folder (Chromium only)</span></button>`;
     // #92: drive.file grants folder access only through the Google Picker, so the landing
     // page opens it in browse mode; the pasted-link form keeps parsing Drive URLs unchanged.
-    const drivePicker = (CFG.driveClientId && CFG.drivePickerKey)
+    const drivePicker = (CFG.driveClientId && CFG.drivePickerKey && CFG.driveAppId)
         ? `<button type="button" class="glint-url-pick" data-pick-drive>${ICON.drive}<span>Open Google Drive</span></button>`
         : '';
     const projectList = appState.projects.length
@@ -1300,7 +1300,7 @@ function renderLanding(): void {
         const btn = event.currentTarget as HTMLButtonElement;
         btn.disabled = true;
         try {
-            const id = await browseDriveFolder(CFG.driveClientId ?? '', CFG.drivePickerKey ?? '');
+            const id = await browseDriveFolder(CFG.driveClientId ?? '', CFG.drivePickerKey ?? '', CFG.driveAppId ?? '');
             if (id) location.hash = `#/drive/${encodeURIComponent(id)}`;
         } catch (error) {
             if (errorEl) errorEl.textContent = (error as Error).message;

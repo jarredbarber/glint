@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DriveAdapter } from '../spa/storage/drive.js';
+import { DriveAdapter, browseDriveFolder } from '../spa/storage/drive.js';
 
 test('lists every Drive API page before returning Markdown files', async () => {
     const adapter = new DriveAdapter('folder', 'client');
@@ -203,4 +203,67 @@ test('rejects silent reauthentication when GIS reports a popup error', async (t)
     assert.equal(typeof errorCallback, 'function', 'GIS popup failures must reject the pending reauthentication');
     errorCallback?.({ type: 'popup_closed' });
     await assert.rejects(reauthentication, /Drive authentication expired/);
+});
+
+test('passes the Cloud project number to Picker for drive.file access', async (t) => {
+    const descriptors = Object.fromEntries(
+        ['document', 'google', 'gapi', 'localStorage'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+    );
+    let receivedAppId = '';
+    let visible = false;
+    let pickerCallback: (data: { action: string }) => void = () => {};
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { querySelector: () => ({}) } });
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { setItem: () => {} } });
+    Object.defineProperty(globalThis, 'gapi', {
+        configurable: true,
+        value: {
+            load: (_name: string, callback: { callback: () => void } | (() => void)) => {
+                if (typeof callback === 'function') callback();
+                else callback.callback();
+            },
+        },
+    });
+    Object.defineProperty(globalThis, 'google', {
+        configurable: true,
+        value: {
+            accounts: { oauth2: { initTokenClient: ({ callback }: { callback: (response: unknown) => void }) => ({
+                requestAccessToken: () => callback({ access_token: 'token', expires_in: 3600 }),
+            }) } },
+            picker: {
+                ViewId: { FOLDERS: 'folders' },
+                Action: { PICKED: 'picked', CANCEL: 'cancel' },
+                DocsView: class {
+                    constructor(_viewId: string) {}
+                    setSelectFolderEnabled(_value: boolean) { return this; }
+                    setIncludeFolders(_value: boolean) { return this; }
+                    setMimeTypes(_value: string) { return this; }
+                },
+                PickerBuilder: class {
+                    setOAuthToken(_token: string) { return this; }
+                    setDeveloperKey(_key: string) { return this; }
+                    setAppId(appId: string) { receivedAppId = appId; return this; }
+                    addView(_view: unknown) { return this; }
+                    setCallback(callback: (data: { action: string }) => void) { pickerCallback = callback; return this; }
+                    build() {
+                        return {
+                            setVisible: (value: boolean) => {
+                                visible = value;
+                                pickerCallback({ action: 'cancel' });
+                            },
+                        };
+                    }
+                },
+            },
+        },
+    });
+    t.after(() => {
+        for (const [name, descriptor] of Object.entries(descriptors)) {
+            if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+            else Reflect.deleteProperty(globalThis, name);
+        }
+    });
+
+    assert.equal(await browseDriveFolder('client', 'key', '833335009551'), null);
+    assert.equal(receivedAppId, '833335009551');
+    assert.equal(visible, true);
 });
