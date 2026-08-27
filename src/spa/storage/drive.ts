@@ -1,15 +1,18 @@
 // Google Drive backend: GIS token client + Drive REST. Server-less, no client secret.
 // REST calls are the ones proven by spike/drive-spa.html (issue #19, GREEN).
-// Scope is full `drive` (read+write): Glint edits pre-existing folders, and
-// `drive.file` only exposes files the app itself created — so a folder of
-// markdown you made elsewhere lists empty and can't be opened (#83). Full drive
-// is a Google "restricted" scope requiring app verification for wide release.
+// Scope is `drive.file` (non-restricted): it only exposes files the app created or
+// that the user hands over through the Google Picker. #83 widened to full `drive`
+// so pre-existing folders would list, but full drive is a "restricted" scope needing
+// an annual CASA security assessment to publish. #92 reverts to `drive.file` and uses
+// the Picker as the sanctioned escape hatch: picking a folder authorizes it and
+// cascades to every descendant, so a folder of markdown made elsewhere still lists.
 import { z } from 'zod';
 import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive';
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com';
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
+const PICKER_SRC = 'https://apis.google.com/js/api.js';
 
 declare const google: {
     accounts: {
@@ -22,7 +25,26 @@ declare const google: {
             }): { requestAccessToken(options?: { prompt?: string }): void };
         };
     };
+    picker: {
+        ViewId: { FOLDERS: string };
+        Action: { PICKED: string; CANCEL: string };
+        DocsView: new (viewId: string) => {
+            setSelectFolderEnabled(v: boolean): PickerDocsView;
+            setIncludeFolders(v: boolean): PickerDocsView;
+            setMimeTypes(v: string): PickerDocsView;
+        };
+        PickerBuilder: new () => PickerBuilder;
+    };
 };
+declare const gapi: { load(name: string, cb: { callback: () => void } | (() => void)): void };
+type PickerDocsView = InstanceType<typeof google.picker.DocsView>;
+interface PickerBuilder {
+    setOAuthToken(t: string): PickerBuilder;
+    setDeveloperKey(k: string): PickerBuilder;
+    addView(v: PickerDocsView): PickerBuilder;
+    setCallback(cb: (data: { action: string; docs?: { id: string }[] }) => void): PickerBuilder;
+    build(): { setVisible(v: boolean): void };
+}
 
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
 const driveFileListSchema = z.object({
@@ -74,6 +96,69 @@ function loadScript(src: string): Promise<void> {
     });
 }
 
+function driveTokenKey(clientId: string): string { return `glint.drive.token.v3.${clientId}`; }
+
+// Mint an OAuth access token via GIS. `prompt: 'none'` is a silent grant (no popup when a
+// Google session already consented); '' shows the interactive consent/chooser.
+function mintAccessToken(clientId: string, prompt: string): Promise<{ token: string; expiresAt: number }> {
+    return loadScript(GIS_SRC).then(() => new Promise((resolve, reject) => {
+        const client = google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: SCOPE,
+            callback: (response: unknown) => {
+                const parsed = tokenResponseSchema.safeParse(response);
+                if (parsed.success && parsed.data.access_token) {
+                    const ttl = (parsed.data.expires_in ?? 3600) * 1000;
+                    resolve({ token: parsed.data.access_token, expiresAt: Date.now() + ttl });
+                } else reject(new AuthExpiredError('Drive authentication expired'));
+            },
+            error_callback: () => reject(new AuthExpiredError('Drive authentication expired')),
+        });
+        client.requestAccessToken({ prompt });
+    }));
+}
+
+let pickerReady: Promise<void> | null = null;
+function loadPicker(): Promise<void> {
+    if (!pickerReady) pickerReady = loadScript(PICKER_SRC).then(() => new Promise<void>((res) => gapi.load('picker', { callback: res })));
+    return pickerReady;
+}
+
+// Open the Google Picker in folder-browse mode. Selecting a folder authorizes it (and its
+// descendants) for the app under drive.file (#92). Resolves the picked folder id, or null on
+// cancel. No pre-navigation: we don't know the target's parent, so the user browses from root.
+// ponytail: no setParent pre-fill — its "select the folder you're inside" semantics are unclear
+// (#92 open question); add when hunting for a deep folder is a real complaint.
+async function pickDriveFolder(token: string, developerKey: string): Promise<string | null> {
+    await loadPicker();
+    return new Promise((resolve) => {
+        const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+            .setSelectFolderEnabled(true)
+            .setIncludeFolders(true)
+            .setMimeTypes(FOLDER_MIME_TYPE);
+        new google.picker.PickerBuilder()
+            .setOAuthToken(token)
+            .setDeveloperKey(developerKey)
+            .addView(view)
+            .setCallback((data) => {
+                if (data.action === google.picker.Action.PICKED) resolve(data.docs?.[0]?.id ?? null);
+                else if (data.action === google.picker.Action.CANCEL) resolve(null);
+            })
+            .build()
+            .setVisible(true);
+    });
+}
+
+// Landing "Open Google Drive" entry: mint a token, cache it under the shared key so the
+// subsequent #/drive/<id> route reuses it, and browse for a folder. Returns its id or null.
+export async function browseDriveFolder(clientId: string, pickerKey: string): Promise<string | null> {
+    if (!clientId) throw new Error('Drive needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
+    if (!pickerKey) throw new Error('Drive needs the Google Picker key (GLINT_CONFIG.drivePickerKey).');
+    const { token, expiresAt } = await mintAccessToken(clientId, '');
+    try { localStorage.setItem(driveTokenKey(clientId), JSON.stringify({ token, expiresAt })); } catch { /* non-fatal */ }
+    return pickDriveFolder(token, pickerKey);
+}
+
 export class DriveAdapter implements StorageAdapter {
     private token: string | null = null;
     discussions: DiscussionCapability = {
@@ -84,16 +169,17 @@ export class DriveAdapter implements StorageAdapter {
     };
     private userName = 'Drive User';
 
-    constructor(private folderId: string, private clientId: string) {
+    constructor(private folderId: string, private clientId: string, private pickerKey = '') {
         if (!clientId) throw new Error('Drive backend needs an OAuth client ID (GLINT_CONFIG.driveClientId).');
     }
 
     // ponytail: Drive tokens are ~1h-lived, so persisting them
     // in localStorage skips the popup on every load/route click (#37). This deliberately
     // relaxes the #32/#38 no-storage rule — the real exfil control is the CSP, not token lifetime.
-    // v2: scope widened to full `drive` (#83); old drive.file tokens list empty
-    // instead of 401ing, so the suffix bump discards them rather than waiting ~1h.
-    private get storageKey(): string { return `glint.drive.token.v2.${this.clientId}`; }
+    // v3: scope reverted to `drive.file` (#92); old full-`drive` tokens carry the
+    // restricted scope we're shedding, so the suffix bump discards them and forces
+    // fresh drive.file consent rather than letting them ride ~1h.
+    private get storageKey(): string { return driveTokenKey(this.clientId); }
 
     private loadCachedToken(): string | null {
         try {
@@ -146,23 +232,8 @@ export class DriveAdapter implements StorageAdapter {
         this.cacheToken(token, expiresAt);
     }
 
-    private async requestToken(prompt: string): Promise<{ token: string; expiresAt: number }> {
-        await loadScript(GIS_SRC);
-        return new Promise((resolve, reject) => {
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: this.clientId,
-                callback: (response: unknown) => {
-                    const parsed = tokenResponseSchema.safeParse(response);
-                    if (parsed.success && parsed.data.access_token) {
-                        const ttl = (parsed.data.expires_in ?? 3600) * 1000;
-                        resolve({ token: parsed.data.access_token, expiresAt: Date.now() + ttl });
-                    } else reject(new AuthExpiredError('Drive authentication expired'));
-                },
-                error_callback: () => reject(new AuthExpiredError('Drive authentication expired')),
-                scope: SCOPE,
-            });
-            client.requestAccessToken({ prompt });
-        });
+    private requestToken(prompt: string): Promise<{ token: string; expiresAt: number }> {
+        return mintAccessToken(this.clientId, prompt);
     }
 
     capabilities() { return { canEdit: true, canComment: true }; }
@@ -204,8 +275,37 @@ export class DriveAdapter implements StorageAdapter {
     }
 
     async list(): Promise<FileMeta[]> {
+        await this.ensureFolderAccess();
         const files = await this.listFolder(this.folderId, '', new Set());
         return files.sort((a, b) => a.path.localeCompare(b.path));
+    }
+
+    // drive.file gate (#92): under this scope the app can't see a folder from its id alone —
+    // possessing a pasted/deep link does not authorize it. The Google Picker is the sanctioned
+    // grant: picking the folder (or an ancestor) authorizes it and every descendant, and the
+    // current token gains access immediately. Already-authorized folders probe visible and skip
+    // the prompt. This is the single auth choke point for every #/drive/<id> entry.
+    private async ensureFolderAccess(): Promise<void> {
+        if (!this.folderId || await this.folderVisible(this.folderId)) return;
+        if (!this.pickerKey) throw new Error('Drive folder access needs the Google Picker (GLINT_CONFIG.drivePickerKey).');
+        const picked = await pickDriveFolder(this.token!, this.pickerKey);
+        if (picked === null) throw new Error('Drive access needs you to pick the folder. Reopen the link and choose it in the Google Picker.');
+        if (!(await this.folderVisible(this.folderId))) {
+            throw new Error('That was not the folder this link points to. Reopen the link and pick the linked folder, or a folder that contains it.');
+        }
+    }
+
+    // A folder metadata probe: 200 = authorized (list will work), 404/403 = drive.file hides it
+    // (needs a Picker grant). Goes through api() so tests stub it and 401 still expires the token.
+    private async folderVisible(id: string): Promise<boolean> {
+        try {
+            await this.api(`/drive/v3/files/${encodeURIComponent(id)}?fields=id`);
+            return true;
+        } catch (error) {
+            if (error instanceof AuthExpiredError) throw error;
+            if (/Drive 40[34]\b/.test((error as Error).message)) return false;
+            throw error;
+        }
     }
 
     async read(id: string) {

@@ -11,6 +11,9 @@ test('lists every Drive API page before returning Markdown files', async () => {
     ];
     Object.defineProperty(adapter, 'api', {
         value: async (path: string) => {
+            // #92: list() probes folder visibility first (files/<id>?fields=id); answer it
+            // without consuming a listing page.
+            if (/\?fields=id$/.test(path)) return new Response(JSON.stringify({ id: 'folder' }));
             paths.push(path);
             return new Response(JSON.stringify(pages.shift()));
         },
@@ -151,7 +154,7 @@ test('auth reuses an unexpired cached token and skips the GIS request; drops an 
         }
     });
 
-    const key = 'glint.drive.token.v2.client';
+    const key = 'glint.drive.token.v3.client';
 
     // Unexpired cached token: no GIS request at all.
     store.set(key, JSON.stringify({ token: 'cached', expiresAt: Date.now() + 3_600_000 }));

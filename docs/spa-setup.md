@@ -8,13 +8,13 @@ becomes a wiki. No server, no Glint user database — access control is the back
 | Backend | Hash route | Needs |
 |---------|-----------|-------|
 | Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
-| Google Drive | `#/drive/<folderId>` | `driveClientId` |
+| Google Drive | `#/drive/<folderId>` | `driveClientId` + `drivePickerKey` (Picker authorizes the folder, #92) |
 | GitHub repo | `#/gh/<owner>/<repo>` or `#/gh/<owner>/<repo>/tree/<ref>/<path>` | GitHub OAuth or an explicit fine-grained PAT |
 | GitHub single file | `#/gh/<owner>/<repo>/blob/<ref>/<path>` | same GitHub token |
 | Demo (in-memory) | `#/demo` | nothing |
 | Single file (Drive/demo) | `#/s/drive/<fileId>` or `#/s/demo/<page>` | same as the underlying source |
 
-GitHub routes follow github.com's own URL shape (#67): a `blob` segment means one file (read-only, no recursive listing; the path is repo-root relative), `tree` (or a bare `#/gh/<owner>/<repo>`) means a project folder. Omit the ref on a project route and Glint auto-detects the repo's default branch (`main`, `master`, … — #64); the legacy `#/gh/<owner>/<repo>/<path>@<ref>` form still opens as a project. Drive single files use `#/s/drive/<fileId>` (Drive reads any file by id). The landing page's single link box accepts pasted `github.com/…/blob|tree/…` and `drive.google.com/file|folders/…` URLs, detects the source, and routes accordingly (#67). The sidebar page-actions **copy-link** button generates the single-file URL for the current page.
+GitHub routes follow github.com's own URL shape (#67): a `blob` segment means one file (read-only, no recursive listing; the path is repo-root relative), `tree` (or a bare `#/gh/<owner>/<repo>`) means a project folder. Omit the ref on a project route and Glint auto-detects the repo's default branch (`main`, `master`, … — #64); the legacy `#/gh/<owner>/<repo>/<path>@<ref>` form still opens as a project. Under `drive.file` (#92), opening a `#/drive/<folderId>` route probes the folder and, if it isn't authorized yet, opens the Google Picker so the user grants it (pick the linked folder or an ancestor); pasted, deep, and shared Drive links all funnel through this one route gate. Drive single files use `#/s/drive/<fileId>` and work only once their folder has been authorized (Drive reads any authorized file by id). The landing page's single link box accepts pasted `github.com/…/blob|tree/…` and `drive.google.com/file|folders/…` URLs, detects the source, and routes accordingly (#67); the **Open Google Drive** button opens the Picker in browse mode. The sidebar page-actions **copy-link** button generates the single-file URL for the current page.
 
 The open page is reflected in the URL bar as a `/-/<path>` suffix on the project route (#69), e.g. `#/demo/-/Home.md` or `#/gh/o/r/tree/main/docs/-/intro.md`. This is the editable project view (distinct from the read-only `blob` single-file shares); reloading or copying it lands on that page.
 
@@ -40,6 +40,7 @@ Copy `src/spa/config.example.js` → `src/spa/config.js` and fill in the public 
 ```js
 window.GLINT_CONFIG = {
   driveClientId: '...',
+  drivePickerKey: '...',   // public Google Picker API key (Drive folder access, #92)
   githubClientId: '...',
   githubOAuthWorkerOrigin: 'https://glint-github-oauth.<account>.workers.dev',
   githubRedirectUri: 'https://<user>.github.io/glint/',
@@ -54,11 +55,15 @@ Commit `config.js` to enable Drive/GitHub on the deployed site. Client IDs and W
 2. **Authorized JavaScript origins** = your Pages origin (e.g. `https://<user>.github.io`). OAuth needs a
    real origin — `localhost` works for dev (not `file://`, and `localhost` ≠ `127.0.0.1` to Google).
 3. OAuth consent screen in **Testing** mode + add yourself as a test user (zero verification needed).
-4. Scope used: full `drive` (read+write). `drive.file` only exposes files Glint itself created, so a folder
-   of Markdown you made elsewhere would list empty (#83); the editor needs to open and edit pre-existing files.
-   Full `drive` is a Google "restricted" scope — fine in Testing mode, but wide public release needs app
-   verification. The app recursively lists Markdown files below the folder id.
-5. Enable the **Google Drive API** for the project.
+4. Scope used: `drive.file` (non-restricted). It only exposes files Glint created or that the user hands
+   over through the **Google Picker** — so opening `#/drive/<folderId>` first probes the folder, and if it
+   isn't authorized yet, opens the Picker; picking the folder (or an ancestor) authorizes it and cascades to
+   every descendant (#92, spike-proven). Already-authorized folders list with no prompt. The landing
+   "Open Google Drive" button opens the Picker in browse mode. `drive.file` avoids the annual CASA security
+   assessment that the full `drive` "restricted" scope requires for public release (the #83 tradeoff, reverted).
+5. Enable the **Google Drive API** and the **Google Picker API** for the project.
+6. Create a **Picker API key** (Credentials → API key), restrict it to the Picker API and your HTTP referrers,
+   and set it as `drivePickerKey`. It is public (referrer-restricted); no secret.
 
 ### GitHub — OAuth Worker, with optional fine-grained PAT
 
@@ -99,7 +104,7 @@ githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
-GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.v2.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is full `drive`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
+GitHub OAuth tokens and PATs stay in memory for the current page only; neither is stored in browser storage or URLs. The Drive access token is the exception: it is cached in `localStorage` (key `glint.drive.token.v3.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. It is `drive.file`-scoped and short-lived, and the CSP — not token lifetime — is the control that prevents content exfiltration.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,

@@ -33,7 +33,7 @@ Use a hash route while running `npm run dev`:
 
 - `#/demo` — in-memory demo; use it for browser smoke tests.
 - `#/local` — local directory via the File System Access API (Chromium/Edge).
-- `#/drive/<folderId>` — Drive folder; needs `window.GLINT_CONFIG.driveClientId` in `src/spa/config.js`.
+- `#/drive/<folderId>` — Drive folder; needs `driveClientId` + `drivePickerKey` in `src/spa/config.js`. Scope is `drive.file` (#92): the route handler probes the folder and opens the Google Picker to authorize it when needed (picking a folder cascades to descendants).
 - `#/gh/<owner>/<repo>/<path>` — GitHub subtree; prompts for a fine-grained token and stores it in browser local storage.
 
 The deploy root is `dist-spa/`: `index.html`, `config.js`, `llm.txt`, and `assets/`. `.github/workflows/pages.yml` stages this same layout before publishing.

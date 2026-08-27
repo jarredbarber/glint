@@ -3,7 +3,7 @@ import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError } from './sto
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
-import { DriveAdapter } from './storage/drive.js';
+import { DriveAdapter, browseDriveFolder } from './storage/drive.js';
 import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { createStandaloneHtml } from './export.js';
 import { isManagedSrc, resolveAssetPath } from './assets.js';
@@ -19,7 +19,7 @@ import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 // enter the SPA.
 declare global {
     interface Window {
-        GLINT_CONFIG?: { driveClientId?: string; githubClientId?: string; githubOAuthWorkerOrigin?: string; githubRedirectUri?: string };
+        GLINT_CONFIG?: { driveClientId?: string; drivePickerKey?: string; githubClientId?: string; githubOAuthWorkerOrigin?: string; githubRedirectUri?: string };
     }
 }
 const CFG = window.GLINT_CONFIG ?? {};
@@ -197,7 +197,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
             return new LocalAdapter();
         case 'drive':
             // #/drive/<folderId>
-            return new DriveAdapter(rest[0], CFG.driveClientId ?? '');
+            return new DriveAdapter(rest[0], CFG.driveClientId ?? '', CFG.drivePickerKey ?? '');
         case 'gh':
         case 'github': {
             // Accepts the tree/legacy project forms (parseGhRoute). Empty ref = auto-detect
@@ -1246,6 +1246,11 @@ function renderLanding(): void {
     const localPicker = localSupported()
         ? `<button type="button" class="glint-url-pick" data-pick-local>${ICON.local}<span>Choose a local folder</span></button>`
         : `<button type="button" class="glint-url-pick" disabled title="Needs a Chromium-based browser">${ICON.local}<span>Local folder (Chromium only)</span></button>`;
+    // #92: drive.file grants folder access only through the Google Picker, so the landing
+    // page opens it in browse mode; the pasted-link form keeps parsing Drive URLs unchanged.
+    const drivePicker = (CFG.driveClientId && CFG.drivePickerKey)
+        ? `<button type="button" class="glint-url-pick" data-pick-drive>${ICON.drive}<span>Open Google Drive</span></button>`
+        : '';
     const projectList = appState.projects.length
         ? `<ul class="glint-project-list">${appState.projects.map((project) => {
             const detail = sourceDetail(project.route);
@@ -1272,6 +1277,7 @@ function renderLanding(): void {
                         <p class="glint-url-error" role="alert" data-url-error></p>
                         <div class="glint-url-actions">
                             <button type="submit">Open</button>
+                            ${drivePicker}
                             ${localPicker}
                         </div>
                         <p class="glint-setting-note">GitHub and Drive links open the file or project directly. A <code>/blob/</code> link opens a single file.</p>
@@ -1290,6 +1296,18 @@ function renderLanding(): void {
         if (errorEl) errorEl.textContent = value.trim() ? 'Not a recognizable GitHub or Drive link.' : 'Paste a link first.';
     });
     form?.querySelector<HTMLButtonElement>('[data-pick-local]')?.addEventListener('click', () => { location.hash = '#/local'; });
+    form?.querySelector<HTMLButtonElement>('[data-pick-drive]')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget as HTMLButtonElement;
+        btn.disabled = true;
+        try {
+            const id = await browseDriveFolder(CFG.driveClientId ?? '', CFG.drivePickerKey ?? '');
+            if (id) location.hash = `#/drive/${encodeURIComponent(id)}`;
+        } catch (error) {
+            if (errorEl) errorEl.textContent = (error as Error).message;
+        } finally {
+            btn.disabled = false;
+        }
+    });
 }
 
 function closeMobileSidebar(): void {
