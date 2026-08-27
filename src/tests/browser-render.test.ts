@@ -28,6 +28,18 @@ test('renderMarkdown with custom macros', async () => {
     assert.ok(html.includes('katex'), 'macro-using math rendered');
 });
 
+test('renderMarkdown reads KaTeX macros from frontmatter (#107)', async () => {
+    const html = await renderMarkdown(`---
+latex-macros:
+  R: \\mathbb{R}
+---
+$$
+\\R
+$$`);
+    assert.ok(html.includes('mathbb'), 'frontmatter macro rendered');
+    assert.ok(!html.includes('latex-macros'), 'configuration is not rendered as metadata');
+});
+
 test('display equation numbering is opt-in (#106)', async () => {
     const plain = await renderMarkdown('$$\nx = 1\n$$');
     assert.ok(!plain.includes('class="tag"'), 'plain display equation stays unnumbered');

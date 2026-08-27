@@ -18,6 +18,18 @@ $$
 $$
 ```
 
+Define document-specific macros in YAML frontmatter. The leading backslash on the macro name is optional:
+
+```
+---
+latex-macros:
+  R: \mathbb{R}
+  vec: \mathbf{#1}
+---
+
+Use $\R$ and $\vec{x}$ in the document.
+```
+
 Numbering is opt-in. Add `\tag{label}` to number one display equation:
 
 ```

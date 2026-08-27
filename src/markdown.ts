@@ -48,19 +48,40 @@ function fixDisplayMath(content: string): string {
  * @returns Parsed content with metadata
  */
 // Browser-safe fallback frontmatter parser for the common cases gray-matter can't reach
-// without Buffer: `key: scalar`, quoted scalars, and inline `[a, b]` arrays (#67).
+// without Buffer: scalars, inline arrays, and one-level nested maps (#67, #107).
+function parseFrontmatterValue(rawValue: string): unknown {
+    const unquote = (value: string) => value.replace(/^["']|["']$/g, '').trim();
+    const value = rawValue.trim();
+    if (value.startsWith('[') && value.endsWith(']')) {
+        return value.slice(1, -1).split(',').map((item) => unquote(item)).filter(Boolean);
+    }
+    return unquote(value);
+}
+
 function parseFrontmatterLite(block: string): Record<string, unknown> {
-    const unquote = (s: string) => s.replace(/^["']|["']$/g, '').trim();
     const data: Record<string, unknown> = {};
+    let nestedMap: Record<string, unknown> | null = null;
+
     for (const line of block.split('\n')) {
-        const m = line.match(/^\s*([\w-]+)\s*:\s*(.*)$/);
-        if (!m) continue;
-        const [, key, rawValue] = m;
-        const value = rawValue.trim();
-        if (value.startsWith('[') && value.endsWith(']')) {
-            data[key] = value.slice(1, -1).split(',').map((v) => unquote(v)).filter(Boolean);
-        } else if (value !== '') {
-            data[key] = unquote(value);
+        const nested = line.match(/^\s+([\w-]+)\s*:\s*(.+)$/);
+        if (nested && nestedMap) {
+            nestedMap[nested[1]] = parseFrontmatterValue(nested[2]);
+            continue;
+        }
+
+        const topLevel = line.match(/^([\w-]+)\s*:\s*(.*)$/);
+        if (!topLevel) {
+            nestedMap = null;
+            continue;
+        }
+
+        const [, key, rawValue] = topLevel;
+        if (rawValue.trim() === '') {
+            nestedMap = {};
+            data[key] = nestedMap;
+        } else {
+            data[key] = parseFrontmatterValue(rawValue);
+            nestedMap = null;
         }
     }
     return data;

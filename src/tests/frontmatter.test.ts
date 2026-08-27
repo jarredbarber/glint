@@ -102,4 +102,23 @@ Body.`);
             (globalThis as { Buffer?: unknown }).Buffer = original;
         }
     });
+
+    await t.test('browser fallback parses nested macro maps (#107)', () => {
+        const original = globalThis.Buffer;
+        Reflect.deleteProperty(globalThis, 'Buffer');
+        try {
+            const result = parseMarkdown(`---
+latex-macros:
+  R: \\mathbb{R}
+  vec: \\mathbf{#1}
+---
+Body`);
+            assert.deepEqual(result.frontmatter['latex-macros'], {
+                R: '\\mathbb{R}',
+                vec: '\\mathbf{#1}',
+            });
+        } finally {
+            globalThis.Buffer = original;
+        }
+    });
 });

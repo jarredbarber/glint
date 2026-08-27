@@ -6,7 +6,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { VFile } from 'vfile';
-import { DEFAULTS } from './config.js';
+import { DEFAULTS, readLatexMacros } from './config.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
@@ -164,6 +164,7 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
 
     const raw = await fs.readFile(opts.filePath, 'utf8');
     const { content, title: fmTitle, frontmatter, contentStartLine } = parseMarkdown(raw);
+    config['latex-macros'] = readLatexMacros(frontmatter);
     const currentPath = path.basename(opts.filePath);
 
     // No wiki targets are known: every internal link is later stripped to inert
@@ -246,6 +247,7 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
         opts.markdown,
         opts.bodyOnly ? false : true  // ponytail: keep H1 in the fragment — VimR has no other title
     );
+    config['latex-macros'] = readLatexMacros(frontmatter);
     const currentPath = 'stdin.md';
 
     const processor = createProcessor(config, () => false);

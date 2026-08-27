@@ -28,6 +28,16 @@ export interface GlintConfig {
     'latex-macros'?: Record<string, string>;
 }
 
+export function readLatexMacros(frontmatter: Record<string, unknown>): Record<string, string> | undefined {
+    const value = frontmatter['latex-macros'];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+    const entries = Object.entries(value).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+    );
+    return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 export const DEFAULTS: GlintConfig = {
     colorScheme: 'nord',
     baseFile: 'README.md',

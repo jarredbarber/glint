@@ -1,5 +1,6 @@
 import { VFile } from 'vfile';
 import { parseMarkdown } from './markdown.js';
+import { readLatexMacros } from './config.js';
 import { createProcessor, type GlintConfig } from './pipeline.js';
 import { escapeHtml } from './utils/html.js';
 import { renderMetadata } from './renderer/metadata.js';
@@ -9,7 +10,7 @@ import { renderMetadata } from './renderer/metadata.js';
 // arbitrary frontmatter still shows up aesthetically (#67).
 const KNOWN_META_KEYS = new Set([
     'title', 'date', 'updated', 'modified', 'author', 'category', 'tags',
-    'description', 'summary', 'reading-time', 'image', 'thumbnail', 'draft',
+    'description', 'summary', 'reading-time', 'image', 'thumbnail', 'draft', 'latex-macros',
 ]);
 
 function renderExtraMetadata(frontmatter: Record<string, unknown>): string {
@@ -52,19 +53,18 @@ const DEFAULT_CONFIG: GlintConfig = {
  * the respective CDN loaders to draw them.
  */
 export async function renderMarkdown(source: string, opts: RenderOptions = {}): Promise<string> {
+    // Parse first because document-local KaTeX macros are render configuration.
+    const { content, title, frontmatter, contentStartLine } = parseMarkdown(source);
+
     const config: GlintConfig = {
         ...DEFAULT_CONFIG,
         colorScheme: opts.colorScheme ?? DEFAULT_CONFIG.colorScheme,
-        'latex-macros': opts.macros,
+        'latex-macros': { ...readLatexMacros(frontmatter), ...opts.macros },
     };
 
     const knownSet = new Set(opts.knownPaths ?? []);
     const processor = createProcessor(config, (p) => knownSet.has(p));
 
-    // parseMarkdown strips the frontmatter and the leading H1, returning the title
-    // separately. The standalone renderer prints that title in its page template; the
-    // SPA injects this HTML raw, so re-emit the title as an <h1> or it vanishes (#9).
-    const { content, title, frontmatter, contentStartLine } = parseMarkdown(source);
     const file = new VFile({ value: content });
     file.data.contentStartLine = contentStartLine;
     // Static SPA: keep relative image src as-is instead of the CLI's

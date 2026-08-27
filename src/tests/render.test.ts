@@ -164,3 +164,17 @@ test('body-only fragment: CDN libs are gated on content', async () => {
     assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader pulled when used');
     assert.match(diagram, /mermaidInitOptions\(\)/, 'shared palette-driven init emitted');
 });
+
+test('standalone renderer reads KaTeX macros from frontmatter (#107)', async () => {
+    const out = await renderMarkdown({
+        markdown: `---
+latex-macros:
+  R: \\mathbb{R}
+---
+$$
+\\R
+$$`,
+        bodyOnly: true,
+    });
+    assert.match(out, /mathbb/, 'frontmatter macro rendered');
+});
