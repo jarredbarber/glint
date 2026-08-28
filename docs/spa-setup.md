@@ -16,6 +16,16 @@ becomes a wiki. No server, no Glint user database — access control is the back
 
 GitHub routes follow github.com's own URL shape (#67): a `blob` segment means one file (read-only, no recursive listing; the path is repo-root relative), `tree` (or a bare `#/gh/<owner>/<repo>`) means a project folder. Omit the ref on a project route and Glint auto-detects the repo's default branch (`main`, `master`, … — #64); the legacy `#/gh/<owner>/<repo>/<path>@<ref>` form still opens as a project. Under `drive.file` (#92), opening a `#/drive/<folderId>` route probes the folder and, if it isn't authorized yet, opens the Google Picker so the user grants it (pick the linked folder or an ancestor); pasted, deep, and shared Drive links all funnel through this one route gate. Drive single files use `#/s/drive/<fileId>` and work only once their folder has been authorized (Drive reads any authorized file by id). The landing page's single link box accepts pasted `github.com/…/blob|tree/…` and `drive.google.com/file|folders/…` URLs, detects the source, and routes accordingly (#67); the **Open Google Drive** button opens the Picker in browse mode. The sidebar page-actions **copy-link** button generates the single-file URL for the current page.
 
+## GitHub saving
+
+Settings → **GitHub saving** picks how edits reach GitHub (a global setting; only affects `#/gh/…` projects, #60):
+
+- **Direct** (default) — every save is one immediate commit (`Update <id> via Glint`).
+- **Staged** — saves buffer in memory; a **Push** button in the sidebar footer shows the pending count and flushes them as a single commit on the working branch (prompts for the message). Edits live only in memory, so a tab close warns and discards them if you don't push.
+- **Pull request** — same buffering, but Push commits to a fresh `glint/<timestamp>` branch and opens a PR against the working branch, returning its URL.
+
+Only edits are staged; new pages, deletes, and pasted images still commit directly so an image exists before the page that references it.
+
 The open page is reflected in the URL bar as a `/-/<path>` suffix on the project route (#69), e.g. `#/demo/-/Home.md` or `#/gh/o/r/tree/main/docs/-/intro.md`. This is the editable project view (distinct from the read-only `blob` single-file shares); reloading or copying it lands on that page.
 
 ## Image assets

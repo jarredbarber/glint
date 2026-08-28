@@ -301,3 +301,77 @@ test('returns a source-root-relative path when creating in a subtree (#118)', as
         version: 'created-sha',
     });
 });
+
+test('staged push mode buffers edits in memory and flushes them as one commit (#60)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const calls: { url: string; method: string }[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string, opts: RequestInit = {}) => {
+            calls.push({ url, method: opts.method || 'GET' });
+            if (url.endsWith('/git/ref/heads/main')) return new Response(JSON.stringify({ object: { sha: 'head-sha' } }));
+            if (url.includes('/git/commits/head-sha')) return new Response(JSON.stringify({ tree: { sha: 'base-tree' } }));
+            if (url.endsWith('/git/blobs')) return new Response(JSON.stringify({ sha: 'blob-sha' }));
+            if (url.endsWith('/git/trees')) return new Response(JSON.stringify({ sha: 'new-tree' }));
+            if (url.endsWith('/git/commits')) return new Response(JSON.stringify({ sha: 'new-commit' }));
+            if (url.endsWith('/git/refs/heads/main')) return new Response(JSON.stringify({ object: { sha: 'new-commit' } }));
+            throw new Error(`unexpected fetch: ${opts.method || 'GET'} ${url}`);
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'tok');
+    adapter.setPushMode('staged');
+    // Two saves to the same file collapse into one pending entry; no network yet.
+    await adapter.write('note.md', 'v1', 'base-sha');
+    await adapter.write('note.md', 'v2', 'base-sha');
+    assert.equal(calls.length, 0, 'staged writes must not touch the network');
+    assert.equal(adapter.pendingCount(), 1);
+    // A re-read serves the buffered text from cache, no fetch.
+    assert.equal((await adapter.read('note.md')).content, 'v2');
+    assert.equal(calls.length, 0);
+
+    const result = await adapter.push('batch');
+    assert.deepEqual(result, { commit: 'new-commit' });
+    assert.equal(adapter.pendingCount(), 0);
+    // The commit rides the Git Data API and lands on the working branch via a ref update.
+    assert.ok(calls.some((c) => c.url.endsWith('/git/commits') && c.method === 'POST'));
+    assert.ok(calls.some((c) => c.url.endsWith('/git/refs/heads/main') && c.method === 'PATCH'));
+});
+
+test('pr push mode opens a branch and a pull request (#60)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const calls: { url: string; method: string; body: any }[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string, opts: RequestInit = {}) => {
+            calls.push({ url, method: opts.method || 'GET', body: opts.body ? JSON.parse(opts.body as string) : null });
+            if (url.endsWith('/git/ref/heads/main')) return new Response(JSON.stringify({ object: { sha: 'head-sha' } }));
+            if (url.includes('/git/commits/head-sha')) return new Response(JSON.stringify({ tree: { sha: 'base-tree' } }));
+            if (url.endsWith('/git/blobs')) return new Response(JSON.stringify({ sha: 'blob-sha' }));
+            if (url.endsWith('/git/trees')) return new Response(JSON.stringify({ sha: 'new-tree' }));
+            if (url.endsWith('/git/commits')) return new Response(JSON.stringify({ sha: 'new-commit' }));
+            if (url.endsWith('/git/refs')) return new Response(JSON.stringify({ ref: 'refs/heads/glint/1' }));
+            if (url.endsWith('/pulls')) return new Response(JSON.stringify({ html_url: 'https://github.com/owner/repo/pull/1' }));
+            throw new Error(`unexpected fetch: ${opts.method || 'GET'} ${url}`);
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'tok');
+    adapter.setPushMode('pr');
+    await adapter.write('note.md', 'v1', 'base-sha');
+    const result = await adapter.push('a change');
+    assert.deepEqual(result, { prUrl: 'https://github.com/owner/repo/pull/1' });
+    assert.equal(adapter.pendingCount(), 0);
+    const branchCreate = calls.find((c) => c.url.endsWith('/git/refs') && c.method === 'POST');
+    assert.ok(branchCreate && branchCreate.body.ref.startsWith('refs/heads/glint/'));
+    const pull = calls.find((c) => c.url.endsWith('/pulls'));
+    assert.equal(pull!.body.base, 'main');
+});

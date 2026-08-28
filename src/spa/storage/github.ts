@@ -5,6 +5,11 @@ import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, isWikiFile }
 
 const API = 'https://api.github.com';
 
+// How saves reach GitHub (#60). direct = commit each save immediately (current).
+// staged/pr = buffer edits in memory; push() flushes them as one commit (staged) or
+// a branch + PR (pr). Owned here since it is a GitHub-write concern; app-state persists it.
+export type GitHubPushMode = 'direct' | 'staged' | 'pr';
+
 // How the adapter asks the UI for credentials, replacing the old prompt()/confirm().
 // The result is a discriminated union: OAuth navigates away, PAT is validated in place.
 export type GitHubAuthChoice = { kind: 'oauth' } | { kind: 'pat'; token: string } | null;
@@ -78,6 +83,10 @@ export class GitHubAdapter implements StorageAdapter {
     private canPush = true;
     private reads = new Map<string, CachedRead>();
     private listedVersions = new Map<string, string>();
+    // Push-mode state (#60): in staged/pr, write() parks edits here (id -> latest content
+    // + the sha it was based on) instead of committing. push() drains it.
+    private mode: GitHubPushMode = 'direct';
+    private pending = new Map<string, { content: string; base: string }>();
 
     constructor(
         private owner: string,
@@ -157,6 +166,12 @@ export class GitHubAdapter implements StorageAdapter {
     capabilities() { return { canEdit: this.canPush, canComment: false }; }
     identity() { return { name: this.userName }; }
 
+    // Push-mode surface (#60). Only edits (write) are staged; create/delete/asset stay
+    // direct so a pasted image exists before the Markdown that references it is committed.
+    setPushMode(mode: GitHubPushMode): void { this.mode = mode; }
+    pushMode(): GitHubPushMode { return this.mode; }
+    pendingCount(): number { return this.pending.size; }
+
     private gh(path: string, opts: RequestInit = {}): Promise<Response> {
         return fetch(`${API}${path}`, {
             ...opts,
@@ -230,6 +245,14 @@ export class GitHubAdapter implements StorageAdapter {
     }
 
     async write(id: string, content: string, version: string) {
+        if (this.mode !== 'direct') {
+            // Buffer: keep the earliest base sha, serve the edited text on re-open via the
+            // read cache (version unchanged, so the cache stays valid), commit later in push().
+            const base = this.pending.get(id)?.base ?? version;
+            this.pending.set(id, { content, base });
+            this.reads.set(id, { content, version });
+            return { version };
+        }
         const r = await this.gh(`/repos/${this.owner}/${this.repo}/contents/${encodeURI(this.fullPath(id))}`, {
             method: 'PUT',
             body: JSON.stringify({
@@ -278,6 +301,45 @@ export class GitHubAdapter implements StorageAdapter {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         this.reads.delete(id);
         this.listedVersions.delete(id);
+    }
+
+    // Flush all staged edits (#60) as one commit via the Git Data API (the Contents API is
+    // one-file-per-commit). staged commits onto the working branch; pr commits onto a fresh
+    // branch and opens a PR against it. Pending stays intact on failure so the user can retry.
+    async push(message: string): Promise<{ commit?: string; prUrl?: string }> {
+        const entries = [...this.pending.entries()];
+        if (entries.length === 0) return {};
+        const repo = `/repos/${this.owner}/${this.repo}`;
+        const headSha: string = (await this.ghJson(`${repo}/git/ref/heads/${encodeURIComponent(this.ref)}`)).object.sha;
+        const baseTree: string = (await this.ghJson(`${repo}/git/commits/${headSha}`)).tree.sha;
+        const tree = [];
+        for (const [id, { content }] of entries) {
+            const blob: string = (await this.ghJson(`${repo}/git/blobs`, { method: 'POST', body: JSON.stringify({ content: toB64(content), encoding: 'base64' }) })).sha;
+            tree.push({ path: this.fullPath(id), mode: '100644', type: 'blob', sha: blob });
+        }
+        const newTree: string = (await this.ghJson(`${repo}/git/trees`, { method: 'POST', body: JSON.stringify({ base_tree: baseTree, tree }) })).sha;
+        const commit: string = (await this.ghJson(`${repo}/git/commits`, { method: 'POST', body: JSON.stringify({ message, tree: newTree, parents: [headSha] }) })).sha;
+        let result: { commit?: string; prUrl?: string };
+        if (this.mode === 'pr') {
+            // ponytail: auto-named branch off the working ref, no picker; add naming/base UX if asked.
+            const branch = `glint/${Date.now()}`;
+            await this.ghJson(`${repo}/git/refs`, { method: 'POST', body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit }) });
+            const prUrl: string = (await this.ghJson(`${repo}/pulls`, { method: 'POST', body: JSON.stringify({ title: message, head: branch, base: this.ref, body: 'Opened by Glint.' }) })).html_url;
+            result = { prUrl };
+        } else {
+            await this.ghJson(`${repo}/git/refs/heads/${encodeURIComponent(this.ref)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit }) });
+            result = { commit };
+        }
+        // Drop caches for pushed files so the next read fetches their fresh shas.
+        for (const [id] of entries) { this.pending.delete(id); this.reads.delete(id); this.listedVersions.delete(id); }
+        return result;
+    }
+
+    private async ghJson(path: string, opts: RequestInit = {}): Promise<any> {
+        const r = await this.gh(path, opts);
+        if (r.status === 401) { clearCachedGitHubToken(); throw new AuthExpiredError('GitHub authentication expired'); }
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        return r.json();
     }
 
     // Sidecar assets (#30/#70): create-only commit (no sha → 422 if it already exists),

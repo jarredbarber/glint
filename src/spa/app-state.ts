@@ -1,3 +1,5 @@
+import type { GitHubPushMode } from './storage/github.js';
+
 export const STATE_KEY = 'glint-spa-state';
 export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
 
@@ -18,6 +20,7 @@ export type PersistedStateV1 = {
         contentBar: boolean;
         paraHighlight: boolean;
         vimMode: boolean;
+        githubPushMode: GitHubPushMode;
         activeProjectRoute: string | null;
     };
 };
@@ -25,7 +28,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', contentBar: false, paraHighlight: false, vimMode: true, activeProjectRoute: null },
+    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', contentBar: false, paraHighlight: false, vimMode: true, githubPushMode: 'direct', activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -99,7 +102,8 @@ function validatedState(value: unknown, colorSchemes: readonly string[]): Persis
     const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
     const contentBar = settings.contentBar === true;
     const paraHighlight = settings.paraHighlight === true;
-    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, paraHighlight, vimMode: settings.vimMode, activeProjectRoute } };
+    const githubPushMode: GitHubPushMode = settings.githubPushMode === 'staged' || settings.githubPushMode === 'pr' ? settings.githubPushMode : 'direct';
+    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, paraHighlight, vimMode: settings.vimMode, githubPushMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };

@@ -4,7 +4,7 @@ import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
 import { DriveAdapter, browseDriveFolder } from './storage/drive.js';
-import { GitHubAdapter, GitHubAuthChoice, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
+import { GitHubAdapter, GitHubAuthChoice, GitHubPushMode, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { withSilentReauth } from './storage/reauth.js';
 import { createStandaloneHtml } from './export.js';
 import { isManagedSrc, resolveAssetPath } from './assets.js';
@@ -428,6 +428,12 @@ function closeSettings(): void {
     else location.hash = target;
 }
 
+const GITHUB_PUSH_MODES: { key: GitHubPushMode; label: string }[] = [
+    { key: 'direct', label: 'Direct — commit every save immediately' },
+    { key: 'staged', label: 'Staged — hold saves, push them in one commit' },
+    { key: 'pr', label: 'Pull request — push staged saves as a new branch + PR' },
+];
+
 function renderSettings(): void {
     document.body.classList.add('glint-landing');
     const themeCards = THEMES.map((theme) => `<button type="button" class="glint-theme-card${theme === appState.settings.theme ? ' selected' : ''}" data-theme-choice="${theme}"><strong>${escapeHtml(THEME_LABELS[theme].title)}</strong><span>${escapeHtml(THEME_LABELS[theme].blurb)}</span></button>`).join('');
@@ -456,6 +462,10 @@ function renderSettings(): void {
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
+        </section>
+        <section class="glint-setting-group"><h2>GitHub saving</h2>
+            <p class="glint-setting-note">How edits reach GitHub. Only affects GitHub projects.</p>
+            ${GITHUB_PUSH_MODES.map((m) => `<label class="glint-toggle"><input type="radio" name="gh-push-mode" data-gh-push-mode value="${m.key}"${m.key === appState.settings.githubPushMode ? ' checked' : ''}> ${escapeHtml(m.label)}</label>`).join('')}
         </section>
         ${hasCachedGitHubToken() ? `<section class="glint-setting-group"><h2>Connections</h2>
             <p class="glint-setting-note">Your GitHub token is saved in this browser so you don't re-enter it. It is never sent to a Glint server.</p>
@@ -508,6 +518,15 @@ function renderSettings(): void {
         appState = { ...appState, settings: { ...appState.settings, vimMode: (event.target as HTMLInputElement).checked } };
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, vimMode: previous } }; renderSettings(); }
     });
+    wrapper.querySelectorAll<HTMLInputElement>('[data-gh-push-mode]').forEach((radio) => radio.addEventListener('change', (event) => {
+        const target = event.target as HTMLInputElement;
+        if (!target.checked) return;
+        const previous = appState.settings.githubPushMode;
+        const mode = target.value as GitHubPushMode;
+        appState = { ...appState, settings: { ...appState.settings, githubPushMode: mode } };
+        if (adapter instanceof GitHubAdapter) adapter.setPushMode(mode);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, githubPushMode: previous } }; if (adapter instanceof GitHubAdapter) adapter.setPushMode(previous); renderSettings(); }
+    }));
     wrapper.querySelectorAll<HTMLButtonElement>('[data-open-project]').forEach((button) => button.addEventListener('click', () => { location.hash = appState.projects[Number(button.dataset.openProject)]!.route; }));
     wrapper.querySelectorAll<HTMLButtonElement>('[data-rename-project]').forEach((button) => button.addEventListener('click', async () => {
         const project = appState.projects[Number(button.dataset.renameProject)]!;
@@ -609,7 +628,45 @@ async function onSectionSaved(id: string, content: string, version: string): Pro
     // issuing a second read solely to recover it (#63).
     reconcileWrite(files, contentCache, { id, content, version });
     await openFile(id);
-    showToast('Saved', 'success');
+    updatePushBadge();
+    showToast(adapter instanceof GitHubAdapter && adapter.pushMode() !== 'direct' ? 'Saved (staged for push)' : 'Saved', 'success');
+}
+
+// Staged/PR push control (#60): a footer button that flushes buffered edits. Hidden in
+// direct mode; disabled when nothing is pending.
+function pushControlHtml(): string {
+    if (!(adapter instanceof GitHubAdapter) || adapter.pushMode() === 'direct') return '';
+    const n = adapter.pendingCount();
+    const label = adapter.pushMode() === 'pr' ? 'Open pull request' : 'Push staged edits';
+    return `<button class="glint-icon-btn glint-push-btn" data-push title="${label}" aria-label="${label}"${n === 0 ? ' disabled' : ''}>⬆<span class="glint-push-count" data-push-count>${n}</span></button>`;
+}
+
+function updatePushBadge(): void {
+    const btn = document.querySelector<HTMLButtonElement>('[data-push]');
+    if (!btn || !(adapter instanceof GitHubAdapter)) return;
+    const n = adapter.pendingCount();
+    btn.disabled = n === 0;
+    const count = btn.querySelector('[data-push-count]');
+    if (count) count.textContent = String(n);
+}
+
+async function triggerPush(): Promise<void> {
+    if (!(adapter instanceof GitHubAdapter) || adapter.pendingCount() === 0) return;
+    const n = adapter.pendingCount();
+    const mode = adapter.pushMode();
+    const fallback = `Update ${n} page${n === 1 ? '' : 's'} via Glint`;
+    const input = await promptText(mode === 'pr' ? 'Pull request title' : 'Commit message', fallback);
+    if (input === null) return;
+    const message = input.trim() || fallback;
+    try {
+        const result = await withSilentReauth(adapter, () => (adapter as GitHubAdapter).push(message));
+        updatePushBadge();
+        if (result.prUrl) { showToast('Pull request opened', 'success'); window.open(result.prUrl, '_blank', 'noopener'); }
+        else showToast('Pushed to GitHub', 'success');
+    } catch (error) {
+        if (error instanceof AuthExpiredError) showToast('Your connection expired. Reconnect and push again.', 'error');
+        else showToast(`Push failed: ${(error as Error).message}`, 'error');
+    }
 }
 
 // "Open on GitHub" link for the page, rendered at the top of the content (#69).
@@ -630,6 +687,10 @@ function revokeManagedImages(): void {
     managedObjectUrls = [];
 }
 window.addEventListener('beforeunload', revokeManagedImages);
+// Staged edits live only in memory (#60): warn before a close/reload would drop them.
+window.addEventListener('beforeunload', (e) => {
+    if (adapter instanceof GitHubAdapter && adapter.pendingCount() > 0) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function markImageError(img: HTMLImageElement, label: string, retry: () => void): void {
     img.classList.add('glint-image-broken');
@@ -1328,6 +1389,7 @@ function renderSidebar() {
         ${tocDockHtml()}
         <footer class="glint-sidebar-footer">
             ${canEdit ? `<button class="glint-primary" data-new-page>${ICON.plus}<span>New page</span></button>` : ''}
+            ${pushControlHtml()}
             ${pageActions}
             <button class="glint-icon-btn" data-open-source title="Open another source" aria-label="Open another source">${ICON.source}</button>
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
@@ -1351,6 +1413,7 @@ function renderSidebar() {
             if (name !== null) void createPage(name);
         });
     });
+    nav.querySelector('[data-push]')?.addEventListener('click', () => void triggerPush());
     nav.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
     nav.querySelector('[data-copy-link]')?.addEventListener('click', () => { if (shareRoute) void copyShareLink(shareRoute); });
     nav.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());
@@ -1612,6 +1675,7 @@ export async function boot(): Promise<void> {
     try {
         await adapter.auth();
         if (myGen !== bootGeneration) return;
+        if (adapter instanceof GitHubAdapter) adapter.setPushMode(appState.settings.githubPushMode);
         document.body.dataset.access = 'edit';
         files = await adapter.list();
         if (myGen !== bootGeneration) return;
