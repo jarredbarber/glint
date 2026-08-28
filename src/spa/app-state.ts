@@ -24,7 +24,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { colorScheme: 'nord', theme: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
+    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -91,7 +91,7 @@ function validatedState(value: unknown, colorSchemes: readonly string[]): Persis
     if (typeof settings.vimMode !== 'boolean' || (settings.activeProjectRoute !== null && typeof settings.activeProjectRoute !== 'string')) return null;
     const activeProjectRoute = settings.activeProjectRoute === null ? null : normalizeProjectRoute(settings.activeProjectRoute as string);
     if (settings.activeProjectRoute !== null && (!activeProjectRoute || !routes.has(activeProjectRoute))) return null;
-    const colorScheme = typeof settings.colorScheme === 'string' && colorSchemes.includes(settings.colorScheme) ? settings.colorScheme : 'nord';
+    const colorScheme = typeof settings.colorScheme === 'string' && colorSchemes.includes(settings.colorScheme) ? settings.colorScheme : 'default';
     // Theme/layout backfill like color scheme (fallback, never reject) so records written before
     // these axes existed keep loading.
     const theme: Theme = settings.theme === 'almanac' ? 'almanac' : 'reader';
