@@ -94,6 +94,15 @@ export function buildPageRoute(projectRoute: string, pagePath: string): string {
     return `${projectRoute}/-/${encPath(pagePath)}`;
 }
 
+// True when `parent` is a proper ancestor of `child` (same leading segments, strictly
+// shorter). Used to keep subtrees/subfolders out of the project list when a containing
+// project is already saved (#130): a GitHub repo root contains its subtrees.
+export function routeContains(parent: string, child: string): boolean {
+    const p = splitHash(parent), c = splitHash(child);
+    if (p.length === 0 || p.length >= c.length) return false;
+    return p.every((seg, i) => seg === c[i]);
+}
+
 // Detect a service from a pasted URL or short form and return the hash route it opens (#67).
 // Accepts github.com blob/tree URLs, `owner/repo[/...]` short forms, and Drive folder/file
 // URLs or bare ids. Returns null when nothing recognizable is present.

@@ -13,7 +13,7 @@ import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, reorderProject, saveState, Theme, THEMES } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
-import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 import { wireCustomEmbeds } from './custom-embeds.js';
 
@@ -379,8 +379,21 @@ function persistState(): boolean {
 }
 
 function rememberCurrentProject(nameOverride?: string): void {
-    const route = normalizeProjectRoute(location.hash);
+    // Normalize the project route only, dropping any `/-/<page>` suffix so a pasted page
+    // URL doesn't register the page itself as a project (#130).
+    const route = normalizeProjectRoute(splitPageRoute(location.hash).projectRoute);
     if (!route) return;
+    // Projects are top-level only: if this route sits inside a project we already saved
+    // (e.g. a GitHub subtree of a saved repo), don't add it — just make its container the
+    // active project (#130).
+    const container = appState.projects.find((project) => routeContains(project.route, route));
+    if (container) {
+        if (appState.settings.activeProjectRoute !== container.route) {
+            appState = { ...appState, settings: { ...appState.settings, activeProjectRoute: container.route } };
+            persistState();
+        }
+        return;
+    }
     // addProject keeps an existing project's name, so a folder name only lands on
     // first open and never clobbers a manual rename (#69).
     appState = addProject(appState, nameOverride?.trim() || defaultProjectName(route), route);

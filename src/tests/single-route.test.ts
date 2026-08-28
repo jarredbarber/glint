@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from '../spa/single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains } from '../spa/single-route.js';
 
 test('parseGhRoute: bare owner/repo is a project on the default branch', () => {
     assert.deepEqual(parseGhRoute(['o', 'r']), { owner: 'o', repo: 'r', ref: '', path: '', mode: 'tree' });
@@ -113,4 +113,14 @@ test('buildPageRoute round-trips through splitPageRoute', () => {
     for (const [project, page] of [['#/drive/FOLDER', 'a/b.md'], ['#/demo', 'Home.md'], ['#/gh/o/r', 'x.md']] as const) {
         assert.deepEqual(splitPageRoute(buildPageRoute(project, page)), { projectRoute: project, pagePath: page });
     }
+});
+
+test('routeContains: proper ancestor only (#130)', () => {
+    // A repo root contains its subtrees, but not itself or unrelated repos.
+    assert.equal(routeContains('#/gh/o/r', '#/gh/o/r/docs'), true);
+    assert.equal(routeContains('#/gh/o/r', '#/gh/o/r/docs/sub'), true);
+    assert.equal(routeContains('#/gh/o/r', '#/gh/o/r'), false);          // equal is not proper
+    assert.equal(routeContains('#/gh/o/r/docs', '#/gh/o/r'), false);     // child shorter
+    assert.equal(routeContains('#/gh/o/r', '#/gh/o/other'), false);      // diverging segment
+    assert.equal(routeContains('#/drive/A', '#/drive/B'), false);        // sibling drive folders
 });
