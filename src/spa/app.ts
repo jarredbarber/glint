@@ -1,5 +1,5 @@
 // Glint SPA app shell: routing → adapter → auth → list → render + sidebar + editor.
-import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError } from './storage/types.js';
+import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError, isHtmlFile } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
@@ -186,6 +186,13 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
         '```comment', 'jarred@2026-01-11:14:00 This is a test comment.', '', 'clanker@2026-01-11:14:05 Reply to the test.', '```', '',
         'And resolved (collapsed by the reader):', '',
         '```comment', '#resolved', 'jarred@2026-01-11:15:08 Looks good, shipping.', '```', '',
+    ].join('\n') },
+    { name: 'Widget.html', content: [
+        '<!doctype html><meta charset="utf-8">',
+        '<style>body{font:16px system-ui;padding:1.5rem;color:#222}h1{color:#2b6cb0}code{background:#eee;padding:.1rem .3rem;border-radius:3px}</style>',
+        '<h1>Raw HTML page</h1>',
+        '<p>A <code>.html</code> file in the wiki renders verbatim in a sandboxed iframe (#129):',
+        'its own markup, CSS, and images. Page scripts do not run.</p>',
     ].join('\n') },
 ];
 
@@ -675,8 +682,28 @@ async function openFile(id: string) {
         content = read.content;
         contentCache.set(id, content);
     }
-    const knownPaths = files.map((f) => f.name);
     const page = files.find((f) => f.id === id);
+    // Raw HTML pages (#129): show the file itself inside a sandboxed iframe rather than
+    // running it through the Markdown pipeline. No allow-same-origin, so page scripts run
+    // in an opaque origin and cannot reach the SPA's DOM, storage, or adapter tokens.
+    if (page && isHtmlFile(page.name)) {
+        const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
+        const frame = document.createElement('iframe');
+        frame.className = 'glint-html-page';
+        // No allow-same-origin: page markup, CSS, and images render, but the frame is an
+        // opaque origin that can't reach the SPA's DOM, storage, or adapter tokens.
+        // ponytail: srcdoc frames inherit the SPA's strict script-src, so page <script>s
+        // do NOT run — display only. Running page JS safely needs a separate sandbox
+        // origin (its own CSP); the static SPA has none, so that's out of scope here.
+        frame.sandbox = 'allow-popups allow-forms allow-modals';
+        frame.srcdoc = content;
+        wrapper.innerHTML = pageSourceLinkHtml(id);
+        wrapper.appendChild(frame);
+        renderContentBar();
+        renderSidebar();
+        return;
+    }
+    const knownPaths = files.map((f) => f.name);
     const html = await GlintRender.renderMarkdown(content, {
         knownPaths,
         defaultMeta: { author: page?.author, updated: page?.modifiedTime },

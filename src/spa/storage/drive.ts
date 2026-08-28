@@ -7,7 +7,7 @@
 // the Picker as the sanctioned escape hatch: picking a folder authorizes it and
 // cascades to every descendant, so a folder of markdown made elsewhere still lists.
 import { z } from 'zod';
-import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, Discussion, DiscussionAnchor, DiscussionCapability, DiscussionReply, isWikiFile } from './types.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com';
@@ -270,7 +270,7 @@ export class DriveAdapter implements StorageAdapter {
                 const path = prefix ? `${prefix}/${file.name}` : file.name;
                 if (file.mimeType === FOLDER_MIME_TYPE) {
                     files.push(...await this.listFolder(file.id, path, visited));
-                } else if (file.name.endsWith('.md') && file.modifiedTime) {
+                } else if (isWikiFile(file.name) && file.modifiedTime) {
                     files.push({ id: file.id, name: file.name, path, version: file.modifiedTime, modifiedTime: file.modifiedTime, author: file.owners?.[0]?.displayName });
                 }
             }

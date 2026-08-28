@@ -697,6 +697,16 @@
 [data-theme="almanac"] .glint-discussion-meta { font-variant: all-small-caps; letter-spacing: 0.06em; }
 [data-theme="almanac"] .glint-discussion-reply { font-style: italic; border-left-style: dotted; }
 
+/* Raw HTML pages (#129): the file fills the content area inside a sandboxed iframe. */
+.glint-html-page {
+    display: block;
+    width: 100%;
+    min-height: 80vh;
+    border: 0;
+    background: #fff;
+    border-radius: 4px;
+}
+
 /* Paragraph hover highlight (#127), off by default; toggled from Settings. */
 [data-parahighlight="on"] .glint-section p:hover {
     background: var(--bg-highlight);

@@ -1,7 +1,7 @@
 // Local directory backend via the File System Access API (Chromium/Edge only).
 // The directory handle is persisted in IndexedDB so the workspace survives reloads;
 // permission is re-requested on return.
-import { StorageAdapter, FileMeta, ConflictError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, isWikiFile } from './types.js';
 
 export function localSupported(): boolean {
     return typeof (window as any).showDirectoryPicker === 'function';
@@ -71,7 +71,7 @@ export class LocalAdapter implements StorageAdapter {
                 const path = prefix ? `${prefix}/${name}` : name;
                 if (handle.kind === 'directory') {
                     await visit(handle, path);
-                } else if (handle.kind === 'file' && /\.(md|markdown|mdown|mkd)$/i.test(name)) {
+                } else if (handle.kind === 'file' && isWikiFile(name)) {
                     const file = await handle.getFile();
                     out.push({ id: path, name, path, version: String(file.lastModified), modifiedTime: new Date(file.lastModified).toISOString() });
                 }

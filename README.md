@@ -19,6 +19,7 @@
   - [Supported Markdown agent skill](https://glint.jbarb.io/llm.txt)
 - In-place editing (hit `e` to edit the section under the mouse cursor) and commenting (on supported backends)
 - Paste-based image uploading: paste an image into the editor to store it as a portable sidecar beside the page (`page.md.<id>.png`)
+- Raw `.html` files in a workspace are listed alongside pages and shown verbatim in a sandboxed iframe (markup, CSS, and images render; page scripts do not run)
 - Export the current page from the SPA, or
 - Offline rendering to portable HTML with the `glint-md render` CLI.
 - Offline markdown processor for e.g. [VimR](https://github.com/qvacua/vimr) via `glint-md render --stdin --body-only`

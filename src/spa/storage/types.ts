@@ -6,6 +6,11 @@
 // don't expose them (frontmatter still wins where present).
 export interface FileMeta { id: string; name: string; path: string; version: string; author?: string; modifiedTime?: string; }
 
+// Files the wiki surfaces: Markdown pages plus raw HTML pages (#129). HTML pages are
+// rendered as-is inside a sandboxed iframe rather than through the Markdown pipeline.
+export function isHtmlFile(name: string): boolean { return /\.html?$/i.test(name); }
+export function isWikiFile(name: string): boolean { return /\.(md|markdown|mdown|mkd|html?)$/i.test(name); }
+
 export type DiscussionAnchor = {
     version: 1;
     sourceLine: number;

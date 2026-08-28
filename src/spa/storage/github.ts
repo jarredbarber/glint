@@ -1,7 +1,7 @@
 // GitHub backend: OAuth or a fine-grained PAT cached in localStorage.
 import { beginGitHubOAuth, GitHubOAuthConfig } from '../github-oauth.js';
 import { z } from 'zod';
-import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError } from './types.js';
+import { StorageAdapter, FileMeta, ConflictError, AuthExpiredError, isWikiFile } from './types.js';
 
 const API = 'https://api.github.com';
 
@@ -178,7 +178,7 @@ export class GitHubAdapter implements StorageAdapter {
             const relativePath = path ? `${path}/${item.name}` : item.name;
             if (item.type === 'dir') {
                 files.push(...await this.listDirectory(relativePath));
-            } else if (item.type === 'file' && item.name.endsWith('.md')) {
+            } else if (item.type === 'file' && isWikiFile(item.name)) {
                 files.push({ id: relativePath, name: item.name, path: relativePath, version: item.sha });
             }
         }
@@ -199,7 +199,7 @@ export class GitHubAdapter implements StorageAdapter {
         const prefix = root ? `${root}/` : '';
         const files: FileMeta[] = [];
         for (const item of j.tree) {
-            if (item.type !== 'blob' || !item.path.endsWith('.md')) continue;
+            if (item.type !== 'blob' || !isWikiFile(item.path)) continue;
             if (prefix && !item.path.startsWith(prefix)) continue;
             const rel = item.path.slice(prefix.length);
             files.push({ id: rel, name: rel.split('/').pop()!, path: rel, version: item.sha });
