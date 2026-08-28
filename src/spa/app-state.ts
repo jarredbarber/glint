@@ -18,6 +18,7 @@ export type PersistedStateV1 = {
         theme: Theme;
         commentLayout: CommentLayout;
         paraHighlight: boolean;
+        tocFloat: boolean;
         vimMode: boolean;
         githubPushMode: GitHubPushMode;
         activeProjectRoute: string | null;
@@ -27,7 +28,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', paraHighlight: false, vimMode: true, githubPushMode: 'direct', activeProjectRoute: null },
+    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', paraHighlight: false, tocFloat: false, vimMode: true, githubPushMode: 'direct', activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -100,8 +101,9 @@ function validatedState(value: unknown, colorSchemes: readonly string[]): Persis
     const theme: Theme = settings.theme === 'almanac' ? 'almanac' : 'reader';
     const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
     const paraHighlight = settings.paraHighlight === true;
+    const tocFloat = settings.tocFloat === true;
     const githubPushMode: GitHubPushMode = settings.githubPushMode === 'staged' || settings.githubPushMode === 'pr' ? settings.githubPushMode : 'direct';
-    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, paraHighlight, vimMode: settings.vimMode, githubPushMode, activeProjectRoute } };
+    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, paraHighlight, tocFloat, vimMode: settings.vimMode, githubPushMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };

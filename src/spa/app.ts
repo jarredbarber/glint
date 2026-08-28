@@ -410,13 +410,10 @@ const GITHUB_PUSH_MODES: { key: GitHubPushMode; label: string }[] = [
 
 function renderSettings(): void {
     document.body.classList.add('glint-landing');
+    removeFloatingToc();
     const themeCards = THEMES.map((theme) => `<button type="button" class="glint-theme-card${theme === appState.settings.theme ? ' selected' : ''}" data-theme-choice="${theme}"><strong>${escapeHtml(THEME_LABELS[theme].title)}</strong><span>${escapeHtml(THEME_LABELS[theme].blurb)}</span></button>`).join('');
     const colorSchemeOptions = COLOR_SCHEMES.map((cs) => `<option value="${cs}"${cs === appState.settings.colorScheme ? ' selected' : ''}>${cs}</option>`).join('');
     const commentCards = COMMENT_LAYOUTS.map((layout) => `<button type="button" class="glint-theme-card${layout === appState.settings.commentLayout ? ' selected' : ''}" data-comment-choice="${layout}"><strong>${escapeHtml(COMMENT_LABELS[layout].title)}</strong><span>${escapeHtml(COMMENT_LABELS[layout].blurb)}</span></button>`).join('');
-    const rows = appState.projects.map((project, index) => {
-        const detail = sourceDetail(project.route);
-        return `<li class="glint-project-row" draggable="true" data-project-index="${index}"><span class="glint-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span>${detail ? `<span class="glint-project-source">${escapeHtml(detail)}</span>` : ''}</span><span class="glint-project-actions"><button data-open-project="${index}">Open</button><button data-rename-project="${index}">Rename</button><button class="glint-danger" data-remove-project="${index}">Remove</button></span></li>`;
-    }).join('');
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `<section class="glint-landing-shell glint-settings">
         <header class="glint-page-head">
             <div><p class="glint-eyebrow">Preferences</p><h1 tabindex="-1">Settings</h1></div>
@@ -432,6 +429,7 @@ function renderSettings(): void {
             <p class="glint-setting-note">Where comments go.</p>
             <div class="glint-theme-grid">${commentCards}</div>
             <label class="glint-toggle"><input type="checkbox" data-para-highlight${appState.settings.paraHighlight ? ' checked' : ''}> Highlight the paragraph under the cursor</label>
+            <label class="glint-toggle"><input type="checkbox" data-toc-float${appState.settings.tocFloat ? ' checked' : ''}> Floating table of contents (collapses to the top-right corner)</label>
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
@@ -445,7 +443,7 @@ function renderSettings(): void {
             <button class="glint-danger" data-forget-github>Sign out of GitHub (clear saved token)</button>
         </section>` : ''}
         <section class="glint-setting-group"><h2>Projects</h2>
-            ${rows ? `<ul class="glint-project-list">${rows}</ul>` : '<p class="glint-setting-note">No projects saved yet.</p>'}
+            <p class="glint-setting-note">Manage projects from the home page. This clears every local bookmark and setting.</p>
             <button class="glint-danger" data-reset-projects>Reset local projects and settings</button>
         </section></section>`;
     const wrapper = document.querySelector('.content-wrapper')!;
@@ -479,6 +477,11 @@ function renderSettings(): void {
         applyParaHighlight(on);
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, paraHighlight: previous } }; applyParaHighlight(previous); renderSettings(); }
     });
+    wrapper.querySelector<HTMLInputElement>('[data-toc-float]')?.addEventListener('change', (event) => {
+        const previous = appState.settings.tocFloat;
+        appState = { ...appState, settings: { ...appState.settings, tocFloat: (event.target as HTMLInputElement).checked } };
+        if (!persistState()) appState = { ...appState, settings: { ...appState.settings, tocFloat: previous } };
+    });
     wrapper.querySelector<HTMLInputElement>('[data-vim]')?.addEventListener('change', (event) => {
         const previous = appState.settings.vimMode;
         appState = { ...appState, settings: { ...appState.settings, vimMode: (event.target as HTMLInputElement).checked } };
@@ -493,23 +496,6 @@ function renderSettings(): void {
         if (adapter instanceof GitHubAdapter) adapter.setPushMode(mode);
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, githubPushMode: previous } }; if (adapter instanceof GitHubAdapter) adapter.setPushMode(previous); renderSettings(); }
     }));
-    wrapper.querySelectorAll<HTMLButtonElement>('[data-open-project]').forEach((button) => button.addEventListener('click', () => { location.hash = appState.projects[Number(button.dataset.openProject)]!.route; }));
-    wrapper.querySelectorAll<HTMLButtonElement>('[data-rename-project]').forEach((button) => button.addEventListener('click', async () => {
-        const project = appState.projects[Number(button.dataset.renameProject)]!;
-        const name = await promptText('Rename project', project.name);
-        if (name === null) return;
-        appState = renameProject(appState, project.route, name);
-        persistState();
-        renderSettings();
-    }));
-    wrapper.querySelectorAll<HTMLButtonElement>('[data-remove-project]').forEach((button) => button.addEventListener('click', () => {
-        const project = appState.projects[Number(button.dataset.removeProject)]!;
-        if (!confirm(`Remove “${project.name}”? This only removes the local bookmark.`)) return;
-        appState = { ...appState, projects: appState.projects.filter((entry) => entry !== project), settings: { ...appState.settings, activeProjectRoute: appState.settings.activeProjectRoute === project.route ? null : appState.settings.activeProjectRoute } };
-        persistState();
-        renderSettings();
-    }));
-    wireProjectReorder(wrapper.querySelector('.glint-project-list'));
     wrapper.querySelector('[data-forget-github]')?.addEventListener('click', () => {
         forgetGitHubToken();
         showToast('Signed out of GitHub', 'success');
@@ -1219,7 +1205,7 @@ function installCommentShortcut(): void {
 const TOC_COLLAPSED_KEY = 'glint.toc.collapsed';
 let tocObserver: IntersectionObserver | null = null;
 
-function tocDockHtml(): string {
+function tocDockHtml(floating = false): string {
     if (!currentFileId) return '';
     const headings = Array.from(document.querySelectorAll<HTMLElement>('.content-wrapper h2[id], .content-wrapper h3[id]'));
     if (headings.length < 2) return '';   // nothing worth an outline
@@ -1232,7 +1218,27 @@ function tocDockHtml(): string {
         const label = (clone.textContent ?? '').trim();
         return `<li class="glint-toc-item${sub}"><a href="#${escapeHtml(h.id)}" data-toc-target="${escapeHtml(h.id)}"><span class="glint-toc-label">${escapeHtml(label)}</span></a></li>`;
     }).join('');
-    return `<details class="glint-toc-dock"${open ? ' open' : ''}><summary>On this page</summary><ol class="glint-toc-list">${items}</ol></details>`;
+    const cls = floating ? 'glint-toc-dock glint-toc-float' : 'glint-toc-dock';
+    return `<details class="${cls}"${open ? ' open' : ''}><summary>On this page</summary><ol class="glint-toc-list">${items}</ol></details>`;
+}
+
+// The ToC lives either docked in the sidebar (default) or as a floating panel pinned
+// top-right that collapses to a chip in the "Open on GitHub" badge's corner (#134).
+function removeFloatingToc(): void {
+    document.querySelector('.glint-toc-float')?.remove();
+}
+function mountToc(nav: HTMLElement): void {
+    removeFloatingToc();
+    document.body.classList.toggle('toc-float', appState.settings.tocFloat);
+    if (appState.settings.tocFloat) {
+        const html = tocDockHtml(true);
+        if (html) {
+            document.body.insertAdjacentHTML('beforeend', html);
+            wireTocDock(document.body);
+        }
+    } else {
+        wireTocDock(nav);
+    }
 }
 
 function wireTocDock(nav: HTMLElement): void {
@@ -1282,7 +1288,7 @@ function renderFileTree(nodes: TreeNode[]): string {
 // Draggable sidebar width, persisted per browser (#113). clientX is the width
 // because the sidebar hugs the viewport's left edge.
 const SIDEBAR_W_KEY = 'glint.sidebar.width';
-const SIDEBAR_W_MIN = 180;
+const SIDEBAR_W_MIN = 230;   // #134: keep the footer's icon row on one line
 const SIDEBAR_W_MAX = 520;
 function applySidebarWidth(px: number): void {
     document.documentElement.style.setProperty('--sidebar-w', `${px}px`);
@@ -1333,7 +1339,7 @@ function renderSidebar() {
             <div class="glint-search-results" data-search-results></div>
         </div>
         <nav class="glint-tree spa-page-list" aria-label="Files"><ul>${renderFileTree(buildFileTree(files))}</ul></nav>
-        ${tocDockHtml()}
+        ${appState.settings.tocFloat ? '' : tocDockHtml()}
         <footer class="glint-sidebar-footer">
             ${canEdit ? `<button class="glint-icon-btn" data-new-page title="New page" aria-label="New page">${ICON.plus}</button>` : ''}
             ${pushControlHtml()}
@@ -1343,7 +1349,7 @@ function renderSidebar() {
         <div class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize"></div>`;
     wireSidebarResize(nav);
     wireProjectControls(nav);
-    wireTocDock(nav);
+    mountToc(nav);
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         void promptText('New page name (.md is optional)').then((name) => {
@@ -1373,6 +1379,7 @@ function renderSidebar() {
 
 function renderLanding(): void {
     document.body.classList.add('glint-landing');
+    removeFloatingToc();
     const localPicker = localSupported()
         ? `<button type="button" class="glint-url-pick" data-pick-local>${ICON.local}<span>Choose a local folder</span></button>`
         : `<button type="button" class="glint-url-pick" disabled title="Needs a Chromium-based browser">${ICON.local}<span>Local folder (Chromium only)</span></button>`;
@@ -1384,7 +1391,7 @@ function renderLanding(): void {
     const projectList = appState.projects.length
         ? `<ul class="glint-project-list">${appState.projects.map((project, index) => {
             const detail = sourceDetail(project.route);
-            return `<li class="glint-project-row" draggable="true" data-project-index="${index}"><span class="glint-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span><a class="glint-project-open" draggable="false" href="${escapeHtml(project.route)}"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(detail || sourceLabel(project.route))}</span></span></a></li>`;
+            return `<li class="glint-project-row" draggable="true" data-project-index="${index}"><span class="glint-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span><a class="glint-project-open" draggable="false" href="${escapeHtml(project.route)}"><span class="glint-source-icon" title="${escapeHtml(sourceLabel(project.route))}">${sourceIcon(project.route)}</span><span class="glint-project-id"><span class="glint-project-name">${escapeHtml(project.name)}</span><span class="glint-project-source">${escapeHtml(detail || sourceLabel(project.route))}</span></span></a><span class="glint-project-actions"><button data-rename-project="${index}" title="Rename">Rename</button><button class="glint-danger" data-remove-project="${index}" title="Remove bookmark">Remove</button></span></li>`;
         }).join('')}</ul>`
         : '<p class="glint-setting-note">No projects saved yet. Open a source to start one.</p>';
     (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = `
@@ -1417,6 +1424,21 @@ function renderLanding(): void {
         </section>`;
     (document.querySelector('.content-wrapper') as HTMLElement).querySelector('[data-settings]')?.addEventListener('click', () => { location.hash = '#/settings'; });
     wireProjectReorder(document.querySelector<HTMLElement>('.glint-landing-page .glint-project-list'), renderLanding);
+    document.querySelectorAll<HTMLButtonElement>('.glint-landing-page [data-rename-project]').forEach((button) => button.addEventListener('click', async () => {
+        const project = appState.projects[Number(button.dataset.renameProject)]!;
+        const name = await promptText('Rename project', project.name);
+        if (name === null) return;
+        appState = renameProject(appState, project.route, name);
+        persistState();
+        renderLanding();
+    }));
+    document.querySelectorAll<HTMLButtonElement>('.glint-landing-page [data-remove-project]').forEach((button) => button.addEventListener('click', () => {
+        const project = appState.projects[Number(button.dataset.removeProject)]!;
+        if (!confirm(`Remove “${project.name}”? This only removes the local bookmark.`)) return;
+        appState = { ...appState, projects: appState.projects.filter((entry) => entry !== project), settings: { ...appState.settings, activeProjectRoute: appState.settings.activeProjectRoute === project.route ? null : appState.settings.activeProjectRoute } };
+        persistState();
+        renderLanding();
+    }));
     const form = document.querySelector<HTMLFormElement>('[data-url-form]');
     const errorEl = document.querySelector<HTMLElement>('[data-url-error]');
     form?.addEventListener('submit', (event) => {
