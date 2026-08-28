@@ -23,6 +23,20 @@ console.log(1);
     assert.ok(html.includes('task') || html.includes('data-state') || html.includes('glint-task'), 'task widget rendered');
 });
 
+test('renderMarkdown renders inline KaTeX in the doc title (#132)', async () => {
+    const html = await renderMarkdown('# The $L^2$ norm\n\nBody.');
+    const title = html.slice(html.indexOf('glint-doc-title'), html.indexOf('</h1>'));
+    assert.ok(title.includes('katex'), 'title math rendered');
+    assert.ok(!title.includes('$L^2$'), 'raw math delimiters gone from title');
+    assert.ok(title.startsWith('glint-doc-title">The '), 'surrounding title text preserved');
+});
+
+test('renderMarkdown title math honors frontmatter macros (#132)', async () => {
+    const html = await renderMarkdown('---\nlatex-macros:\n  R: \\mathbb{R}\n---\n# Over $\\R$\n\nBody.');
+    const title = html.slice(html.indexOf('glint-doc-title'), html.indexOf('</h1>'));
+    assert.ok(title.includes('mathbb'), 'title macro expanded');
+});
+
 test('renderMarkdown with custom macros', async () => {
     const html = await renderMarkdown('$$\\R$$', { macros: { R: '\\mathbb{R}' } });
     assert.ok(html.includes('katex'), 'macro-using math rendered');

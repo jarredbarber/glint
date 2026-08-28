@@ -1,5 +1,6 @@
 import { VFile } from 'vfile';
 import { parseMarkdown } from './markdown.js';
+import { renderTitle } from './renderer/title.js';
 import { readLatexMacros } from './config.js';
 import { createProcessor, type GlintConfig } from './pipeline.js';
 import { escapeHtml } from './utils/html.js';
@@ -73,7 +74,7 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
     if (opts.baseUrl) file.data.baseUrl = opts.baseUrl;
 
     const result = await processor.process(file);
-    const titleHtml = title ? `<h1 class="glint-doc-title">${escapeHtml(title)}</h1>` : '';
+    const titleHtml = title ? `<h1 class="glint-doc-title">${renderTitle(title, config['latex-macros'] ?? {})}</h1>` : '';
     // Backend metadata fills in only what frontmatter leaves out (#87). Drop empty
     // defaults so `{ ...{author: undefined}, ...fm }` can't shadow a real value.
     const defaults = Object.fromEntries(Object.entries(opts.defaultMeta ?? {}).filter(([, v]) => v));

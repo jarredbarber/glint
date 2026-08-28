@@ -3,6 +3,7 @@ import { HeadingNode } from './rehype-extract-headings.js';
 import { escapeHtml } from './utils/html.js';
 import { renderHead } from './renderer/head.js';
 import { renderMetadata } from './renderer/metadata.js';
+import { renderTitle } from './renderer/title.js';
 import { renderRightOutline } from './renderer/outline.js';
 import { contentBehaviorInit, contentBehaviorLoaders } from './renderer/content-behavior.js';
 
@@ -28,7 +29,7 @@ export const renderHtml = (options: RenderOptions) => {
     <main class="content">
         <div class="content-wrapper">
             <header class="article-header">
-                <h1>${escapeHtml(title)}</h1>
+                <h1>${renderTitle(title, config['latex-macros'] ?? {})}</h1>
                 ${renderMetadata(frontmatter)}
                 <div class="title-accent"></div>
             </header>

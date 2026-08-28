@@ -9,7 +9,7 @@ Glint renders standard Markdown plus the extensions below. Use this as a referen
 
 ## Math (KaTeX)
 
-Inline: `$E = mc^2$`
+Inline: `$E = mc^2$` — works in prose, section headings, and the page title (`# The $L^2$ norm`).
 Block (separate with blank lines):
 
 ```
