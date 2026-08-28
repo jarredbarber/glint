@@ -4,7 +4,7 @@ import { escapeHtml } from './utils/html.js';
 import { renderHead } from './renderer/head.js';
 import { renderMetadata } from './renderer/metadata.js';
 import { renderRightOutline } from './renderer/outline.js';
-import { contentBehaviorInit } from './renderer/content-behavior.js';
+import { contentBehaviorInit, contentBehaviorLoaders } from './renderer/content-behavior.js';
 
 export interface RenderOptions {
     content: string;
@@ -18,6 +18,7 @@ export interface RenderOptions {
 
 export const renderHtml = (options: RenderOptions) => {
     const { content, title, config, currentPath, headings = [], frontmatter = {}, styles = [] } = options;
+    const behaviorLoaders = contentBehaviorLoaders(content);
 
     return `
 <!DOCTYPE html>
@@ -35,7 +36,7 @@ export const renderHtml = (options: RenderOptions) => {
         </div>
     </main>
     ${renderRightOutline(headings)}
-    ${contentBehaviorInit()}
+    ${behaviorLoaders ? `${behaviorLoaders}\n${contentBehaviorInit()}` : ''}
 </body>
 </html>
 `;

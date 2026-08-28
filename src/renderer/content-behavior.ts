@@ -1,10 +1,7 @@
-// Client-side behavior for *rendered content* (as opposed to app-shell chrome):
-// drawing mermaid diagrams that the pipeline emits as inert
-// placeholder markup. Shared by the full-page renderer (renderer.ts) and the VimR
-// fragment (render.ts) so the init logic and CDN URLs live in exactly one
-// place — the two used to drift, which is how a stale selector shipped.
+// Client-side behavior for rendered content. Mermaid placeholders are emitted by
+// the shared pipeline; both the SPA and portable renderer use this runtime.
 
-export const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+export const MERMAID_SRC = './assets/mermaid.min.js';
 
 // Mermaid theming reads the *active palette's* CSS custom properties (defined on
 // :root by every theme file) instead of a hand-maintained per-theme table. That
@@ -48,11 +45,9 @@ function mermaidInitOptions(): Record<string, unknown> {
 }
 
 /**
- * A `<script>` that draws mermaid diagrams on DOMContentLoaded.
- * Colours come from the active palette's CSS variables at runtime (see the
- * mermaid helpers above, embedded here via .toString() so the standalone page
- * and the SPA share one implementation). Requires the CDN loaders from
- * {@link contentBehaviorLoaders} to be present.
+ * A `<script>` that draws Mermaid diagrams on DOMContentLoaded.
+ * Colours come from the active palette's CSS variables at runtime. Requires the
+ * self-hosted loader from {@link contentBehaviorLoaders}.
  */
 export function contentBehaviorInit(): string {
     // data-glint marks this as renderer-owned so stripScripts keeps it while
@@ -70,25 +65,20 @@ export function contentBehaviorInit(): string {
 }
 
 /**
- * CDN loader tags for mermaid, emitted only when the rendered HTML
- * actually contains a diagram. Keeps documents that use none from
- * pulling a library off a CDN.
+ * Self-hosted Mermaid loader, emitted only when the rendered HTML contains a
+ * diagram.
  */
 export function contentBehaviorLoaders(html: string): string {
     const parts: string[] = [];
     if (/class="mermaid"/.test(html)) {
-        parts.push(`<script src="${MERMAID_CDN}"></script>`);
+        parts.push(`<script data-glint src="${MERMAID_SRC}"></script>`);
     }
     return parts.join('\n');
 }
 
 // --- SPA runtime draw ---------------------------------------------------------
-// The standalone `glint-md render` output ships the loaders + init script above and
-// the browser runs them on DOMContentLoaded. The SPA renders Markdown to an HTML
-// string and injects it with innerHTML, where <script> tags never execute — so it
-// must load the CDNs and run the same draw logic itself, on demand, per injected
-// subtree. That is what drawContentBehaviors does. Browser-only: never called on
-// the Node/standalone path.
+// Injected script tags do not execute, so the SPA loads the same-origin runtime
+// on demand and then draws each new subtree.
 
 const scriptLoads = new Map<string, Promise<void>>();
 
@@ -111,7 +101,7 @@ function loadScriptOnce(src: string): Promise<void> {
 async function drawMermaid(root: ParentNode): Promise<void> {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>('.mermaid:not([data-processed])'));
     if (nodes.length === 0) return;
-    await loadScriptOnce(MERMAID_CDN);
+    await loadScriptOnce(MERMAID_SRC);
     const mermaid = (window as unknown as { mermaid?: any }).mermaid;
     if (!mermaid) return;
     // Re-initialize each draw so a palette change since the last diagram takes effect.
@@ -124,9 +114,8 @@ async function drawMermaid(root: ParentNode): Promise<void> {
 }
 
 /**
- * Draw mermaid diagrams inside `root` (default: whole document),
- * loading the CDN library only when a diagram is present. Idempotent:
- * already-drawn nodes are skipped, so it is safe to call after every re-render.
+ * Draw Mermaid diagrams inside `root`, loading the same-origin runtime only
+ * when needed. Already-drawn nodes are skipped.
  */
 export async function drawContentBehaviors(root: ParentNode = document): Promise<void> {
     await drawMermaid(root);

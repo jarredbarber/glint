@@ -10,8 +10,8 @@ import { DEFAULTS, readLatexMacros } from './config.js';
 import { parseMarkdown } from './markdown.js';
 import { createProcessor } from './pipeline.js';
 import * as renderer from './renderer.js';
-import { rewriteStaticHtml, stripInternalLinks, applyKatexCdn } from './url-rewrite.js';
-import { contentBehaviorInit, contentBehaviorLoaders, MERMAID_CDN } from './renderer/content-behavior.js';
+import { rewriteStaticHtml, stripInternalLinks } from './url-rewrite.js';
+import { contentBehaviorInit, contentBehaviorLoaders, MERMAID_SRC } from './renderer/content-behavior.js';
 import type { HeadingNode } from './rehype-extract-headings.js';
 
 /**
@@ -44,7 +44,7 @@ export function stripScripts(html: string, opts: { keepMermaid?: boolean } = {})
     return html.replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (tag, attrs: string) => {
         if (keepInline && /\bdata-glint\b/.test(attrs)) return tag;
         const src = attrs.match(/\bsrc="([^"]*)"/i)?.[1];
-        if (opts.keepMermaid && src === MERMAID_CDN) return tag;
+        if (opts.keepMermaid && src === MERMAID_SRC) return tag;
         return '';
     });
 }
@@ -126,8 +126,6 @@ export interface RenderFileOptions {
     filePath: string;
     /** Color scheme name override (defaults to the config / 'nord'). */
     colorScheme?: string;
-    /** KaTeX version for the CDN stylesheet. Resolved from the install if omitted. */
-    katexVersion?: string;
 }
 
 export interface RenderMarkdownOptions {
@@ -185,15 +183,15 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
         frontmatter,
     });
 
-    const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
     html = rewriteStaticHtml(html);
     html = stripInternalLinks(html);
-    html = applyKatexCdn(html, katexVersion);
 
     // Inline chrome stylesheets from the bundled assets dir.
     const repoAssets = path.join(import.meta.dirname, '..', 'assets');
     const cssByHref = new Map<string, string>();
     const cssFiles: [string, string][] = [
+        ['/assets/fonts.css', path.join(repoAssets, 'fonts.css')],
+        ['/assets/katex/katex.min.css', path.join(repoAssets, 'katex', 'katex.min.css')],
         ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
         ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
         [`/assets/color-schemes/${config.colorScheme}.css`, path.join(repoAssets, 'color-schemes', `${config.colorScheme}.css`)],
@@ -254,9 +252,10 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
     file.data.filePath = currentPath;
     const vfile = await processor.process(file);
 
-    const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
     const repoAssets = path.join(import.meta.dirname, '..', 'assets');
     const cssFiles: [string, string][] = [
+        ['/assets/fonts.css', path.join(repoAssets, 'fonts.css')],
+        ['/assets/katex/katex.min.css', path.join(repoAssets, 'katex', 'katex.min.css')],
         ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
         ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
         [`/assets/color-schemes/${config.colorScheme}.css`, path.join(repoAssets, 'color-schemes', `${config.colorScheme}.css`)],
@@ -264,26 +263,14 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
 
     if (opts.bodyOnly) {
         // Body fragment: inlined CSS + KaTeX + raw pipeline output, for embedding
-        // in an external template. VimR substitutes it into its own
-        // <body class="markdown-body">.
+        // in an external template (VimR). The VimR host controls its own CSP and
+        // network policy, so CDN links for KaTeX/fonts are acceptable here.
+        const katexVersion = opts.katexVersion ?? (await resolveKatexVersion());
         const cssParts: string[] = [];
         for (const [, fsPath] of cssFiles) {
             try { cssParts.push(await fs.readFile(fsPath, 'utf8')); } catch { /* skip */ }
         }
-        // Reset layout.css's full-page app-shell rules (html/body 100vh + overflow:hidden
-        // + flex) that break VimR's document flow — both html AND body need the
-        // height/overflow reset or the page can't scroll — and force Glint's own
-        // color scheme over the host's `.markdown-body` (which outranks a bare
-        // `body` selector) so the fragment reads as a self-contained color-schemed island.
-        // With `--color-scheme=nvim` these vars resolve to the editor's colorscheme, so
-        // the same rule instead makes the fragment match its host.
         cssParts.push('html,body{height:auto!important;overflow:visible!important;}body{display:block!important;max-width:none!important;padding:1rem 1.25rem!important;background:var(--bg-color)!important;color:var(--text-color)!important;}');
-        // Drive the host's github-markdown.css from Glint's palette (issue #17):
-        // it styles base elements (tables, code, borders) from GitHub Primer tokens,
-        // and its `.markdown-body …` rules out-specify ours. Rather than fight those
-        // selectors, we set the tokens — github then renders base elements in Glint's
-        // colors via its own rules. Scoped to `.markdown-body` and emitted after
-        // github-markdown (head), so it wins by source order at equal specificity.
         cssParts.push(GITHUB_PRIMER_BRIDGE);
         const katexLink = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@${katexVersion}/dist/katex.min.css">`;
         // Glint's fonts (layout.css asks for Inter / JetBrains Mono). VimR's own
@@ -342,7 +329,6 @@ document.addEventListener('click',function(e){
 
     html = rewriteStaticHtml(html);
     html = stripInternalLinks(html);
-    html = applyKatexCdn(html, katexVersion);
 
     const cssByHref = new Map<string, string>();
     for (const [href, fsPath] of cssFiles) {

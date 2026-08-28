@@ -19,7 +19,7 @@ test('stripScripts removes multiline script blocks', () => {
 
 test('stripScripts with keepMermaid keeps mermaid loader + init, drops the rest', () => {
     const html =
-        '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>' +
+        '<script data-glint src="./assets/mermaid.min.js"></script>' +
         '<script>foo();</script>' +
         '<script data-glint>mermaid.initialize({});</script>';
     const out = stripScripts(html, { keepMermaid: true });
@@ -33,11 +33,11 @@ test('stripScripts drops a user script that merely mentions mermaid (#65)', () =
         '<script>var note = "mermaid"; steal();</script>' +
         '<script src="https://evil.example/mermaid.js"></script>';
     const out = stripScripts(html, { keepMermaid: true });
-    assert.equal(out, '', 'only data-glint scripts and exact CDN URLs survive');
+    assert.equal(out, '', 'only data-glint scripts and exact self-hosted URLs survive');
 });
 
 test('stripScripts without keepMermaid removes mermaid scripts too', () => {
-    const html = '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>';
+    const html = '<script data-glint src="./assets/mermaid.min.js"></script>';
     assert.equal(stripScripts(html), '');
 });
 
@@ -88,7 +88,7 @@ async function singleFileFixture(): Promise<string> {
 
 t2('renderFile produces a self-contained static HTML document', async () => {
     const dir = await singleFileFixture();
-    const html = await renderFile({ filePath: path.join(dir, 'doc.md'), katexVersion: '0.16.9' });
+    const html = await renderFile({ filePath: path.join(dir, 'doc.md') });
 
     // Heading + math rendered
     assert.match(html, /Title/);
@@ -97,10 +97,10 @@ t2('renderFile produces a self-contained static HTML document', async () => {
     // Fully static: no scripts at all
     assert.ok(!/<script/i.test(html), 'no <script> tags');
 
-    // Chrome CSS inlined, KaTeX from CDN
+    // Chrome CSS inlined, no external links
     assert.match(html, /<style>/, 'inline style block present');
     assert.ok(!/href="\/assets\//.test(html), 'no local /assets/ links remain');
-    assert.match(html, /cdn\.jsdelivr\.net\/npm\/katex@0\.16\.9/, 'KaTeX CSS from CDN');
+    assert.ok(!/cdn\.jsdelivr/.test(html), 'no CDN links remain');
 
     // Image inlined as data URI (base64 of "PNGBYTES")
     assert.match(html, new RegExp('data:image/png;base64,' + Buffer.from('PNGBYTES').toString('base64')));
@@ -114,11 +114,11 @@ t2('renderFile keeps mermaid JS only when the page has a diagram', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'glint-mer-'));
 
     await fs.writeFile(path.join(dir, 'plain.md'), '# Plain\n\nNo diagram here.\n');
-    const plain = await renderFile({ filePath: path.join(dir, 'plain.md'), katexVersion: '0.16.9' });
+    const plain = await renderFile({ filePath: path.join(dir, 'plain.md') });
     assert.ok(!/<script/i.test(plain), 'plain page stays fully JS-free');
 
     await fs.writeFile(path.join(dir, 'd.md'), '# D\n\n```mermaid\ngraph TD\n  A-->B\n```\n');
-    const diagram = await renderFile({ filePath: path.join(dir, 'd.md'), katexVersion: '0.16.9' });
+    const diagram = await renderFile({ filePath: path.join(dir, 'd.md') });
     assert.match(diagram, /<div class="mermaid"(?:\s|>)/, 'mermaid div preserved');
     assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader kept');
     assert.match(diagram, /mermaid\.initialize/, 'mermaid init kept');

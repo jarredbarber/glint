@@ -1,3 +1,5 @@
+import { applyExportMediaPolicy, portableContentSecurityPolicy } from '../export-media.js';
+
 // Portable, static document export for the SPA. Content is already rendered by GlintRender.
 const EXPORT_CSS = `
 :root { color-scheme: light; font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif; color: #202733; background: #f7f8fa; }
@@ -19,18 +21,19 @@ function escapeHtml(value: string): string {
     }[character]!));
 }
 
-export function createStandaloneHtml(title: string, content: string): string {
+export function createStandaloneHtml(title: string, content: string, options: { allowRemoteMedia?: boolean } = {}): string {
+    const safeContent = applyExportMediaPolicy(content, options.allowRemoteMedia);
     return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="${portableContentSecurityPolicy(options.allowRemoteMedia)}">
 <title>${escapeHtml(title)}</title>
 <style>${EXPORT_CSS}</style>
 </head>
 <body>
-${content}
+${safeContent}
 </body>
 </html>
 `;
