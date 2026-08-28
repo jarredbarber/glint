@@ -23,6 +23,13 @@ import { rehypeGlintImage } from './rehype-glint-image.js';
 import { rehypeGlintCodeBlocks } from './rehype-glint-code-blocks.js';
 import { remarkGlintCitations } from './remark-glint-citations.js';
 import { rehypeGlintCitations } from './rehype-glint-citations.js';
+import {
+    rawHtmlOptions,
+    rehypeClassifyAuthorHtml,
+    rehypeCustomEmbeds,
+    rehypeSanitizeAuthorHtml,
+    type CustomEmbedMode,
+} from './rehype-content-policy.js';
 import type { GlintConfig } from './config.js';
 
 export type { GlintConfig };
@@ -36,7 +43,11 @@ function getProcessedMacros(config: GlintConfig): Record<string, string> {
     return processed;
 }
 
-export function createProcessor(config: GlintConfig, linkValidator: (path: string) => boolean) {
+export function createProcessor(
+    config: GlintConfig,
+    linkValidator: (path: string) => boolean,
+    customEmbedMode: CustomEmbedMode = 'portable',
+) {
     const macros = getProcessedMacros(config);
 
     return unified()
@@ -48,12 +59,15 @@ export function createProcessor(config: GlintConfig, linkValidator: (path: strin
         .use(remarkWikiLinkGlint, { validateLink: linkValidator })
         .use(remarkMermaidGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeClassifyAuthorHtml)
+        .use(rehypeRaw, rawHtmlOptions)
+        .use(rehypeSanitizeAuthorHtml)
+        .use(rehypeCustomEmbeds, customEmbedMode)
         .use(rehypeSourceLines)
         .use(rehypeGlintSections)
-        .use(rehypeRaw)
         .use(rehypeGlintImage)
         .use(rehypeGlintCitations)
-        .use(rehypeKatex, { macros, throwOnError: false, trust: true, strict: false })
+        .use(rehypeKatex, { macros, throwOnError: false, trust: false, strict: false })
         // detect:false — only highlight fences with an explicit language. Auto-
         // detection guesses badly on unlabeled blocks (ascii tables, output dumps),
         // e.g. tagging aligned text as "markdown" and coloring its punctuation.

@@ -25,7 +25,7 @@
     "assets/color-schemes"
   ],
   "scripts": {
-    "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/config.js src/spa/manifest.webmanifest src/spa/privacy.html src/spa/terms.html src/spa/CNAME dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
+    "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/embed-host.html src/spa/config.js src/spa/manifest.webmanifest src/spa/privacy.html src/spa/terms.html src/spa/CNAME dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
     "dev": "npm run build && npm run stage:spa && python3 -m http.server 8080 --directory dist-spa",
     "bundle:editor": "esbuild src/client/editor.ts --bundle --minify --outfile=assets/editor.bundle.js",
     "bundle:render": "esbuild src/browser.ts --bundle --minify --platform=browser --global-name=GlintRender --outfile=assets/glint-render.bundle.js",
@@ -45,6 +45,7 @@
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "lowlight": "^3.3.0",
+    "parse5": "^7.3.0",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
@@ -79,13 +80,13 @@
     "@codemirror/state": "^6.5.3",
     "@codemirror/view": "^6.39.9",
     "@replit/codemirror-vim": "^6.3.0",
-    "codemirror-lang-latex": "^0.2.0",
     "@types/node": "^25.0.3",
+    "codemirror-lang-latex": "^0.2.0",
     "esbuild": "^0.27.2",
     "rehype-parse": "^9.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "zod": "^4.3.5",
-    "wrangler": "^4.59.2"
+    "wrangler": "^4.59.2",
+    "zod": "^4.3.5"
   }
 }

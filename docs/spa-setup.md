@@ -106,12 +106,12 @@ githubRedirectUri: 'https://<user>.github.io/glint/',   // == the callback URL
 
 Callback URL, `githubRedirectUri`, and `GITHUB_OAUTH_REDIRECT_URI` must all be byte-identical, or GitHub rejects the redirect. `GITHUB_OAUTH_ALLOWED_ORIGINS` must contain the exact origin the SPA is served from, or the Worker rejects the exchange with a CORS/origin error.
 
-GitHub OAuth tokens and PATs are cached in `localStorage` (key `glint.github.token`) until the user signs out or clears site data. The Drive access token is also cached in `localStorage` (key `glint.drive.token.v3.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. The CSP is the primary control that prevents credential exfiltration.
+GitHub OAuth tokens and PATs are cached in `localStorage` (key `glint.github.token`) until the user signs out or clears site data. The Drive access token is also cached in `localStorage` (key `glint.drive.token.v3.<clientId>`) until it expires (~1h) so reloads and route changes don't re-prompt. Author HTML is sanitized before trusted renderer transforms run. Complete custom HTML blocks execute only in `embed-host.html`, inside a sandbox without `allow-same-origin`; the parent CSP permits framing that fixed host but does not grant author content access to SPA credentials or storage.
 
 ## Deploy (GitHub Pages)
 `.github/workflows/pages.yml` builds on push to `main`, runs `npm run stage:spa`,
-and publishes `dist-spa/` (`index.html`, `config.js`, `llm.txt`, `privacy.html`,
-`terms.html`, and `assets/`).
+and publishes `dist-spa/` (`index.html`, `embed-host.html`, `config.js`, `llm.txt`,
+`privacy.html`, `terms.html`, and `assets/`).
 Enable Pages → Source: **GitHub Actions** in repository settings.
 
 After deploy, register the Pages origin as the Google **Authorized JS origin** (step 2 above) and

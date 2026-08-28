@@ -72,8 +72,9 @@ function handleImageElement(node: Element, index: number | undefined, parent: an
         }
     }
 
-    // Wrap in figure if there's a caption
-    if (caption.trim()) {
+    // Preserve an author-supplied semantic figure/figcaption instead of nesting
+    // a second generated figure around its image.
+    if (caption.trim() && parent?.tagName !== 'figure') {
         const figure = createFigure(node, caption.trim());
         if (parent && index !== undefined) {
             parent.children[index] = figure;
@@ -150,12 +151,12 @@ function resolveImageUrl(src: string, filePath?: string): string {
  * Format: "Caption|width" where width is pixels (500) or percentage (50%)
  */
 function parseAltWithWidth(alt: string): { caption: string; width: string | null } {
-    // Look for pattern: text|width where width is digits optionally followed by %
-    const match = alt.match(/^(.+?)\|(\d+%?)$/);
-    if (match) {
-        return { caption: match[1], width: match[2] };
-    }
-    return { caption: alt, width: null };
+    const match = alt.match(/^(.+?)\|(\d+)(%?)$/);
+    if (!match) return { caption: alt, width: null };
+    const size = Number(match[2]);
+    const maximum = match[3] === '%' ? 100 : 4096;
+    if (size < 1 || size > maximum) return { caption: alt, width: null };
+    return { caption: match[1], width: `${size}${match[3]}` };
 }
 
 /**

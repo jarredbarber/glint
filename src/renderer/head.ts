@@ -4,6 +4,7 @@ import { MERMAID_CDN } from './content-behavior.js';
 export const renderHead = (title: string, colorScheme: string, styles: string[] = []) => `
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https: 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' https: data: blob:; media-src https: blob:; font-src 'self' https: data:; connect-src https:; frame-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(title)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">

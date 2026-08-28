@@ -25,7 +25,7 @@ export function createStandaloneHtml(title: string, content: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>${escapeHtml(title)}</title>
 <style>${EXPORT_CSS}</style>
 </head>

@@ -230,7 +230,7 @@ export async function renderFile(opts: RenderFileOptions): Promise<string> {
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
     // Drop client JS. Keep CDN loaders for client-rendered content (mermaid).
-    const hasMermaid = /<div class="mermaid">/.test(html);
+    const hasMermaid = contentBehaviorLoaders(html).length > 0;
     html = stripScripts(html, { keepMermaid: hasMermaid });
 
     return html;
@@ -351,7 +351,7 @@ document.addEventListener('click',function(e){
     html = inlineStylesheets(html, cssByHref);
     html = html.replace(/\sdata-glint-src="[^"]*"/gi, '');
 
-    const hasMermaid = /<div class="mermaid">/.test(html);
+    const hasMermaid = contentBehaviorLoaders(html).length > 0;
     html = stripScripts(html, { keepMermaid: hasMermaid });
 
     return html;

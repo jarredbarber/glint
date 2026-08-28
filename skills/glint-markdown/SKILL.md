@@ -58,6 +58,31 @@ graph LR
 
 Rendered client-side. Any valid Mermaid diagram type is supported.
 
+## HTML
+
+Glint accepts a passive HTML vocabulary inline with the article. It includes normal formatting and table elements plus `img`, `figure`, `figcaption`, `details`, `summary`, `audio`, `video`, `kbd`, `mark`, `abbr`, and `cite`.
+
+Only element-specific presentation attributes survive. Event handlers, `style`, forms, document metadata, executable elements, `srcdoc`, `data-*`, reserved Glint classes, and executable URL schemes are removed from passive HTML. Links may use relative, `http`, `https`, `mailto`, or `tel` URLs. Media may use relative, `http`, or `https` URLs; images may also use supported base64 image data URLs.
+
+Image `width` and `height` values are bounded to 4096 pixels. Image widths may instead use percentages from `1%` through `100%`. Use `align-left`, `align-center`, or `align-right` on an `img` or `figure`; arbitrary classes and CSS are removed.
+
+```html
+<figure class="align-right">
+  <img src="diagram.png" alt="System diagram" width="50%">
+  <figcaption>Request flow</figcaption>
+</figure>
+```
+
+A complete block-level HTML fragment containing any element outside the passive vocabulary is a custom embed. Glint places the whole fragment in an opaque sandbox that allows scripts and presentation APIs but not same-origin access, forms, navigation, popups, or downloads.
+
+```html
+<custom-chart>
+  <script src="https://example.com/chart.js"></script>
+</custom-chart>
+```
+
+Keep a custom fragment complete and within one Markdown block. Glint displays unknown inline HTML and incomplete or malformed fragments literally instead of interpreting them. SPA HTML exports omit custom embeds for offline safety; the CLI and `--body-only` output retain them inside the same opaque sandbox.
+
 ## Wiki Links
 
 `[[Page Name]]` links to `Page Name.md`

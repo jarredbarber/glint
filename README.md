@@ -12,6 +12,7 @@
   - Syntax highlighted code blocks
   - LaTeX equations (inline + display mode)
   - [Mermaid](https://mermaid.js.org/) diagrams
+  - Sanitized semantic HTML plus sandboxed custom HTML blocks
   - Task lists
   - Wiki links
   - References / Citations

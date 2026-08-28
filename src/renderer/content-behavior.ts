@@ -27,7 +27,7 @@ function mermaidInitOptions(): Record<string, unknown> {
     const bg = paletteVar('--bg-color', '#ffffff');
     return {
         theme: 'base',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
         themeVariables: {
             darkMode: paletteIsDark(),
             fontFamily: '"Inter", sans-serif',

@@ -1339,6 +1339,39 @@ img {
     text-align: center;
 }
 
+img.align-left,
+figure.align-left {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+img.align-center,
+figure.align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+img.align-right,
+figure.align-right {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.glint-custom-embed {
+    display: block;
+    width: 100%;
+    min-height: 12rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: white;
+}
+
+.glint-custom-embed-omitted {
+    padding: 1rem;
+    border: 1px dashed var(--border-color);
+    color: var(--text-dim);
+}
+
 table {
     width: 100%;
     border-collapse: collapse;

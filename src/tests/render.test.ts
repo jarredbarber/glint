@@ -119,7 +119,7 @@ t2('renderFile keeps mermaid JS only when the page has a diagram', async () => {
 
     await fs.writeFile(path.join(dir, 'd.md'), '# D\n\n```mermaid\ngraph TD\n  A-->B\n```\n');
     const diagram = await renderFile({ filePath: path.join(dir, 'd.md'), katexVersion: '0.16.9' });
-    assert.match(diagram, /<div class="mermaid">/, 'mermaid div preserved');
+    assert.match(diagram, /<div class="mermaid"(?:\s|>)/, 'mermaid div preserved');
     assert.match(diagram, /mermaid\.min\.js/, 'mermaid loader kept');
     assert.match(diagram, /mermaid\.initialize/, 'mermaid init kept');
     // Only mermaid JS survives — no app bundles.

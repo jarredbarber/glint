@@ -63,7 +63,7 @@ export async function renderMarkdown(source: string, opts: RenderOptions = {}): 
     };
 
     const knownSet = new Set(opts.knownPaths ?? []);
-    const processor = createProcessor(config, (p) => knownSet.has(p));
+    const processor = createProcessor(config, (p) => knownSet.has(p), 'spa');
 
     const file = new VFile({ value: content });
     file.data.contentStartLine = contentStartLine;

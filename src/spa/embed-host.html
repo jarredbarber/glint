@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https: 'unsafe-inline'; style-src https: 'unsafe-inline'; img-src https: data: blob:; media-src https: blob:; font-src https: data:; connect-src https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glint custom embed</title>
+</head>
+<body>
+<script>
+(function () {
+  function resizeBootstrap() {
+    var send = parent.postMessage.bind(parent);
+    function report() {
+      send({
+        type: 'glint-embed-resize',
+        width: Math.ceil(document.documentElement.scrollWidth),
+        height: Math.ceil(document.documentElement.scrollHeight)
+      }, '*');
+    }
+    new ResizeObserver(report).observe(document.documentElement);
+    addEventListener('load', report, { once: true });
+    queueMicrotask(report);
+  }
+
+  function receivePort(event) {
+    if (event.source !== parent || event.data !== 'glint-embed-init' || event.ports.length !== 1) return;
+    removeEventListener('message', receivePort);
+    var port = event.ports[0];
+    port.onmessage = function (message) {
+      port.close();
+      if (typeof message.data !== 'string') return;
+      var csp = "default-src 'none'; script-src https: 'unsafe-inline'; style-src https: 'unsafe-inline'; img-src https: data: blob:; media-src https: blob:; font-src https: data:; connect-src https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action 'none'";
+      var bootstrap = '<script>(' + resizeBootstrap.toString() + ')();</scr' + 'ipt>';
+      document.open();
+      document.write('<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><meta name="viewport" content="width=device-width,initial-scale=1">' + bootstrap + message.data);
+      document.close();
+    };
+    port.start();
+  }
+
+  addEventListener('message', receivePort);
+})();
+</script>
+</body>
+</html>

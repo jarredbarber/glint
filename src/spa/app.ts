@@ -15,6 +15,7 @@ import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProje
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
 import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
+import { wireCustomEmbeds } from './custom-embeds.js';
 
 // Public OAuth IDs and the Worker origin are deployment configuration; secrets never
 // enter the SPA.
@@ -670,6 +671,7 @@ async function openFile(id: string) {
     if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = pageSourceLinkHtml(id) + html;
+    wireCustomEmbeds(wrapper);
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid: innerHTML never runs the emitted scripts
     wireWikiLinks();
     wireTaskCheckboxes();
@@ -769,6 +771,12 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 async function inlineAssetsForExport(renderedHtml: string, pagePath: string): Promise<string> {
     const template = document.createElement('template');
     template.innerHTML = renderedHtml;
+    for (const frame of template.content.querySelectorAll<HTMLIFrameElement>('iframe.glint-custom-embed')) {
+        const omitted = document.createElement('div');
+        omitted.className = 'glint-custom-embed-omitted';
+        omitted.textContent = 'Custom embed omitted from offline export.';
+        frame.replaceWith(omitted);
+    }
     const failures: string[] = [];
     for (const img of template.content.querySelectorAll<HTMLImageElement>('img[data-glint-src]')) {
         const src = img.getAttribute('data-glint-src') ?? '';
@@ -1073,6 +1081,7 @@ async function renderDiscussions(content: string): Promise<void> {
         const body = document.createElement('div');
         body.className = 'glint-discussion-body';
         body.innerHTML = await GlintRender.renderMarkdown(resolved.discussion.content);
+        wireCustomEmbeds(body);
         article.append(meta, body);
         for (const reply of resolved.discussion.replies) {
             const replyNode = document.createElement('div');
@@ -1083,6 +1092,7 @@ async function renderDiscussions(content: string): Promise<void> {
             const replyBody = document.createElement('div');
             replyBody.className = 'glint-discussion-body';
             replyBody.innerHTML = await GlintRender.renderMarkdown(reply.content);
+            wireCustomEmbeds(replyBody);
             replyNode.append(replyMeta, replyBody);
             article.append(replyNode);
         }
