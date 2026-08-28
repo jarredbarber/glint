@@ -253,13 +253,16 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
     const vfile = await processor.process(file);
 
     const repoAssets = path.join(import.meta.dirname, '..', 'assets');
-    const cssFiles: [string, string][] = [
+    const baseCssFiles: [string, string][] = [
         ['/assets/fonts.css', path.join(repoAssets, 'fonts.css')],
         ['/assets/katex/katex.min.css', path.join(repoAssets, 'katex', 'katex.min.css')],
         ['/assets/layout.css', path.join(repoAssets, 'layout.css')],
         ['/assets/highlight.css', path.join(repoAssets, 'highlight.css')],
         [`/assets/color-schemes/${config.colorScheme}.css`, path.join(repoAssets, 'color-schemes', `${config.colorScheme}.css`)],
     ];
+    // spa-layout.css (100vh + overflow:hidden) is SPA-only; standalone
+    // renders and bodyOnly fragments (VimR) must scroll normally.
+    const cssFiles = baseCssFiles;
 
     if (opts.bodyOnly) {
         // Body fragment: inlined CSS + KaTeX + raw pipeline output, for embedding

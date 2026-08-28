@@ -458,13 +458,6 @@ ul.contains-task-list .glint-task {
     padding: 0;
 }
 
-html,
-body {
-    height: 100vh;
-    /* Force viewport height */
-    overflow: hidden;
-    /* Prevent window scroll */
-}
 
 body {
     display: flex;

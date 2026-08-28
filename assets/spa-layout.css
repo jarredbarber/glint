@@ -1,0 +1,7 @@
+html,
+body {
+    height: 100vh;
+    /* Force viewport height */
+    overflow: hidden;
+    /* Prevent window scroll */
+}
