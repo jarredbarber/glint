@@ -1,7 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
-import { parseMarkdown } from '../markdown.js';
+import { parseMarkdown, parseFrontmatterLite } from '../markdown.js';
+
+// The browser bundle falls back to parseFrontmatterLite (gray-matter needs Buffer).
+// #131: a `>` folded block scalar used to leave description === '>'.
+test('parseFrontmatterLite block scalars', () => {
+    const data = parseFrontmatterLite([
+        'name: therapy-prep',
+        'description: >',
+        '  Synthesize recent journal entries into a structured prep document.',
+        '  Organizes scattered thoughts into summary, observations, and agenda.',
+        'trigger: When the user wants therapy prep.',
+    ].join('\n'));
+    assert.equal(data.name, 'therapy-prep');
+    assert.equal(data.description, 'Synthesize recent journal entries into a structured prep document. Organizes scattered thoughts into summary, observations, and agenda.');
+    assert.equal(data.trigger, 'When the user wants therapy prep.');
+
+    const literal = parseFrontmatterLite('code: |\n  line one\n  line two');
+    assert.equal(literal.code, 'line one\nline two');
+});
 
 test('frontmatter parsing', async (t) => {
     await t.test('parses simple frontmatter', () => {

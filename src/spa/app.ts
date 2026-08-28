@@ -73,24 +73,6 @@ function sourceDetail(route: string): string {
 }
 // The backend's own URL, for opening the original source in a new tab (#1). Local
 // folders have no addressable URL, so they return '' and stay in-app.
-function sourceUrl(route: string): string {
-    if (route.startsWith('#/drive/')) {
-        return `https://drive.google.com/drive/folders/${route.slice('#/drive/'.length)}`;
-    }
-    const parsed = parseRoute(route);
-    if (parsed && (parsed.backend === 'gh' || parsed.backend === 'github')) {
-        const [owner, repo, ...pathParts] = parsed.rest;
-        if (!owner || !repo) return '';
-        let ref = 'main';
-        let path = pathParts.join('/');
-        const at = path.lastIndexOf('@');
-        if (at !== -1) { ref = path.slice(at + 1); path = path.slice(0, at); }
-        const suffix = path ? `/tree/${ref}/${path}` : `/tree/${ref}`;
-        return `https://github.com/${owner}/${repo}${suffix}`;
-    }
-    return '';
-}
-
 export function parseRoute(hash: string): { backend: string; rest: string[] } | null {
     const m = hash.replace(/^#\/?/, '');
     if (!m) return null;
@@ -281,13 +263,10 @@ const COMMENT_LABELS: Record<CommentLayout, { title: string; blurb: string }> = 
     rail: { title: 'Side rail', blurb: 'Comments collect in a column beside the page.' },
 };
 
-// Comment placement (inline vs. right rail) and the content top-bar are root
-// attributes the CSS keys off, applied the way applyTheme swaps the theme.
+// Comment placement (inline vs. right rail) is a root attribute the CSS keys
+// off, applied the way applyTheme swaps the theme.
 function applyCommentLayout(layout: CommentLayout): void {
     document.documentElement.dataset.comments = layout;
-}
-function applyContentBar(on: boolean): void {
-    document.documentElement.dataset.contentbar = on ? 'on' : 'off';
 }
 
 function applyParaHighlight(on: boolean): void {
@@ -400,11 +379,6 @@ function rememberCurrentProject(nameOverride?: string): void {
     persistState();
 }
 
-function activeProjectName(): string {
-    const active = appState.projects.find((project) => project.route === appState.settings.activeProjectRoute);
-    return active?.name ?? 'Workspace';
-}
-
 function projectSwitcher(): string {
     const active = appState.projects.find((project) => project.route === appState.settings.activeProjectRoute);
     const icon = active ? sourceIcon(active.route) : ICON.source;
@@ -455,9 +429,8 @@ function renderSettings(): void {
             <label class="glint-field">Color scheme <select data-color-scheme>${colorSchemeOptions}</select></label>
         </section>
         <section class="glint-setting-group"><h2>Layout</h2>
-            <p class="glint-setting-note">Where comments go, and whether pages get a top bar.</p>
+            <p class="glint-setting-note">Where comments go.</p>
             <div class="glint-theme-grid">${commentCards}</div>
-            <label class="glint-toggle"><input type="checkbox" data-content-bar${appState.settings.contentBar ? ' checked' : ''}> Show a page top bar (breadcrumb, export, delete)</label>
             <label class="glint-toggle"><input type="checkbox" data-para-highlight${appState.settings.paraHighlight ? ' checked' : ''}> Highlight the paragraph under the cursor</label>
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
@@ -499,13 +472,6 @@ function renderSettings(): void {
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, commentLayout: previous } }; applyCommentLayout(previous); }
         renderSettings();
     }));
-    wrapper.querySelector<HTMLInputElement>('[data-content-bar]')?.addEventListener('change', (event) => {
-        const previous = appState.settings.contentBar;
-        const on = (event.target as HTMLInputElement).checked;
-        appState = { ...appState, settings: { ...appState.settings, contentBar: on } };
-        applyContentBar(on);
-        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, contentBar: previous } }; applyContentBar(previous); renderSettings(); }
-    });
     wrapper.querySelector<HTMLInputElement>('[data-para-highlight]')?.addEventListener('change', (event) => {
         const previous = appState.settings.paraHighlight;
         const on = (event.target as HTMLInputElement).checked;
@@ -555,7 +521,6 @@ function renderSettings(): void {
         applyTheme(appState.settings.theme);
         applyColorScheme(appState.settings.colorScheme);
         applyCommentLayout(appState.settings.commentLayout);
-        applyContentBar(appState.settings.contentBar);
         applyParaHighlight(appState.settings.paraHighlight);
         browserStorage?.removeItem(LEGACY_GITHUB_TOKEN_KEY);
         persistState();
@@ -779,7 +744,6 @@ async function openFile(id: string) {
         frame.srcdoc = content;
         wrapper.innerHTML = pageSourceLinkHtml(id);
         wrapper.appendChild(frame);
-        renderContentBar();
         renderSidebar();
         return;
     }
@@ -797,28 +761,7 @@ async function openFile(id: string) {
     wireTaskCheckboxes();
     void resolveManagedImages(wrapper, files.find((f) => f.id === id)?.path ?? id, gen);
     await renderDiscussions(content);
-    renderContentBar();
     renderSidebar();
-}
-
-// Optional content-area top bar: breadcrumb + page actions. Hidden by CSS unless the
-// content-bar setting is on; also hidden here when no page is open.
-function renderContentBar(): void {
-    const bar = document.querySelector<HTMLElement>('.glint-content-bar');
-    if (!bar) return;
-    const page = files.find((file) => file.id === currentFileId);
-    if (!page) { bar.hidden = true; bar.innerHTML = ''; return; }
-    const crumbs = page.path.split('/');
-    const name = crumbs.pop() ?? page.name;
-    const trail = crumbs.map((crumb) => `<span>${escapeHtml(crumb)}</span><span class="glint-crumb-sep">/</span>`).join('');
-    bar.innerHTML = `<div class="glint-breadcrumb">${trail}<span class="glint-crumb-current">${escapeHtml(name)}</span></div>
-        <div class="glint-content-bar-actions">
-            <button class="glint-bar-btn" data-export-page>${ICON.export}<span>Export</span></button>
-            <button class="glint-bar-btn" data-delete-page>${ICON.trash}<span>Delete</span></button>
-        </div>`;
-    bar.hidden = false;
-    bar.querySelector('[data-export-page]')?.addEventListener('click', () => void exportCurrentPage());
-    bar.querySelector('[data-delete-page]')?.addEventListener('click', () => void deleteCurrentPage());
 }
 
 async function createPage(rawName: string): Promise<void> {
@@ -858,7 +801,6 @@ async function deleteCurrentPage(): Promise<void> {
             (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = '';
             const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
             if (rail) { rail.innerHTML = ''; rail.hidden = true; }
-            renderContentBar();
         }
     } catch (error) {
         alert(`Could not delete “${page.name}”: ${(error as Error).message}`);
@@ -1384,7 +1326,6 @@ function renderSidebar() {
     nav.innerHTML = `
         <header class="glint-brand">
             <button class="glint-brand-home" data-go-landing title="Home" aria-label="Home"><span class="glint-brand-mark">${ICON.mark}</span><span class="glint-wordmark">Glint</span></button>
-            <button class="glint-brand-project" data-go-project title="Open source in a new tab">${escapeHtml(activeProjectName())}</button>
         </header>
         <div class="glint-sidebar-top">
             ${projectSwitcher()}
@@ -1394,10 +1335,9 @@ function renderSidebar() {
         <nav class="glint-tree spa-page-list" aria-label="Files"><ul>${renderFileTree(buildFileTree(files))}</ul></nav>
         ${tocDockHtml()}
         <footer class="glint-sidebar-footer">
-            ${canEdit ? `<button class="glint-primary" data-new-page>${ICON.plus}<span>New page</span></button>` : ''}
+            ${canEdit ? `<button class="glint-icon-btn" data-new-page title="New page" aria-label="New page">${ICON.plus}</button>` : ''}
             ${pushControlHtml()}
             ${pageActions}
-            <button class="glint-icon-btn" data-open-source title="Open another source" aria-label="Open another source">${ICON.source}</button>
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
         </footer>
         <div class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize"></div>`;
@@ -1405,15 +1345,6 @@ function renderSidebar() {
     wireProjectControls(nav);
     wireTocDock(nav);
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
-    nav.querySelector('[data-go-project]')?.addEventListener('click', () => {
-        const route = appState.settings.activeProjectRoute;
-        if (!route) return;
-        // Open the original backend (GitHub/Drive) in a new tab; local has no URL, so
-        // fall back to the in-app project home (#1).
-        const url = sourceUrl(route);
-        if (url) window.open(url, '_blank', 'noopener');
-        else location.hash = route;
-    });
     nav.querySelector('[data-new-page]')?.addEventListener('click', () => {
         void promptText('New page name (.md is optional)').then((name) => {
             if (name !== null) void createPage(name);
@@ -1557,7 +1488,6 @@ async function refreshFilesOnFocus(): Promise<void> {
             (document.querySelector('.content-wrapper') as HTMLElement).innerHTML = '';
             const rail = document.querySelector<HTMLElement>('.glint-comment-rail');
             if (rail) { rail.innerHTML = ''; rail.hidden = true; }
-            renderContentBar();
             renderSidebar();
         } else if (current?.version !== replacement.version) {
             await openFile(id);
@@ -1645,7 +1575,6 @@ export async function boot(): Promise<void> {
     applyColorScheme(appState.settings.colorScheme);
     applyTheme(appState.settings.theme);
     applyCommentLayout(appState.settings.commentLayout);
-    applyContentBar(appState.settings.contentBar);
     applyParaHighlight(appState.settings.paraHighlight);
     const oauth = githubOAuthConfig();
     if (oauth) {

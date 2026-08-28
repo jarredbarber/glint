@@ -66,6 +66,8 @@
 
 /* Frontmatter header (#67): left-align to match the theme's left-aligned prose. */
 [data-theme] .article-header { text-align: left; margin-bottom: 1.5rem; }
+/* #131: rule under the doc title, like OG glint. */
+[data-theme] .article-header .glint-doc-title { padding-bottom: 0.4rem; border-bottom: var(--theme-rule) solid var(--border-color); }
 [data-theme] .article-header .article-meta,
 [data-theme] .article-header .article-tags { justify-content: flex-start; }
 [data-theme] .article-header .article-description { text-align: left; margin-left: 0; margin-right: 0; }
@@ -98,11 +100,9 @@
     font-size: 0.8rem;
 }
 [data-theme] .glint-wordmark { font-family: var(--theme-display); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
-/* Brand mark and project name are buttons (nav to landing / project home): strip button chrome. */
+/* Brand mark is a button (nav to landing): strip button chrome. */
 [data-theme] .glint-brand-home { display: flex; align-items: center; gap: 0.55rem; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; }
-[data-theme] .glint-brand-project { display: none; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 [data-theme] .glint-brand-home:hover .glint-wordmark { text-decoration: underline; }
-[data-theme] .glint-brand-project:hover { text-decoration: underline; }
 
 /* Top controls */
 [data-theme] .glint-sidebar-top { display: flex; flex-direction: column; gap: 0.55rem; padding: 0 0.9rem 0.6rem; }
@@ -572,19 +572,6 @@
     letter-spacing: 0.16em;
     color: var(--theme-accent);
 }
-[data-theme="almanac"] .glint-brand-project {
-    display: block;
-    font-family: var(--theme-display);
-    font-size: 1.3rem;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
-}
-
 /* Flat, ruled controls instead of pills. */
 [data-theme="almanac"] .glint-switcher,
 [data-theme="almanac"] .glint-search {
@@ -715,48 +702,7 @@
     transition: background 0.12s ease;
 }
 
-/* ---- Configurable content bar + comment rail -------------------------- */
-/* Content top bar, off by default; shown only when the setting is on and a page
- * is open (the JS toggles the [hidden] attribute). */
-.glint-content-bar { display: none; }
-[data-contentbar="on"] .glint-content-bar:not([hidden]) {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    padding: 0.6rem 1.5rem;
-    background: var(--bg-color);
-    border-bottom: var(--theme-rule) solid var(--border-color);
-    font-family: var(--theme-ui);
-}
-[data-theme] .glint-breadcrumb { display: flex; align-items: center; gap: 0.4rem; min-width: 0; font-size: 0.8rem; color: var(--text-dim); overflow: hidden; }
-[data-theme] .glint-breadcrumb > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-[data-theme] .glint-crumb-sep { color: var(--text-dim); opacity: 0.6; }
-[data-theme] .glint-crumb-current { color: var(--text-color); font-weight: 600; }
-[data-theme] .glint-content-bar-actions { margin-left: auto; display: flex; gap: 0.4rem; flex-shrink: 0; }
-[data-theme] .glint-bar-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.35rem 0.7rem;
-    font: inherit;
-    font-size: 0.78rem;
-    background: transparent;
-    color: var(--text-dim);
-    border: var(--theme-rule) solid var(--border-color);
-    border-radius: var(--theme-radius-sm);
-    cursor: pointer;
-}
-[data-theme] .glint-bar-btn svg { width: 0.9em; height: 0.9em; }
-[data-theme] .glint-bar-btn:hover { color: var(--text-color); background: var(--bg-highlight); }
-/* When the bar carries the page actions, drop the duplicates from the sidebar footer. */
-[data-contentbar="on"] .glint-sidebar-footer [data-export-page],
-[data-contentbar="on"] .glint-sidebar-footer [data-delete-page] { display: none; }
-[data-theme="almanac"] .glint-content-bar { border-bottom-width: 1.5px; }
-[data-theme="almanac"] .glint-breadcrumb { font-variant: all-small-caps; letter-spacing: 0.06em; }
-
+/* ---- Comment rail ----------------------------------------------------- */
 /* Comment rail, a column beside the page when the setting is "rail". The rail
  * element carries a [hidden] attribute the JS clears when there are comments. */
 /* body:not(.glint-landing): the rail layout is for open documents only — Settings

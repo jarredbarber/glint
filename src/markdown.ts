@@ -58,11 +58,13 @@ function parseFrontmatterValue(rawValue: string): unknown {
     return unquote(value);
 }
 
-function parseFrontmatterLite(block: string): Record<string, unknown> {
+export function parseFrontmatterLite(block: string): Record<string, unknown> {
     const data: Record<string, unknown> = {};
     let nestedMap: Record<string, unknown> | null = null;
+    const lines = block.split('\n');
 
-    for (const line of block.split('\n')) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const nested = line.match(/^\s+([\w-]+)\s*:\s*(.+)$/);
         if (nested && nestedMap) {
             nestedMap[nested[1]] = parseFrontmatterValue(nested[2]);
@@ -76,7 +78,18 @@ function parseFrontmatterLite(block: string): Record<string, unknown> {
         }
 
         const [, key, rawValue] = topLevel;
-        if (rawValue.trim() === '') {
+        const trimmed = rawValue.trim();
+        // Block scalars: `>` folds continuation lines with spaces, `|` keeps newlines.
+        // Chomping/indent indicators (`>-`, `|+`, `>2`) are tolerated, not honored.
+        if (/^[>|][-+\d]*$/.test(trimmed)) {
+            const folded = trimmed[0] === '>';
+            const collected: string[] = [];
+            while (i + 1 < lines.length && (lines[i + 1].trim() === '' || /^\s/.test(lines[i + 1]))) {
+                collected.push(lines[++i].trim());
+            }
+            data[key] = collected.join(folded ? ' ' : '\n').trim();
+            nestedMap = null;
+        } else if (trimmed === '') {
             nestedMap = {};
             data[key] = nestedMap;
         } else {
