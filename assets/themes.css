@@ -65,9 +65,10 @@
 }
 
 /* Frontmatter header (#67): left-align to match the theme's left-aligned prose. */
-[data-theme] .article-header { text-align: left; margin-bottom: 1.5rem; }
-/* #131: rule under the doc title, like OG glint. */
-[data-theme] .article-header .glint-doc-title { padding-bottom: 0.4rem; border-bottom: var(--theme-rule) solid var(--border-color); }
+/* #131: full-width rule between the frontmatter header and the content. */
+[data-theme] .article-header { text-align: left; margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: var(--theme-rule) solid var(--border-color); }
+/* #131: thick bar under the title text only (like OG glint), not full width. */
+[data-theme] .article-header .glint-doc-title { display: inline-block; padding-bottom: 0.25rem; border-bottom: 4px solid var(--text-color); }
 [data-theme] .article-header .article-meta,
 [data-theme] .article-header .article-tags { justify-content: flex-start; }
 [data-theme] .article-header .article-description { text-align: left; margin-left: 0; margin-right: 0; }
