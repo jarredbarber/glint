@@ -273,7 +273,7 @@ export async function renderMarkdown(opts: RenderMarkdownOptions): Promise<strin
         for (const [, fsPath] of cssFiles) {
             try { cssParts.push(await fs.readFile(fsPath, 'utf8')); } catch { /* skip */ }
         }
-        cssParts.push('html,body{height:auto!important;overflow:visible!important;}body{display:block!important;max-width:none!important;padding:1rem 1.25rem!important;background:var(--bg-color)!important;color:var(--text-color)!important;}');
+        cssParts.push('html,body{height:auto!important;overflow:visible!important;}body{display:block!important;max-width:none!important;padding:1rem 1.25rem!important;background:var(--bg-color)!important;color:var(--text-color)!important;}a{color:var(--blue,#81a1c1)!important;}a:hover{color:var(--aqua,#8fbcbb)!important;}');
         cssParts.push(GITHUB_PRIMER_BRIDGE);
         const katexLink = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@${katexVersion}/dist/katex.min.css">`;
         // Glint's fonts (layout.css asks for Inter / JetBrains Mono). VimR's own
