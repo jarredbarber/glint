@@ -265,6 +265,7 @@ function applyTheme(theme: Theme): void {
 }
 
 const THEME_LABELS: Record<Theme, { title: string; blurb: string }> = {
+    default: { title: 'Default', blurb: 'Clean and minimal.' },
     reader: { title: 'Reader', blurb: 'Warm editorial with serif prose and soft, rounded controls.' },
     almanac: { title: 'Almanac', blurb: 'Printed field guide with a ruled index, small caps, and marginalia.' },
 };
