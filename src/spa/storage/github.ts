@@ -83,10 +83,14 @@ export class GitHubAdapter implements StorageAdapter {
     private canPush = true;
     private reads = new Map<string, CachedRead>();
     private listedVersions = new Map<string, string>();
-    // Push-mode state (#60): in staged/pr, write() parks edits here (id -> latest content
-    // + the sha it was based on) instead of committing. push() drains it.
+    // Push-mode state (#60): in staged/pr, write() parks edits here (id -> latest content)
+    // instead of committing. push() drains it.
+    // ponytail: no concurrent-edit detection — push() rebases the buffered blobs onto the
+    // current head and overwrites, so a remote change to the same file between staging and
+    // push is lost silently. Acceptable for a single-author wiki; add per-file sha checks in
+    // push() if multi-writer conflicts start mattering.
     private mode: GitHubPushMode = 'direct';
-    private pending = new Map<string, { content: string; base: string }>();
+    private pending = new Map<string, string>();
 
     constructor(
         private owner: string,
@@ -246,10 +250,9 @@ export class GitHubAdapter implements StorageAdapter {
 
     async write(id: string, content: string, version: string) {
         if (this.mode !== 'direct') {
-            // Buffer: keep the earliest base sha, serve the edited text on re-open via the
-            // read cache (version unchanged, so the cache stays valid), commit later in push().
-            const base = this.pending.get(id)?.base ?? version;
-            this.pending.set(id, { content, base });
+            // Buffer: serve the edited text on re-open via the read cache (version unchanged,
+            // so the cache stays valid), commit later in push().
+            this.pending.set(id, content);
             this.reads.set(id, { content, version });
             return { version };
         }
@@ -283,6 +286,7 @@ export class GitHubAdapter implements StorageAdapter {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const created = githubMutationSchema.parse(await r.json()).content;
         const file = { id: name, name: name.split('/').pop()!, path: name, version: created.sha };
+        this.pending.delete(file.id);   // a direct create wins over any stale buffered edit (#60)
         this.reads.set(file.id, { content, version: file.version });
         this.listedVersions.set(file.id, file.version);
         return file;
@@ -299,6 +303,8 @@ export class GitHubAdapter implements StorageAdapter {
             }),
         });
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        // Drop any buffered edit too, or push() would rebuild the file we just deleted (#60).
+        this.pending.delete(id);
         this.reads.delete(id);
         this.listedVersions.delete(id);
     }
@@ -310,10 +316,12 @@ export class GitHubAdapter implements StorageAdapter {
         const entries = [...this.pending.entries()];
         if (entries.length === 0) return {};
         const repo = `/repos/${this.owner}/${this.repo}`;
-        const headSha: string = (await this.ghJson(`${repo}/git/ref/heads/${encodeURIComponent(this.ref)}`)).object.sha;
+        // Encode ref segments individually so a nested branch (release/x) keeps its slashes.
+        const refPath = this.ref.split('/').map(encodeURIComponent).join('/');
+        const headSha: string = (await this.ghJson(`${repo}/git/ref/heads/${refPath}`)).object.sha;
         const baseTree: string = (await this.ghJson(`${repo}/git/commits/${headSha}`)).tree.sha;
         const tree = [];
-        for (const [id, { content }] of entries) {
+        for (const [id, content] of entries) {
             const blob: string = (await this.ghJson(`${repo}/git/blobs`, { method: 'POST', body: JSON.stringify({ content: toB64(content), encoding: 'base64' }) })).sha;
             tree.push({ path: this.fullPath(id), mode: '100644', type: 'blob', sha: blob });
         }
@@ -327,7 +335,7 @@ export class GitHubAdapter implements StorageAdapter {
             const prUrl: string = (await this.ghJson(`${repo}/pulls`, { method: 'POST', body: JSON.stringify({ title: message, head: branch, base: this.ref, body: 'Opened by Glint.' }) })).html_url;
             result = { prUrl };
         } else {
-            await this.ghJson(`${repo}/git/refs/heads/${encodeURIComponent(this.ref)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit }) });
+            await this.ghJson(`${repo}/git/refs/heads/${refPath}`, { method: 'PATCH', body: JSON.stringify({ sha: commit }) });
             result = { commit };
         }
         // Drop caches for pushed files so the next read fetches their fresh shas.

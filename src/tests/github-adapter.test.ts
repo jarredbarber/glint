@@ -375,3 +375,31 @@ test('pr push mode opens a branch and a pull request (#60)', async (t) => {
     const pull = calls.find((c) => c.url.endsWith('/pulls'));
     assert.equal(pull!.body.base, 'main');
 });
+
+test('deleting a staged file drops its buffered edit so push cannot resurrect it (#60)', async (t) => {
+    const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    let pushCalls = 0;
+    Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async (url: string, opts: RequestInit = {}) => {
+            if (opts.method === 'DELETE') return new Response(JSON.stringify({ content: null }));
+            if (url.includes('/git/')) { pushCalls += 1; return new Response(JSON.stringify({ object: { sha: 'x' }, tree: { sha: 'x' }, sha: 'x' })); }
+            // read() before delete
+            return new Response(JSON.stringify({ content: btoa('v1'), sha: 'base-sha' }));
+        },
+    });
+    t.after(() => {
+        if (fetchDescriptor) Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+        else Reflect.deleteProperty(globalThis, 'fetch');
+    });
+
+    const adapter = new GitHubAdapter('owner', 'repo', '', 'main', undefined, 'tok');
+    adapter.setPushMode('staged');
+    await adapter.write('note.md', 'v1', 'base-sha');
+    assert.equal(adapter.pendingCount(), 1);
+    await adapter.delete('note.md');
+    assert.equal(adapter.pendingCount(), 0);
+    // Nothing pending -> push is a no-op and never hits the Git Data API.
+    assert.deepEqual(await adapter.push('x'), {});
+    assert.equal(pushCalls, 0);
+});

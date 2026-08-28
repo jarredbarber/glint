@@ -635,8 +635,11 @@ async function onSectionSaved(id: string, content: string, version: string): Pro
 // Staged/PR push control (#60): a footer button that flushes buffered edits. Hidden in
 // direct mode; disabled when nothing is pending.
 function pushControlHtml(): string {
-    if (!(adapter instanceof GitHubAdapter) || adapter.pushMode() === 'direct') return '';
+    if (!(adapter instanceof GitHubAdapter)) return '';
     const n = adapter.pendingCount();
+    // Show whenever edits are buffered, even if the mode was switched back to direct after
+    // staging — otherwise those edits would be stranded with no way to flush them (#60).
+    if (adapter.pushMode() === 'direct' && n === 0) return '';
     const label = adapter.pushMode() === 'pr' ? 'Open pull request' : 'Push staged edits';
     return `<button class="glint-icon-btn glint-push-btn" data-push title="${label}" aria-label="${label}"${n === 0 ? ' disabled' : ''}>⬆<span class="glint-push-count" data-push-count>${n}</span></button>`;
 }
@@ -660,7 +663,10 @@ async function triggerPush(): Promise<void> {
     const message = input.trim() || fallback;
     try {
         const result = await withSilentReauth(adapter, () => (adapter as GitHubAdapter).push(message));
-        updatePushBadge();
+        // Refresh the file list so app-level shas aren't stale post-commit (a later direct
+        // save/delete would otherwise send an old sha and spuriously conflict, #60).
+        try { files = await withSilentReauth(adapter, () => adapter.list()); } catch { /* keep old list */ }
+        renderSidebar();
         if (result.prUrl) { showToast('Pull request opened', 'success'); window.open(result.prUrl, '_blank', 'noopener'); }
         else showToast('Pushed to GitHub', 'success');
     } catch (error) {
