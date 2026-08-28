@@ -23,6 +23,8 @@ import { rehypeGlintImage } from './rehype-glint-image.js';
 import { rehypeGlintCodeBlocks } from './rehype-glint-code-blocks.js';
 import { remarkGlintCitations } from './remark-glint-citations.js';
 import { rehypeGlintCitations } from './rehype-glint-citations.js';
+import { remarkGlintEqrefs } from './remark-glint-eqrefs.js';
+import { rehypeGlintEqrefs } from './rehype-glint-eqrefs.js';
 import {
     rawHtmlOptions,
     rehypeClassifyAuthorHtml,
@@ -55,6 +57,7 @@ export function createProcessor(
         .use(remarkMath)
         .use(remarkGfm)
         .use(remarkGlintWidgets)
+        .use(remarkGlintEqrefs)
         .use(remarkGlintCitations)
         .use(remarkWikiLinkGlint, { validateLink: linkValidator })
         .use(remarkMermaidGlint)
@@ -68,6 +71,7 @@ export function createProcessor(
         .use(rehypeGlintImage)
         .use(rehypeGlintCitations)
         .use(rehypeKatex, { macros, throwOnError: false, trust: false, strict: false })
+        .use(rehypeGlintEqrefs)
         // detect:false — only highlight fences with an explicit language. Auto-
         // detection guesses badly on unlabeled blocks (ascii tables, output dumps),
         // e.g. tagging aligned text as "markdown" and coloring its punctuation.

@@ -49,6 +49,20 @@ y &= 2
 $$
 ```
 
+### Labels and cross-references
+
+Label a single display equation with `\label{eq:key}`. Glint numbers labeled equations in order and renders that number as the equation tag. Reference one in prose with `[[#eq:key]]`, which shows the number and links to the equation.
+
+```
+$$
+E = mc^2 \label{eq:mass}
+$$
+
+Combined with [[#eq:momentum]], equation [[#eq:mass]] gives...
+```
+
+References may point forward or backward. An unknown key renders as `(?)` with the `broken-link` class. Labels apply to single display equations only; multi-row environments like `align` keep their own KaTeX numbering.
+
 ## Mermaid Diagrams
 
 ```mermaid

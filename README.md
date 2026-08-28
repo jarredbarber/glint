@@ -10,7 +10,7 @@
 - Opinionated rendering of Markdown with extensions geared towards technical writing 
   - Standard Github-flavored Markdown
   - Syntax highlighted code blocks
-  - LaTeX equations (inline + display mode)
+  - LaTeX equations (inline + display mode), with labeled equations and `[[#eq:key]]` cross-references
   - [Mermaid](https://mermaid.js.org/) diagrams
   - Sanitized semantic HTML plus sandboxed custom HTML blocks
   - Task lists

@@ -1404,6 +1404,27 @@ tr:nth-child(even) {
     padding-right: 2rem;
 }
 
+/* Labeled equations (#108): offset so anchor jumps clear the sticky header. */
+.glint-eq {
+    scroll-margin-top: 5rem;
+}
+
+/* In-text equation cross-reference (#108). */
+.glint-eqref {
+    color: var(--accent-color, #81a1c1);
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.glint-eqref:hover {
+    text-decoration: underline;
+}
+
+.glint-eqref.broken-link {
+    color: var(--red);
+    cursor: help;
+}
+
 .katex-display>.katex {
     display: inline-block;
     max-width: 100%;
