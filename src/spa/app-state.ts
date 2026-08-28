@@ -16,6 +16,7 @@ export type PersistedStateV1 = {
         theme: Theme;
         commentLayout: CommentLayout;
         contentBar: boolean;
+        paraHighlight: boolean;
         vimMode: boolean;
         activeProjectRoute: string | null;
     };
@@ -24,7 +25,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
+    settings: { colorScheme: 'default', theme: 'reader', commentLayout: 'inline', contentBar: false, paraHighlight: false, vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -97,7 +98,8 @@ function validatedState(value: unknown, colorSchemes: readonly string[]): Persis
     const theme: Theme = settings.theme === 'almanac' ? 'almanac' : 'reader';
     const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
     const contentBar = settings.contentBar === true;
-    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, vimMode: settings.vimMode, activeProjectRoute } };
+    const paraHighlight = settings.paraHighlight === true;
+    return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, paraHighlight, vimMode: settings.vimMode, activeProjectRoute } };
 }
 
 export type StateLoad = { state: PersistedStateV1; notice?: string; persistent: boolean };

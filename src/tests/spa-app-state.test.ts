@@ -37,10 +37,10 @@ test('loads an exact valid V1 record and resets invalid state', () => {
     assert.match(loaded.notice ?? '', /reset/);
 });
 
-test('invalid runtime color scheme falls back to nord', () => {
+test('invalid runtime color scheme falls back to default', () => {
     const storage = new MemoryStorage();
     storage.setItem('glint-spa-state', JSON.stringify({ version: 1, projects: [], settings: { colorScheme: 'unknown', vimMode: true, activeProjectRoute: null } }));
-    assert.equal(loadState(storage as unknown as Storage, colorSchemes).state.settings.colorScheme, 'nord');
+    assert.equal(loadState(storage as unknown as Storage, colorSchemes).state.settings.colorScheme, 'default');
 });
 
 test('theme backfills to reader for records with no or invalid theme', () => {

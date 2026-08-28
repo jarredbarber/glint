@@ -697,6 +697,14 @@
 [data-theme="almanac"] .glint-discussion-meta { font-variant: all-small-caps; letter-spacing: 0.06em; }
 [data-theme="almanac"] .glint-discussion-reply { font-style: italic; border-left-style: dotted; }
 
+/* Paragraph hover highlight (#127), off by default; toggled from Settings. */
+[data-parahighlight="on"] .glint-section p:hover {
+    background: var(--bg-highlight);
+    box-shadow: 0 0 0 0.35rem var(--bg-highlight);
+    border-radius: 2px;
+    transition: background 0.12s ease;
+}
+
 /* ---- Configurable content bar + comment rail -------------------------- */
 /* Content top bar, off by default; shown only when the setting is on and a page
  * is open (the JS toggles the [hidden] attribute). */

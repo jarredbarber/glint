@@ -283,6 +283,10 @@ function applyContentBar(on: boolean): void {
     document.documentElement.dataset.contentbar = on ? 'on' : 'off';
 }
 
+function applyParaHighlight(on: boolean): void {
+    document.documentElement.dataset.parahighlight = on ? 'on' : 'off';
+}
+
 // A single dismissible modal layer. Resolves via the caller's wiring; Escape / backdrop
 // click resolve with the fallback value.
 function openModal<T>(html: string, wire: (root: HTMLElement, done: (value: T) => void) => void, fallback: T): Promise<T> {
@@ -428,6 +432,7 @@ function renderSettings(): void {
             <p class="glint-setting-note">Where comments go, and whether pages get a top bar.</p>
             <div class="glint-theme-grid">${commentCards}</div>
             <label class="glint-toggle"><input type="checkbox" data-content-bar${appState.settings.contentBar ? ' checked' : ''}> Show a page top bar (breadcrumb, export, delete)</label>
+            <label class="glint-toggle"><input type="checkbox" data-para-highlight${appState.settings.paraHighlight ? ' checked' : ''}> Highlight the paragraph under the cursor</label>
         </section>
         <section class="glint-setting-group"><h2>Editing</h2>
             <label class="glint-toggle"><input type="checkbox" data-vim${appState.settings.vimMode ? ' checked' : ''}> Use Vim key bindings</label>
@@ -471,6 +476,13 @@ function renderSettings(): void {
         applyContentBar(on);
         if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, contentBar: previous } }; applyContentBar(previous); renderSettings(); }
     });
+    wrapper.querySelector<HTMLInputElement>('[data-para-highlight]')?.addEventListener('change', (event) => {
+        const previous = appState.settings.paraHighlight;
+        const on = (event.target as HTMLInputElement).checked;
+        appState = { ...appState, settings: { ...appState.settings, paraHighlight: on } };
+        applyParaHighlight(on);
+        if (!persistState()) { appState = { ...appState, settings: { ...appState.settings, paraHighlight: previous } }; applyParaHighlight(previous); renderSettings(); }
+    });
     wrapper.querySelector<HTMLInputElement>('[data-vim]')?.addEventListener('change', (event) => {
         const previous = appState.settings.vimMode;
         appState = { ...appState, settings: { ...appState.settings, vimMode: (event.target as HTMLInputElement).checked } };
@@ -505,6 +517,7 @@ function renderSettings(): void {
         applyColorScheme(appState.settings.colorScheme);
         applyCommentLayout(appState.settings.commentLayout);
         applyContentBar(appState.settings.contentBar);
+        applyParaHighlight(appState.settings.paraHighlight);
         browserStorage?.removeItem(LEGACY_GITHUB_TOKEN_KEY);
         persistState();
         renderSettings();
@@ -1524,6 +1537,7 @@ export async function boot(): Promise<void> {
     applyTheme(appState.settings.theme);
     applyCommentLayout(appState.settings.commentLayout);
     applyContentBar(appState.settings.contentBar);
+    applyParaHighlight(appState.settings.paraHighlight);
     const oauth = githubOAuthConfig();
     if (oauth) {
         // Only overwrite on an actual capture, the restore below re-boots without a code,
