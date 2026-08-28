@@ -1,7 +1,7 @@
 export const STATE_KEY = 'glint-spa-state';
 export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
 
-export const THEMES = ['default', 'reader', 'almanac'] as const;
+export const THEMES = ['reader', 'almanac'] as const;
 export type Theme = (typeof THEMES)[number];
 
 export const COMMENT_LAYOUTS = ['inline', 'rail'] as const;
@@ -24,7 +24,7 @@ export type PersistedStateV1 = {
 export const DEFAULT_STATE: PersistedStateV1 = {
     version: 1,
     projects: [],
-    settings: { colorScheme: 'nord', theme: 'default', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
+    settings: { colorScheme: 'nord', theme: 'reader', commentLayout: 'inline', contentBar: false, vimMode: true, activeProjectRoute: null },
 };
 
 function copyDefault(): PersistedStateV1 {
@@ -94,7 +94,7 @@ function validatedState(value: unknown, colorSchemes: readonly string[]): Persis
     const colorScheme = typeof settings.colorScheme === 'string' && colorSchemes.includes(settings.colorScheme) ? settings.colorScheme : 'nord';
     // Theme/layout backfill like color scheme (fallback, never reject) so records written before
     // these axes existed keep loading.
-    const theme: Theme = THEMES.includes(settings.theme as Theme) ? settings.theme as Theme : 'default';
+    const theme: Theme = settings.theme === 'almanac' ? 'almanac' : 'reader';
     const commentLayout: CommentLayout = settings.commentLayout === 'rail' ? 'rail' : 'inline';
     const contentBar = settings.contentBar === true;
     return { version: 1, projects, settings: { colorScheme, theme, commentLayout, contentBar, vimMode: settings.vimMode, activeProjectRoute } };
