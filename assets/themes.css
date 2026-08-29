@@ -707,8 +707,11 @@
 }
 [data-theme="almanac"] .glint-project-name { font-variant: normal; font-weight: 600; }
 [data-theme="almanac"] .glint-project-source { font-variant: all-small-caps; letter-spacing: 0.06em; }
-/* Drop cap on the opening paragraph. */
-[data-theme="almanac"] .content-wrapper > .glint-section:first-of-type > p:first-of-type::first-letter {
+/* Drop cap on the first titled section's lead paragraph. A preamble (content
+   before the first heading) is wrapped as .glint-preamble; anchor past it so the
+   cap lands on body prose, not leading metadata. (#143) */
+[data-theme="almanac"] .content-wrapper > .glint-preamble + .glint-section > p:first-of-type::first-letter,
+[data-theme="almanac"] .content-wrapper > .glint-section:first-of-type:not(.glint-preamble) > p:first-of-type::first-letter {
     float: left;
     font-family: var(--theme-display);
     font-size: 3.1em;
