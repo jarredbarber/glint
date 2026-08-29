@@ -1303,6 +1303,22 @@ function initSidebarWidth(): void {
     const saved = parseInt(localStorage.getItem(SIDEBAR_W_KEY) ?? '', 10);
     if (saved >= SIDEBAR_W_MIN && saved <= SIDEBAR_W_MAX) applySidebarWidth(saved);
 }
+
+// Desktop collapse (#137), separate from the mobile overlay. State lives on <body>
+// so the fixed .sidebar-expand button (a sidebar sibling) can react; collapsing
+// hides the sidebar (it resists width:0 as a flex item) and the content reflows.
+// Expanding restores the previously saved --sidebar-w untouched.
+const SIDEBAR_COLLAPSED_KEY = 'glint.sidebar.collapsed';
+function setSidebarCollapsed(collapsed: boolean, persist = true): void {
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    if (persist) { try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* private mode */ } }
+}
+function initSidebarCollapsed(): void {
+    let saved = false;
+    try { saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch { /* no storage */ }
+    if (saved) setSidebarCollapsed(true, false);
+    document.querySelector('[data-expand-sidebar]')?.addEventListener('click', () => setSidebarCollapsed(false));
+}
 function wireSidebarResize(nav: HTMLElement): void {
     const handle = nav.querySelector<HTMLElement>('.sidebar-resize');
     if (!handle) return;
@@ -1352,8 +1368,10 @@ function renderSidebar() {
             ${pageActions}
             <button class="glint-icon-btn" data-settings title="Settings" aria-label="Settings">${ICON.gear}</button>
         </footer>
-        <div class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize"></div>`;
+        <div class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize"></div>
+        <button class="sidebar-collapse-toggle" data-collapse-sidebar type="button" aria-label="Collapse sidebar" title="Collapse sidebar"></button>`;
     wireSidebarResize(nav);
+    nav.querySelector('[data-collapse-sidebar]')?.addEventListener('click', () => setSidebarCollapsed(true));
     wireProjectControls(nav);
     mountToc(nav);
     nav.querySelector('[data-go-landing]')?.addEventListener('click', () => { location.hash = ''; });
@@ -1662,6 +1680,7 @@ export async function boot(): Promise<void> {
 
 window.addEventListener('DOMContentLoaded', () => {
     initSidebarWidth();
+    initSidebarCollapsed();
     wireMobileSidebar();
     void boot();
 });
