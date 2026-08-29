@@ -72,6 +72,19 @@ graph LR
 
 Rendered client-side. Any valid Mermaid diagram type is supported.
 
+## TikZ Diagrams
+
+```tikz
+\begin{tikzpicture}
+  \draw[thick,->] (0,0) -- (2,0);
+  \draw[blue] (0,0) circle (1);
+\end{tikzpicture}
+```
+
+Compiled to SVG in the browser by a self-hosted TikZJax (WASM TeX) engine, loaded
+only on pages that contain a diagram. First render is slow (the engine downloads a
+multi-megabyte TeX core); each unique diagram is then cached in the browser.
+
 ## HTML
 
 Glint accepts a passive HTML vocabulary inline with the article. It includes normal formatting and table elements plus `img`, `figure`, `figcaption`, `details`, `summary`, `audio`, `video`, `kbd`, `mark`, `abbr`, and `cite`.

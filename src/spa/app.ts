@@ -104,6 +104,8 @@ const DEMO_PAGES = [
         '# Diagrams', '',
         'A flow chart:', '',
         '```mermaid', 'graph TD;', '  A[Start] --> B{Works?};', '  B -- Yes --> C[Ship];', '  B -- No --> D[Debug];', '  D --> B;', '```', '',
+        'A TikZ picture (compiled to SVG in the browser):', '',
+        '```tikz', '\\begin{tikzpicture}', '  \\draw[thick,->] (0,0) -- (2,0) node[right]{$x$};', '  \\draw[thick,->] (0,0) -- (0,2) node[above]{$y$};', '  \\draw[blue,thick] (0,0) circle (1);', '\\end{tikzpicture}', '```', '',
     ].join('\n') },
     { name: 'Code.md', content: [
         '# Code', '',

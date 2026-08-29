@@ -165,6 +165,22 @@ test('body-only fragment: CDN libs are gated on content', async () => {
     assert.match(diagram, /mermaidInitOptions\(\)/, 'shared palette-driven init emitted');
 });
 
+test('tikz (#109): fence becomes a text/tikz script and pulls the loader only when used', async () => {
+    const plain = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
+    assert.ok(!/tikzjax/.test(plain), 'no tikz loader for a plain doc');
+
+    const diagram = await renderMarkdown({
+        markdown: '# T\n\n```tikz\n\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\n```\n',
+        bodyOnly: true,
+    });
+    // The placeholder must survive as a real script the browser leaves inert and
+    // tikzjax reads — not sanitized into an iframe embed (rehype-content-policy.ts).
+    assert.match(diagram, /<script[^>]*type="text\/tikz"/, 'tikz script emitted');
+    assert.match(diagram, /\\begin\{tikzpicture\}/, 'raw TeX preserved unescaped');
+    assert.ok(!/<iframe/.test(diagram), 'tikz not wrapped in a sandbox embed');
+    assert.match(diagram, /tikzjax\/tikzjax\.js/, 'loader pulled when used');
+});
+
 test('standalone renderer reads KaTeX macros from frontmatter (#107)', async () => {
     const out = await renderMarkdown({
         markdown: `---

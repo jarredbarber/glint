@@ -145,6 +145,13 @@ export function rehypeClassifyAuthorHtml() {
         const ranges: RawRange[] = [];
         visit(tree, 'raw', (node: Node & { value: string }, index, parent) => {
             if (!parent || index === undefined) return;
+            // Glint-generated TikZ placeholders must reach the main document as real
+            // <script type="text/tikz"> elements so the vendored tikzjax loader (and its
+            // MutationObserver) can compile them. Leaving them raw skips both the
+            // author-embed iframe path and sanitization. These carry no executable JS:
+            // the browser never runs an unknown script type, and tikzjax reads the text
+            // as sandboxed TeX. See remark-tikz-glint.ts.
+            if (/^\s*<script\b[^>]*\btype="text\/tikz"/i.test(node.value)) return;
             const range = rawRange(node);
             const { hasUnknown, complete } = inspectFragment(node.value);
 

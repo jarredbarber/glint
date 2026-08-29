@@ -2,6 +2,8 @@
 // the shared pipeline; both the SPA and portable renderer use this runtime.
 
 export const MERMAID_SRC = './assets/mermaid.min.js';
+export const TIKZJAX_SRC = './assets/tikzjax/tikzjax.js';
+export const TIKZJAX_CSS = './assets/tikzjax/fonts.css';
 
 // Mermaid theming reads the *active palette's* CSS custom properties (defined on
 // :root by every theme file) instead of a hand-maintained per-theme table. That
@@ -75,6 +77,14 @@ export function contentBehaviorLoaders(html: string): string {
     if (/class="mermaid"/.test(html)) {
         parts.push(`<script data-glint src="${MERMAID_SRC}"></script>`);
     }
+    // TikZJax compiles each <script type="text/tikz"> to SVG in the browser via WASM.
+    // The loader resolves its wasm/dump/fonts siblings from its own script src, so all
+    // fetches stay same-origin under assets/tikzjax/. Requires 'wasm-unsafe-eval' in the
+    // page CSP. Only shipped when a diagram is present.
+    if (/type="text\/tikz"/.test(html)) {
+        parts.push(`<link rel="stylesheet" href="${TIKZJAX_CSS}">`);
+        parts.push(`<script data-glint src="${TIKZJAX_SRC}"></script>`);
+    }
     return parts.join('\n');
 }
 
@@ -115,10 +125,28 @@ async function drawMermaid(root: ParentNode): Promise<void> {
     }
 }
 
+function ensureCssOnce(href: string): void {
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+}
+
+async function drawTikz(root: ParentNode): Promise<void> {
+    // innerHTML never executes injected <script> tags, so the tikz placeholders sit
+    // inert until the loader arrives. Once loaded, tikzjax scans existing scripts and
+    // installs a MutationObserver, so it compiles current and future diagrams itself —
+    // no per-node draw call needed here.
+    if (!root.querySelector('script[type="text/tikz"]')) return;
+    ensureCssOnce(TIKZJAX_CSS);
+    await loadScriptOnce(TIKZJAX_SRC);
+}
+
 /**
- * Draw Mermaid diagrams inside `root`, loading the same-origin runtime only
- * when needed. Already-drawn nodes are skipped.
+ * Draw Mermaid and TikZ diagrams inside `root`, loading each same-origin runtime
+ * only when needed. Already-drawn nodes are skipped.
  */
 export async function drawContentBehaviors(root: ParentNode = document): Promise<void> {
-    await drawMermaid(root);
+    await Promise.all([drawMermaid(root), drawTikz(root)]);
 }
