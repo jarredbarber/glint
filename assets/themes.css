@@ -230,7 +230,9 @@
     position: fixed;
     top: 2rem;
     right: 2rem;
-    z-index: 6;
+    /* #136: must sit above sticky section headings (z-index 100, opaque bg) and
+       their anchors (z-index 110), which otherwise scroll over this pinned panel. */
+    z-index: 120;
     margin: 0;
     width: max-content;
     max-width: 16rem;
