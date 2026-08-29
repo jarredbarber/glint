@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains } from '../spa/single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains, resolveReopen } from '../spa/single-route.js';
 
 test('parseGhRoute: bare owner/repo is a project on the default branch', () => {
     assert.deepEqual(parseGhRoute(['o', 'r']), { owner: 'o', repo: 'r', ref: '', path: '', mode: 'tree' });
@@ -123,4 +123,30 @@ test('routeContains: proper ancestor only (#130)', () => {
     assert.equal(routeContains('#/gh/o/r/docs', '#/gh/o/r'), false);     // child shorter
     assert.equal(routeContains('#/gh/o/r', '#/gh/o/other'), false);      // diverging segment
     assert.equal(routeContains('#/drive/A', '#/drive/B'), false);        // sibling drive folders
+});
+
+test('splitPageRoute: deep gh path with hyphens splits on the bare marker only (#142)', () => {
+    const hash = '#/gh/jarredbarber/loe-vibecode/-/content/segments/2025/01-03/a-call-to-cool-the-earth.md';
+    assert.deepEqual(splitPageRoute(hash), {
+        projectRoute: '#/gh/jarredbarber/loe-vibecode',
+        pagePath: 'content/segments/2025/01-03/a-call-to-cool-the-earth.md',
+    });
+});
+
+test('resolveReopen: explicit page path resolves to its id (#142)', () => {
+    const files = [{ id: 'a', path: 'a.md' }, { id: 'deep', path: 'content/2025/01-03/x.md' }];
+    assert.deepEqual(resolveReopen(files, 'content/2025/01-03/x.md', false, null),
+        { id: 'deep', pageMissing: false });
+});
+
+test('resolveReopen: a requested-but-missing page flags pageMissing, not a silent files[0] (#142)', () => {
+    const files = [{ id: 'a', path: 'a.md' }, { id: 'b', path: 'b.md' }];
+    assert.deepEqual(resolveReopen(files, 'content/gone.md', false, null),
+        { id: 'a', pageMissing: true });
+});
+
+test('resolveReopen: no explicit page reopens last file in the same project, else first', () => {
+    const files = [{ id: 'a', path: 'a.md' }, { id: 'b', path: 'b.md' }];
+    assert.deepEqual(resolveReopen(files, null, true, 'b'), { id: 'b', pageMissing: false });
+    assert.deepEqual(resolveReopen(files, null, false, 'b'), { id: 'a', pageMissing: false });
 });

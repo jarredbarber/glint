@@ -94,6 +94,26 @@ export function buildPageRoute(projectRoute: string, pagePath: string): string {
     return `${projectRoute}/-/${encPath(pagePath)}`;
 }
 
+// Which page to open after listing a project (#69, #142). An explicit `/-/<path>` in
+// the route wins; if that path isn't in the listing, `pageMissing` flags it so the
+// caller can say so instead of silently opening the first file (the #142 symptom —
+// a deep page that failed to list would quietly land on files[0]). With no explicit
+// page, reopen the page you left in the same project, else the first file.
+export function resolveReopen(
+    files: readonly { id: string; path: string }[],
+    pagePath: string | null,
+    sameProject: boolean,
+    lastFileId: string | null,
+): { id: string | undefined; pageMissing: boolean } {
+    if (pagePath) {
+        const byPath = files.find((f) => f.path === pagePath);
+        if (byPath) return { id: byPath.id, pageMissing: false };
+        return { id: files[0]?.id, pageMissing: true };
+    }
+    const id = sameProject && lastFileId && files.some((f) => f.id === lastFileId) ? lastFileId : files[0]?.id;
+    return { id, pageMissing: false };
+}
+
 // True when `parent` is a proper ancestor of `child` (same leading segments, strictly
 // shorter). Used to keep subtrees/subfolders out of the project list when a containing
 // project is already saved (#130): a GitHub repo root contains its subtrees.

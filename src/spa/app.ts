@@ -13,7 +13,7 @@ import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
 import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, reorderProject, saveState, Theme, THEMES } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
-import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains } from './single-route.js';
+import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains, resolveReopen } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
 import { wireCustomEmbeds } from './custom-embeds.js';
 
@@ -1675,8 +1675,9 @@ export async function boot(): Promise<void> {
     // to the same project reopens the page you left; a different project opens its default page.
     const sameProject = lastProjectRoute === projectRoute;
     lastProjectRoute = projectRoute;
-    const reopenId = (pagePath && files.find((f) => f.path === pagePath)?.id)
-        || (sameProject && lastFileId && files.some((f) => f.id === lastFileId) ? lastFileId : files[0]?.id);
+    const { id: reopenId, pageMissing } = resolveReopen(files, pagePath, sameProject, lastFileId);
+    // #142: don't silently swallow a page the URL asked for but the listing lacks.
+    if (pageMissing) showToast(`Page not found in this project: ${pagePath}`, 'error');
     if (reopenId) await openFile(reopenId);
 }
 
