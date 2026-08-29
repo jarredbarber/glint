@@ -14,3 +14,6 @@ assets/*.bundle.js.map
 
 # Agent handoff scratch doc (not tracked)
 HANDOFF.md
+
+# UI screenshot review output (#148)
+scratch/
