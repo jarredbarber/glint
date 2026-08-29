@@ -43,6 +43,7 @@ The deploy root is `dist-spa/`: `index.html`, `config.js`, `llm.txt`, and `asset
 - Preserve source-root-relative `FileMeta.path` values. Folder navigation, wiki rendering, and all adapters rely on it.
 - Keep storage adapters backend-native: do not add a proxy or a Glint credential store.
 - Test observable adapter and editor behavior. For SPA UI changes, smoke test `#/demo` in a browser.
+- Substantial UI changes may need a pass over the screenshot scenario table in `scripts/ui-shots.ts` (`SCENARIOS`, run via `npm run ui:shots`). Add or update a scenario when you introduce a new widget type or Markdown feature (needs a demo page that exercises it), restructure the demo pages (routes in the table go stale), add a setting that changes rendering (may need a new config variant, or `full: true` if it's theme/palette-sensitive), or add a UI component/layout worth a dedicated shot. The comment/hamburger scenarios drive the live UI, so renamed buttons or selectors break their `act` steps.
 - Update `README.md`, `docs/spa-setup.md`, and `skills/glint-markdown/SKILL.md` when changing user-facing routes, storage behavior, or Markdown syntax.
 - Commit and push directly to `main`. Do not open pull requests for routine work.
 
