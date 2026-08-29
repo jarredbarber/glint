@@ -123,12 +123,12 @@ function writeReport(commit: string, shots: { name: string; theme: string; schem
     const data = JSON.stringify(cards.map(({ src, ...rest }) => rest));
 
     const cardHtml = cards.map((c) => `
-    <div class="card" data-i="${c.i}">
+    <div class="card ${c.viewport}" data-i="${c.i}">
+      <a class="shot" href="${c.src}" target="_blank"><img src="${c.src}" loading="lazy"></a>
       <div class="meta">
         <button class="thumb" data-i="${c.i}">👎</button>
         <div><strong>${c.name}</strong> · ${c.theme} · ${c.scheme} · ${c.viewport}<br><span class="note">${c.note}</span> <code>${c.route}</code></div>
       </div>
-      <a href="${c.src}" target="_blank"><img src="${c.src}" loading="lazy"></a>
       <textarea data-i="${c.i}" placeholder="what's broken?"></textarea>
     </div>`).join('');
 
@@ -140,8 +140,12 @@ function writeReport(commit: string, shots: { name: string; theme: string; schem
   #grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;padding:20px}
   .card{background:#fff;border:2px solid #e4e4e7;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
   .card.down{border-color:#dc2626}
-  .card img{width:100%;display:block;border-top:1px solid #e4e4e7}
-  .meta{display:flex;gap:10px;align-items:center;padding:10px}
+  .shot{display:block}
+  .card img{width:100%;display:block}
+  /* Mobile shots are narrow but tall: cap by height and center instead of blowing up the width. */
+  .card.mobile .shot{display:flex;justify-content:center;background:#e4e4e7}
+  .card.mobile img{width:auto;max-height:70vh}
+  .meta{display:flex;gap:10px;align-items:center;padding:10px;border-top:1px solid #e4e4e7}
   .note{color:#71717a}
   .thumb{font-size:22px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;cursor:pointer;padding:2px 10px}
   .card.down .thumb{background:#fee2e2;border-color:#dc2626}
