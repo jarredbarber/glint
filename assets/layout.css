@@ -419,6 +419,21 @@ ul.contains-task-list .glint-task {
     /* Offset from copy button */
 }
 
+.code-lang-label {
+    position: absolute;
+    top: 0.5rem;
+    left: 1.5rem;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 10;
+    user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: 'Inter', sans-serif;
+    pointer-events: none;
+}
+
 /* CSS-driven label so it stays correct whether the block is open or collapsed. */
 .code-collapse-toggle::after { content: 'Collapse'; }
 .code-block-wrapper.collapsed .code-collapse-toggle::after { content: 'Expand'; }

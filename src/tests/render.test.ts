@@ -134,6 +134,16 @@ test('body-only fragment: comment fences are ordinary code blocks', async () => 
     assert.match(out, /language-comment/);
 });
 
+test('fenced code block surfaces the language label', async () => {
+    const out = await renderMarkdown({ markdown: '```ts\nconst x = 1;\n```\n', bodyOnly: true });
+    assert.match(out, /class="code-lang-label">ts</);
+});
+
+test('fenced code block without a language has no label', async () => {
+    const out = await renderMarkdown({ markdown: '```\nplain\n```\n', bodyOnly: true });
+    assert.doesNotMatch(out, /class="code-lang-label"/);
+});
+
 test('body-only fragment: forces Glint theme colors, no colorscheme bridge by default', async () => {
     const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
     assert.match(out, /background:var\(--bg-color\)!important/, 'forces Glint bg over the host');

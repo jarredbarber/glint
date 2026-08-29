@@ -33,6 +33,19 @@ export function rehypeGlintCodeBlocks() {
 
             const children: Element[] = [{ ...node }];
 
+            // Surface the fence language (rehype-highlight sets `language-xxx` on <code>).
+            const classes = (code.properties?.className as string[] | undefined) || [];
+            const langClass = classes.find(c => c.startsWith('language-'));
+            const lang = langClass?.slice('language-'.length);
+            if (lang) {
+                children.push({
+                    type: 'element',
+                    tagName: 'div',
+                    properties: { className: ['code-lang-label'] },
+                    children: [{ type: 'text', value: lang }]
+                });
+            }
+
             // Add Copy button
             children.push({
                 type: 'element',
