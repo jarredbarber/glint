@@ -1,11 +1,15 @@
 // Mechanical UI screenshotter + human review artifact (#148).
-// Shoots each view across the theme × colorScheme matrix, then writes a
-// self-contained report.html for a human to thumb-down the broken ones and
-// copy out a Markdown bug report.
+// Shoots a curated table of scenarios across theme x colorScheme, then writes a
+// self-contained report.html for a human to thumb-down the broken ones and copy
+// out a Markdown bug report.
+//
+// The scenario table is deliberately NOT a full cross-product: config axes
+// (comment layout, floating ToC, mobile, hamburger) only appear on the one or
+// two views where they matter, so we cover features without 100s of dupes.
 //
 // Assumes the dev server is already up: `npm run dev` on http://localhost:8080.
 // Run with: npm run ui:shots
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,23 +17,62 @@ import { join } from 'node:path';
 const BASE = 'http://localhost:8080';
 const OUT = 'scratch/ui-shots';
 
-// Add a view = one line here.
-const VIEWS = [
-    { name: 'demo', route: '#/demo' },
-    { name: 'settings', route: '#/settings' },
-    { name: 'landing', route: '#/' },
+// Two skins x two palettes = four base looks. Edit these two to taste; one light,
+// one dark is enough to catch contrast bugs without enumerating all 19 schemes.
+const THEMES = ['reader', 'almanac'] as const;
+const SCHEMES = ['github-light', 'tokyo-night']; // light, dark
+
+const DESKTOP = { width: 1280, height: 900 };
+const MOBILE = { width: 390, height: 844 };
+
+type Settings = { commentLayout?: 'inline' | 'rail'; tocFloat?: boolean };
+type Scenario = {
+    name: string;
+    route: string;
+    mobile?: boolean;
+    settle?: number; // extra ms for async widgets (mermaid/katex/tikz)
+    settings?: Settings;
+    act?: (p: Page) => Promise<void>;
+    note?: string; // what this shot is meant to exercise (shown in the report)
+};
+
+// Add a scenario = one line here.
+const SCENARIOS: Scenario[] = [
+    { name: 'landing', route: '#/', note: 'project picker' },
+    { name: 'settings', route: '#/settings', note: 'settings panel' },
+    { name: 'home', route: '#/demo/-/Home.md', note: 'prose, table, frontmatter, tasks link' },
+    { name: 'tasks', route: '#/demo/-/Tasks.md', note: 'task-state checkboxes + metadata' },
+    { name: 'code', route: '#/demo/-/Code.md', note: 'syntax highlighting' },
+    { name: 'math', route: '#/demo/-/Math.md', note: 'KaTeX + many sections (ToC)' },
+    { name: 'math-tocfloat', route: '#/demo/-/Math.md', settings: { tocFloat: true }, note: 'floating ToC on' },
+    { name: 'diagrams', route: '#/demo/-/Diagrams.md', settle: 4500, note: 'mermaid + TikZ (WASM)' },
+    { name: 'widget', route: '#/demo/-/Widget.html', note: 'embedded raw-HTML iframe' },
+    { name: 'comment-inline', route: '#/demo/-/Home.md', settings: { commentLayout: 'inline' }, act: addComment, note: 'inline comment' },
+    { name: 'comment-rail', route: '#/demo/-/Home.md', settings: { commentLayout: 'rail' }, act: addComment, note: 'side-rail comment' },
+    { name: 'home-mobile', route: '#/demo/-/Home.md', mobile: true, note: 'mobile width' },
+    { name: 'hamburger-mobile', route: '#/demo/-/Home.md', mobile: true, act: openHamburger, note: 'mobile sidebar open' },
 ];
 
-const THEMES = ['reader', 'almanac'] as const;
+async function addComment(page: Page) {
+    await page.getByRole('button', { name: 'New comment' }).click({ timeout: 5000 });
+    await page.locator('.glint-compose textarea').first().fill('Does this line render correctly?');
+    await page.locator('.glint-compose button[type=submit]').first().click();
+    await page.waitForTimeout(400);
+}
 
-function seed(theme: string, colorScheme: string) {
+async function openHamburger(page: Page) {
+    await page.locator('.mobile-toggle').click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+}
+
+function seed(theme: string, colorScheme: string, s: Settings) {
     // Mirror app-state.ts STATE_KEY / PersistedStateV1 so loadState accepts it.
     return {
         key: 'glint-spa-state',
         value: JSON.stringify({
             version: 1,
             projects: [],
-            settings: { colorScheme, theme, commentLayout: 'inline', paraHighlight: false, tocFloat: false, vimMode: true, githubPushMode: 'direct', activeProjectRoute: null },
+            settings: { colorScheme, theme, commentLayout: s.commentLayout ?? 'inline', paraHighlight: false, tocFloat: s.tocFloat ?? false, vimMode: true, githubPushMode: 'direct', activeProjectRoute: null },
         }),
     };
 }
@@ -40,33 +83,30 @@ async function main() {
     mkdirSync(OUT, { recursive: true });
 
     const browser = await chromium.launch();
-
-    // Enumerate colorSchemes off the live settings page so new ones are picked up for free.
+    // Fail loud and early if the dev server isn't up.
     const probe = await browser.newPage();
-    await probe.goto(`${BASE}/#/settings`, { waitUntil: 'networkidle' }).catch(() => {
+    await probe.goto(BASE, { waitUntil: 'domcontentloaded' }).catch(() => {
         throw new Error(`Could not reach ${BASE}. Start the dev server first: npm run dev`);
     });
-    const colorSchemes = await probe.$$eval('[data-color-scheme] option', (els) => els.map((e) => (e as HTMLOptionElement).value));
     await probe.close();
-    if (colorSchemes.length === 0) throw new Error('No color schemes found on the settings page.');
 
-    const shots: { view: string; theme: string; colorScheme: string; route: string; file: string }[] = [];
+    const shots: { name: string; theme: string; scheme: string; route: string; viewport: string; note: string; file: string }[] = [];
 
     for (const theme of THEMES) {
-        for (const colorScheme of colorSchemes) {
-            const s = seed(theme, colorScheme);
-            const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-            await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), s);
-            const page = await context.newPage();
-            for (const view of VIEWS) {
-                await page.goto(`${BASE}/${view.route}`, { waitUntil: 'networkidle' });
-                await page.waitForTimeout(700); // let async widget rendering (mermaid/katex/tikz) settle
-                const file = `${view.name}-${theme}-${colorScheme}.png`;
+        for (const scheme of SCHEMES) {
+            for (const sc of SCENARIOS) {
+                const context = await browser.newContext({ viewport: sc.mobile ? MOBILE : DESKTOP });
+                await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), seed(theme, scheme, sc.settings ?? {}));
+                const page = await context.newPage();
+                await page.goto(`${BASE}/${sc.route}`, { waitUntil: 'networkidle' });
+                await page.waitForTimeout(sc.settle ?? 800);
+                if (sc.act) await sc.act(page).catch((e) => process.stdout.write(`    (action failed: ${e.message})\n`));
+                const file = `${sc.name}-${theme}-${scheme}.png`;
                 await page.screenshot({ path: join(OUT, file), fullPage: true });
-                shots.push({ view: view.name, theme, colorScheme, route: view.route, file });
+                shots.push({ name: sc.name, theme, scheme, route: sc.route, viewport: sc.mobile ? 'mobile' : 'desktop', note: sc.note ?? '', file });
                 process.stdout.write(`  ${file}\n`);
+                await context.close();
             }
-            await context.close();
         }
     }
     await browser.close();
@@ -75,21 +115,20 @@ async function main() {
     console.log(`\n${shots.length} shots. Open ${join(OUT, 'report.html')}`);
 }
 
-function writeReport(commit: string, shots: { view: string; theme: string; colorScheme: string; route: string; file: string }[]) {
+function writeReport(commit: string, shots: { name: string; theme: string; scheme: string; route: string; viewport: string; note: string; file: string }[]) {
     const cards = shots.map((s, i) => {
         const b64 = readFileSync(join(OUT, s.file)).toString('base64');
-        const localPath = `${OUT}/${s.file}`;
-        return { ...s, i, localPath, src: `data:image/png;base64,${b64}` };
+        return { ...s, i, localPath: `${OUT}/${s.file}`, src: `data:image/png;base64,${b64}` };
     });
     const data = JSON.stringify(cards.map(({ src, ...rest }) => rest));
 
     const cardHtml = cards.map((c) => `
     <div class="card" data-i="${c.i}">
-      <img src="${c.src}" loading="lazy">
       <div class="meta">
         <button class="thumb" data-i="${c.i}">👎</button>
-        <div><strong>${c.view}</strong> · ${c.theme} · ${c.colorScheme}<br><code>${c.route}</code></div>
+        <div><strong>${c.name}</strong> · ${c.theme} · ${c.scheme} · ${c.viewport}<br><span class="note">${c.note}</span> <code>${c.route}</code></div>
       </div>
+      <a href="${c.src}" target="_blank"><img src="${c.src}" loading="lazy"></a>
       <textarea data-i="${c.i}" placeholder="what's broken?"></textarea>
     </div>`).join('');
 
@@ -98,12 +137,13 @@ function writeReport(commit: string, shots: { view: string; theme: string; color
   body{font:14px system-ui;margin:0;background:#f4f4f5;color:#18181b}
   header{position:sticky;top:0;background:#18181b;color:#fff;padding:12px 16px;z-index:2}
   header code{background:#3f3f46;padding:1px 5px;border-radius:3px}
-  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;padding:16px}
-  .card{background:#fff;border:2px solid #e4e4e7;border-radius:8px;overflow:hidden}
+  #grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;padding:20px}
+  .card{background:#fff;border:2px solid #e4e4e7;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
   .card.down{border-color:#dc2626}
-  .card img{width:100%;display:block;border-bottom:1px solid #e4e4e7}
-  .meta{display:flex;gap:10px;align-items:center;padding:8px}
-  .thumb{font-size:20px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;cursor:pointer;padding:2px 8px}
+  .card img{width:100%;display:block;border-top:1px solid #e4e4e7}
+  .meta{display:flex;gap:10px;align-items:center;padding:10px}
+  .note{color:#71717a}
+  .thumb{font-size:22px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;cursor:pointer;padding:2px 10px}
   .card.down .thumb{background:#fee2e2;border-color:#dc2626}
   .card textarea{width:100%;box-sizing:border-box;border:none;border-top:1px solid #e4e4e7;padding:8px;font:13px system-ui;resize:vertical;display:none}
   .card.down textarea{display:block}
@@ -111,7 +151,7 @@ function writeReport(commit: string, shots: { view: string; theme: string; color
   footer textarea{width:100%;box-sizing:border-box;height:160px;font:12px ui-monospace,monospace}
   footer button{margin-top:6px;padding:6px 14px;cursor:pointer}
 </style></head><body>
-<header>Commit <code>${commit}</code> · thumb-down broken shots, add a note, then copy the report below. <em>Images are transient files under ${OUT}/.</em></header>
+<header>Commit <code>${commit}</code> · thumb-down broken shots, add a note, then copy the report. Click a shot to open full size. <em>Images are transient files under ${OUT}/.</em></header>
 <div id="grid">${cardHtml}</div>
 <footer><textarea id="report" readonly></textarea><button id="copy">Copy report</button></footer>
 <script>
@@ -123,7 +163,7 @@ function render(){
   const picked = SHOTS.filter(s => down.has(s.i));
   let md = "## UI review @ " + COMMIT + "\\n\\n_Screenshot paths are transient files under " + OUT + "/ (regenerate with npm run ui:shots)._\\n\\n";
   md += picked.length ? picked.map(s =>
-    "- **" + s.view + "** · " + s.theme + " · " + s.colorScheme + " (\`" + s.route + "\`) — " + (notes[s.i]||"(no note)") + "\\n  \`" + s.localPath + "\`"
+    "- **" + s.name + "** · " + s.theme + " · " + s.scheme + " · " + s.viewport + " (\`" + s.route + "\`) — " + (notes[s.i]||"(no note)") + "\\n  \`" + s.localPath + "\`"
   ).join("\\n") : "_Nothing flagged._";
   md += "\\n\\n_Next: paste into \`gh issue create\`._";
   document.getElementById('report').value = md;
