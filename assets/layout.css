@@ -422,7 +422,7 @@ ul.contains-task-list .glint-task {
 .code-lang-label {
     position: absolute;
     top: 0.5rem;
-    left: 1.5rem;
+    left: 1rem;
     color: var(--text-dim);
     font-size: 0.75rem;
     font-weight: 600;
@@ -432,6 +432,11 @@ ul.contains-task-list .glint-task {
     letter-spacing: 0.05em;
     font-family: 'Inter', sans-serif;
     pointer-events: none;
+}
+
+/* Reserve room for the label so it doesn't overlap the first line of code. */
+.code-block-wrapper:has(.code-lang-label) pre {
+    padding-top: 2.25rem;
 }
 
 /* CSS-driven label so it stays correct whether the block is open or collapsed. */

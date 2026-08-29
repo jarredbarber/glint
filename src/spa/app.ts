@@ -113,7 +113,10 @@ const DEMO_PAGES = [
     ].join('\n') },
     { name: 'Code.md', content: [
         '# Code', '',
+        'Fenced blocks show their language and get a copy button:', '',
         '```python', 'def fib(n):', '    if n <= 1:', '        return n', '    return fib(n - 1) + fib(n - 2)', '```', '',
+        'A `csv` fence renders as a table (first row is the header):', '',
+        '```csv', 'Language,Paradigm,Typing', 'Python,"Multi-paradigm",Dynamic', 'Rust,"Systems, functional",Static', 'Haskell,Functional,"Static, inferred"', '```', '',
     ].join('\n') },
     // String.raw so the LaTeX backslashes survive; headings double as a ToC demo.
     { name: 'Math.md', content: String.raw`# Math
