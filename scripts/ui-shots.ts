@@ -11,24 +11,36 @@
 // Run with: npm run ui:shots
 import { chromium, type Page } from 'playwright';
 import { execSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BASE = 'http://localhost:8080';
-const OUT = 'scratch/ui-shots';
-
-// Two skins x two palettes = four base looks. Edit these two to taste; one light,
-// one dark is enough to catch contrast bugs without enumerating all 19 schemes.
-const THEMES = ['reader', 'almanac'] as const;
-const SCHEMES = ['github-light', 'tokyo-night']; // light, dark
+// Each run gets its own subdir so a rerun never clobbers files an already-filed
+// issue points at. Nothing is deleted; old runs just accumulate under scratch/.
+const runId = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+const OUT = `scratch/ui-shots/${runId}`;
 
 const DESKTOP = { width: 1280, height: 900 };
 const MOBILE = { width: 390, height: 844 };
+
+// One light + one dark palette; enough to catch contrast bugs without all 19 schemes.
+type Look = { theme: string; scheme: string };
+// Full 2x2 grid, only for scenarios that are actually theme/palette-sensitive.
+const GALLERY: Look[] = [
+    { theme: 'reader', scheme: 'github-light' },
+    { theme: 'reader', scheme: 'tokyo-night' },
+    { theme: 'almanac', scheme: 'github-light' },
+    { theme: 'almanac', scheme: 'tokyo-night' },
+];
+// Feature/layout scenarios render the same regardless of skin, so shoot them once.
+// Dark palette catches the most (light-on-light, black-on-dark) in a single shot.
+const CANONICAL: Look[] = [{ theme: 'reader', scheme: 'tokyo-night' }];
 
 type Settings = { commentLayout?: 'inline' | 'rail'; tocFloat?: boolean };
 type Scenario = {
     name: string;
     route: string;
+    full?: boolean; // run across the full GALLERY grid instead of one CANONICAL look
     mobile?: boolean;
     settle?: number; // extra ms for async widgets (mermaid/katex/tikz)
     settings?: Settings;
@@ -36,16 +48,16 @@ type Scenario = {
     note?: string; // what this shot is meant to exercise (shown in the report)
 };
 
-// Add a scenario = one line here.
+// Add a scenario = one line here. `full` = theme/palette-sensitive (4 shots); else 1.
 const SCENARIOS: Scenario[] = [
-    { name: 'landing', route: '#/', note: 'project picker' },
-    { name: 'settings', route: '#/settings', note: 'settings panel' },
-    { name: 'home', route: '#/demo/-/Home.md', note: 'prose, table, frontmatter, tasks link' },
+    { name: 'landing', route: '#/', full: true, note: 'project picker' },
+    { name: 'settings', route: '#/settings', full: true, note: 'settings panel' },
+    { name: 'home', route: '#/demo/-/Home.md', full: true, note: 'prose, table, frontmatter, tasks link' },
+    { name: 'math', route: '#/demo/-/Math.md', full: true, note: 'KaTeX + many sections (ToC)' },
+    { name: 'diagrams', route: '#/demo/-/Diagrams.md', full: true, settle: 4500, note: 'mermaid + TikZ (WASM)' },
     { name: 'tasks', route: '#/demo/-/Tasks.md', note: 'task-state checkboxes + metadata' },
     { name: 'code', route: '#/demo/-/Code.md', note: 'syntax highlighting' },
-    { name: 'math', route: '#/demo/-/Math.md', note: 'KaTeX + many sections (ToC)' },
     { name: 'math-tocfloat', route: '#/demo/-/Math.md', settings: { tocFloat: true }, note: 'floating ToC on' },
-    { name: 'diagrams', route: '#/demo/-/Diagrams.md', settle: 4500, note: 'mermaid + TikZ (WASM)' },
     { name: 'widget', route: '#/demo/-/Widget.html', note: 'embedded raw-HTML iframe' },
     { name: 'comment-inline', route: '#/demo/-/Home.md', settings: { commentLayout: 'inline' }, act: addComment, note: 'inline comment' },
     { name: 'comment-rail', route: '#/demo/-/Home.md', settings: { commentLayout: 'rail' }, act: addComment, note: 'side-rail comment' },
@@ -79,8 +91,7 @@ function seed(theme: string, colorScheme: string, s: Settings) {
 
 async function main() {
     const commit = execSync('git rev-parse --short HEAD').toString().trim();
-    rmSync(OUT, { recursive: true, force: true });
-    mkdirSync(OUT, { recursive: true });
+    mkdirSync(OUT, { recursive: true }); // fresh subdir per run; never touches prior runs
 
     const browser = await chromium.launch();
     // Fail loud and early if the dev server isn't up.
@@ -92,21 +103,19 @@ async function main() {
 
     const shots: { name: string; theme: string; scheme: string; route: string; viewport: string; note: string; file: string }[] = [];
 
-    for (const theme of THEMES) {
-        for (const scheme of SCHEMES) {
-            for (const sc of SCENARIOS) {
-                const context = await browser.newContext({ viewport: sc.mobile ? MOBILE : DESKTOP });
-                await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), seed(theme, scheme, sc.settings ?? {}));
-                const page = await context.newPage();
-                await page.goto(`${BASE}/${sc.route}`, { waitUntil: 'networkidle' });
-                await page.waitForTimeout(sc.settle ?? 800);
-                if (sc.act) await sc.act(page).catch((e) => process.stdout.write(`    (action failed: ${e.message})\n`));
-                const file = `${sc.name}-${theme}-${scheme}.png`;
-                await page.screenshot({ path: join(OUT, file), fullPage: true });
-                shots.push({ name: sc.name, theme, scheme, route: sc.route, viewport: sc.mobile ? 'mobile' : 'desktop', note: sc.note ?? '', file });
-                process.stdout.write(`  ${file}\n`);
-                await context.close();
-            }
+    for (const sc of SCENARIOS) {
+        for (const look of sc.full ? GALLERY : CANONICAL) {
+            const context = await browser.newContext({ viewport: sc.mobile ? MOBILE : DESKTOP });
+            await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), seed(look.theme, look.scheme, sc.settings ?? {}));
+            const page = await context.newPage();
+            await page.goto(`${BASE}/${sc.route}`, { waitUntil: 'networkidle' });
+            await page.waitForTimeout(sc.settle ?? 800);
+            if (sc.act) await sc.act(page).catch((e) => process.stdout.write(`    (action failed: ${e.message})\n`));
+            const file = `${sc.name}-${look.theme}-${look.scheme}.png`;
+            await page.screenshot({ path: join(OUT, file), fullPage: true });
+            shots.push({ name: sc.name, theme: look.theme, scheme: look.scheme, route: sc.route, viewport: sc.mobile ? 'mobile' : 'desktop', note: sc.note ?? '', file });
+            process.stdout.write(`  ${file}\n`);
+            await context.close();
         }
     }
     await browser.close();
