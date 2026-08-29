@@ -242,8 +242,6 @@
 }
 [data-theme] .glint-toc-dock.glint-toc-float > summary { padding: 0.4rem 0.4rem; }
 [data-theme] .glint-toc-dock.glint-toc-float[open] { width: 16rem; max-height: min(64vh, 34rem); padding-bottom: 0.5rem; }
-/* Nudge the source badge below the collapsed chip so both share the corner. */
-.toc-float .glint-source-link { top: 4.6rem; }
 @media (max-width: 900px) { [data-theme] .glint-toc-dock.glint-toc-float { display: none; } }
 
 /* Reader: a progress rail — spine down the list with a marker dot per heading. */
@@ -471,7 +469,12 @@
 }
 /* button.glint-danger (0,2,1) ties .glint-project-actions button and wins on order. */
 [data-theme] button.glint-danger { color: var(--red); border-color: var(--red); }
-[data-theme] button.glint-danger[data-reset-projects] { margin-top: 1rem; background: transparent; padding: 0.5rem 0.9rem; border: var(--theme-rule) solid var(--red); border-radius: var(--theme-radius-sm); cursor: pointer; font: inherit; }
+/* #136: the sign-out buttons share the reset-projects button chrome (padded, ruled)
+   instead of rendering as a thin inline box. */
+[data-theme] button.glint-danger[data-reset-projects],
+[data-theme] button.glint-danger[data-forget-github],
+[data-theme] button.glint-danger[data-forget-drive] { background: transparent; padding: 0.5rem 0.9rem; border: var(--theme-rule) solid var(--red); border-radius: var(--theme-radius-sm); cursor: pointer; font: inherit; }
+[data-theme] button.glint-danger[data-reset-projects] { margin-top: 1rem; }
 
 /* ---- Modal (auth + rename) -------------------------------------------- */
 .glint-modal-overlay {
@@ -591,10 +594,10 @@
     border-bottom: 1.5px solid var(--text-color);
 }
 /* #134: show the Glint emblem in the masthead, like Reader (sized down for the small-caps wordmark). */
-[data-theme="almanac"] .glint-brand-mark { display: flex; width: 1.15rem; height: 1.15rem; border-radius: 2px; }
+[data-theme="almanac"] .glint-brand-mark { display: flex; width: 1.4rem; height: 1.4rem; border-radius: 2px; }
 [data-theme="almanac"] .glint-brand-home { align-items: center; }
 [data-theme="almanac"] .glint-wordmark {
-    font-size: 0.72rem;
+    font-size: 0.95rem;   /* #136: the small-caps wordmark was too small to read */
     font-variant: all-small-caps;
     letter-spacing: 0.16em;
     color: var(--theme-accent);

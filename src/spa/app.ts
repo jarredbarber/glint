@@ -743,6 +743,12 @@ async function openFile(id: string) {
     if (gen !== bootGeneration || currentFileId !== id) return;
     const wrapper = document.querySelector('.content-wrapper') as HTMLElement;
     wrapper.innerHTML = pageSourceLinkHtml(id) + html;
+    // #136: move the "Open on GitHub" badge from the top-right corner (where it
+    // overlapped the title and fought the floating ToC) to a left-justified row under
+    // the title, reading as a metadata item with room for more badges later.
+    const srcLink = wrapper.querySelector('.glint-source-link');
+    const header = wrapper.querySelector('.article-header');
+    if (srcLink && header) header.after(srcLink);
     wireCustomEmbeds(wrapper);
     void GlintRender.drawContentBehaviors(wrapper);   // mermaid: innerHTML never runs the emitted scripts
     wireWikiLinks();

@@ -37,6 +37,8 @@ function mermaidInitOptions(): Record<string, unknown> {
             secondaryBorderColor: paletteVar('--purple', text),
             tertiaryColor: paletteVar('--bg-secondary', bg),
             tertiaryBorderColor: paletteVar('--green', text),
+            // #136: edge labels (Yes/No) default to an ugly opaque black box; match the canvas.
+            edgeLabelBackground: paletteVar('--bg-highlight', bg),
             lineColor: paletteVar('--text-dim', text),
             textColor: text,
             nodeTextColor: text,
