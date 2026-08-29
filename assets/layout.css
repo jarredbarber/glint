@@ -2466,7 +2466,8 @@ h6:hover .heading-edit-icon,
         left: 0;
         bottom: 0;
         z-index: 2001;
-        width: 280px;
+        width: 100vw;   /* #138: full-screen takeover, not a rail over a dimmed page */
+        max-width: 100vw;
         min-width: 0;   /* ignore the desktop resize var on mobile */
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
