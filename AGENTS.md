@@ -58,7 +58,7 @@ Issues live in GitHub Issues for `jarredbarber/glint`; use the `gh` CLI. See `do
 
 ### Triage labels
 
-Default five-label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+Four orthogonal axes: state (`needs-triage`, `ready-for-agent`), human gate (`needs-info`/`needs-action`/`needs-decision`/`needs-lgtm`), category (`bug`/`feat`/`chore`), plus `epic` (container) and `backlog` (parked) flags. `/triage` is intake, `/ready` is execution. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

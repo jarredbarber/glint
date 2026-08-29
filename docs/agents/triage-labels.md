@@ -1,62 +1,87 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The skills speak in terms of canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                    |
-| -------------------------- | -------------------- | ------------------------------------------ |
-| `needs-triage`             | `needs-triage`       | Agent needs to evaluate this issue         |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information   |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent    |
-| `ready-for-human`          | `ready-for-human`    | Awaiting human review or decision          |
-| `wontfix`                  | `wontfix`            | Will not be actioned                       |
-|                            | `backlog`            | Deferred or undecided; kept for tracking   | 
+## Axes
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+Labels split across four **orthogonal** axes. Some are for agent routing, some exist only so the maintainer can scan the pile fast.
 
-## Human vs. Agent
+| Axis | Labels | Read by | Notes |
+| ---- | ------ | ------- | ----- |
+| **State** | `needs-triage` → gate → `ready-for-agent` | agent | the lifecycle; a leaf ends at `ready-for-agent` |
+| **Human gate** | `needs-info`, `needs-action`, `needs-decision`, `needs-lgtm` | **maintainer (scan)** | which human action unblocks it |
+| **Category** | `bug`, `feat`, `chore` | both | one question: broken / new-or-changed / upkeep |
+| **Shape** | `epic` | **maintainer (scan)** | container, not a leaf; agents ignore it |
+| **Parked** | `backlog` | agent | orthogonal flag, NOT a state peer |
+| **Closed** | `wontfix` | both | will not be actioned |
 
-Nearly all tasks are done by agents, including design, review, and research. The upstream triage skill says `ready-for-human` means "needs human implementation" — in this project it means **"agent completed work, human needs to review or decide."**
+A triaged **leaf** issue carries exactly one category and exactly one state (a gate counts as its state). `backlog` and `epic` are flags layered on top, not states.
 
-### When to escalate to `ready-for-human`
+### Canonical role → tracker string
 
-Move an issue to `ready-for-human` **only** when the agent cannot verify its own work:
+| Canonical role (mattpocock/skills) | Tracker label | Meaning |
+| ---------------------------------- | ------------- | ------- |
+| `needs-triage`    | `needs-triage`    | agent needs to evaluate this issue |
+| `needs-info`      | `needs-info`      | blocked: human must supply information |
+| `ready-for-agent` | `ready-for-agent` | fully specified, ready for an AFK agent |
+| `ready-for-human` | one of `needs-info` / `needs-action` / `needs-decision` / `needs-lgtm` | blocked on the human; pick by action type (below) |
+| `wontfix`         | `wontfix`         | will not be actioned |
 
-- **UI changes** — agent can't see the result
-- **Auth-gated or credential-dependent work** — agent can't access the service
-- **Subjective decisions** — no objective acceptance criteria exist
-- **Product-level decisions** — project direction, priorities, what to build next
+There is no `ready-for-human` string (it fans out, below). Canonical `enhancement` also fans out into `feat` vs `chore`, below. Because the fan-outs live here in the mapping, the upstream skill needs no edits.
 
-### When NOT to escalate
+## Category (canonical `enhancement` fans out)
 
-Do not escalate for:
+Canonical `bug` maps straight to `bug`. Canonical `enhancement` picks one:
 
-- Implementation choices (library, pattern, code structure)
-- Refactoring that preserves behavior
-- Bug fixes with clear reproduction and testable acceptance criteria
-- Adding config keys, API endpoints, or features where the spec is unambiguous
-- Any task where the agent can run tests or otherwise verify the result
-- Decisions with low subjective ambiguity 
+- `feat` — new or changed **product behavior** a user would notice.
+- `chore` — upkeep with **no** product-behavior change (dep bumps, behavior-preserving refactors, infra, CI, docs).
 
-**If the acceptance criteria are testable and the agent can verify them, just do the work and close the issue.**
+If a user would notice the difference, it's `feat`; otherwise `chore`.
 
-### Who can escalate
+## The human gate (was `ready-for-human`)
 
-Both the triaging agent and the implementing agent can move issues to `ready-for-human`. Triage catches obvious cases (design tasks, ambiguous scope). The implementing agent escalates if it discovers a judgment call mid-flight. But the bar is "I literally cannot verify this," not "the maintainer might have an opinion."
+Nearly all tasks are done by agents, including design, review, and research. The human is a **gate**, not an alternate executor: an issue passes *through* a gate and returns to `ready-for-agent`, it does not terminate there. Pick the gate by **what the human must do**, so the maintainer knows the effort before opening the issue:
 
-### The checkpoint flow
+- `needs-info` — supply a fact or clarification the agent is missing.
+- `needs-action` — do something out-of-band the agent can't (set up an account, publish, flip a dashboard setting).
+- `needs-decision` — make a judgment call with no objective acceptance criteria (design, direction, priorities), including reviewing agent work.
+- `needs-lgtm` — sign off / approve finished work. A lightweight `needs-decision`; kept separate so approvals batch.
 
-When an agent moves an issue to `ready-for-human`, it posts a checkpoint brief (see `workflows/issue-lifecycle.md` for the full template). Key rules:
+`needs-info` is **double-booked**: it is also the pre-triage "waiting on reporter" state. In practice the pre-triage use is rare; treat the label as position-independent ("blocked on human info, wherever we are").
 
-- **Include the session link** so the maintainer can `--continue` the session to ask follow-up questions.
-- **Design artifacts live in the issue comment, not in repo files.** The checkpoint comment is self-contained — the reviewer should never need to open another file to understand the work or make a decision.
-- **No "Recommendation: Approve."** The agent wrote the work; of course it recommends approval. Instead, show **key decisions** (what was chosen over what and why) and **risks** so the reviewer can spot wrong turns fast.
+### When to gate
+
+Gate **only** when the agent cannot verify its own work or cannot proceed without the human:
+
+- **UI changes** — agent can't see the result → `needs-decision` (review).
+- **Auth/credential-dependent work** — agent can't access the service → `needs-action`.
+- **Subjective / product decisions** — no objective acceptance criteria → `needs-decision`.
+- **Missing spec detail** — → `needs-info`.
+
+Do **not** gate for: implementation choices (library, pattern, structure), behavior-preserving refactors, bug fixes with testable acceptance criteria, config/API/feature work with an unambiguous spec, or anything the agent can test. **If acceptance criteria are testable and the agent can verify them, do the work and close.**
+
+### Who gates
+
+Both the triaging agent and the implementing agent can move an issue to a gate. Triage catches obvious cases (design, ambiguous scope); the implementing agent gates if it discovers a judgment call mid-flight. The bar is "I literally cannot verify or proceed," not "the maintainer might have an opinion."
+
+### The checkpoint brief
+
+When an agent gates an issue, it posts a checkpoint brief. Key rules:
+
+- **Include the session link** so the maintainer can `--continue` to ask follow-ups.
+- **Artifacts live in the issue comment, not in repo files.** The comment is self-contained; the reviewer never needs to open another file to decide.
+- **No "Recommendation: Approve."** The agent wrote the work; of course it recommends approval. Show **key decisions** (what was chosen over what and why) and **risks** so the reviewer spots wrong turns fast.
 
 The human responds:
 
-- **Approve:** comment "approved" or move to `ready-for-agent`. Agent picks up and executes.
-- **Revise:** comment with feedback and move to `ready-for-agent`. Agent reworks based on the comment.
+- **Approve:** comment "approved" or move to `ready-for-agent`.
+- **Revise:** comment feedback and move to `ready-for-agent`.
 - **Reject:** close the issue.
 
 ### Straightforward tasks
 
-Not every task needs human gating. If the issue has clear acceptance criteria and the agent can verify its work, the agent completes the task and closes the issue directly. No checkpoint, no `ready-for-human`.
+Not every task needs gating. Clear acceptance criteria the agent can verify → complete and close directly. No checkpoint, no gate.
+
+## Epics
+
+An `epic` is a **container**: a body of work that does not reduce to a single `ready-for-agent → done`. Split it into sub-issues (GitHub native sub-issues) and tag the parent `epic`. The parent's completion (all children closed) is the "is this whole thing done?" signal. Agents ignore the label — they execute the children, which flow through the normal machine. The parent is never `ready-for-agent`, so the `ready` filter skips it for free.
