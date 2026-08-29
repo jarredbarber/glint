@@ -40,6 +40,18 @@ test('outline extraction', async (t) => {
         assert.match(headings[1].id, /^L\d+$/);
     });
 
+    await t.test('math in a heading extracts the glyph, not raw TeX (#135)', async () => {
+        const content = '# Norm $L^2$\n\n## Section on $\\alpha$\n\nbody';
+        const file = new VFile({ value: content });
+
+        await processor.process(file);
+
+        const headings = file.data.headings as HeadingNode[];
+        assert.equal(headings[0].text, 'Norm L2');
+        assert.equal(headings[1].text, 'Section on α');
+        assert.ok(!headings.some((h) => /\\alpha|\\/.test(h.text)), 'no raw TeX leaks into outline');
+    });
+
     await t.test('handles special characters in headings', async () => {
         const content = '# Hello World!';
         const file = new VFile({ value: content });
