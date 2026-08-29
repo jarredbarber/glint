@@ -144,6 +144,21 @@ test('fenced code block without a language has no label', async () => {
     assert.doesNotMatch(out, /class="code-lang-label"/);
 });
 
+test('csv fence renders a table with headers, quoted commas, escaped quotes', async () => {
+    const csv = 'name,note\n"Smith, Jane","she said ""hi"""\n';
+    const out = await renderMarkdown({ markdown: '```csv\n' + csv + '```\n', bodyOnly: true });
+    assert.match(out, /<thead><tr><th>name<\/th><th>note<\/th><\/tr><\/thead>/);
+    assert.match(out, /<td>Smith, Jane<\/td>/);
+    assert.match(out, /<td>she said "hi"<\/td>/);
+    // No trailing empty row from the final newline.
+    assert.doesNotMatch(out, /<tr><td><\/td><\/tr>/);
+});
+
+test('csv fence escapes HTML in cells (no script injection)', async () => {
+    const out = await renderMarkdown({ markdown: '```csv\na\n<script>x</script>\n```\n', bodyOnly: true });
+    assert.doesNotMatch(out, /<script>x<\/script>/);
+});
+
 test('body-only fragment: forces Glint theme colors, no colorscheme bridge by default', async () => {
     const out = await renderMarkdown({ markdown: '# T\n\ntext\n', bodyOnly: true });
     assert.match(out, /background:var\(--bg-color\)!important/, 'forces Glint bg over the host');

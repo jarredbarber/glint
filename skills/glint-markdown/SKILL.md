@@ -85,6 +85,19 @@ Compiled to SVG in the browser by a self-hosted TikZJax (WASM TeX) engine, loade
 only on pages that contain a diagram. First render is slow (the engine downloads a
 multi-megabyte TeX core); each unique diagram is then cached in the browser.
 
+## CSV Tables
+
+```csv
+name,role
+"Smith, Jane",Editor
+Ada,"Author, ""founder"""
+```
+
+A `csv` fence renders as a table: the first row is the header, the rest are data
+rows. Fields may be double-quoted to contain commas or newlines, and `""` inside a
+quoted field is a literal quote. Cell text is escaped, and the table inherits the
+same styling as a GitHub-Flavored Markdown table.
+
 ## HTML
 
 Glint accepts a passive HTML vocabulary inline with the article. It includes normal formatting and table elements plus `img`, `figure`, `figcaption`, `details`, `summary`, `audio`, `video`, `kbd`, `mark`, `abbr`, and `cite`.

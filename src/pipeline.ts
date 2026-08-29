@@ -16,6 +16,7 @@ import rehypeKatex from 'rehype-katex';
 import { rehypeExtractHeadings } from './rehype-extract-headings.js';
 import { remarkMermaidGlint } from './remark-mermaid-glint.js';
 import { remarkTikzGlint } from './remark-tikz-glint.js';
+import { remarkCsvGlint } from './remark-csv-glint.js';
 import { remarkWikiLinkGlint } from './remark-wiki-link-glint.js';
 import { remarkGlintWidgets } from './remark-glint-widgets.js';
 import { rehypeSourceLines } from './rehype-source-lines.js';
@@ -63,6 +64,7 @@ export function createProcessor(
         .use(remarkWikiLinkGlint, { validateLink: linkValidator })
         .use(remarkMermaidGlint)
         .use(remarkTikzGlint)
+        .use(remarkCsvGlint)
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeClassifyAuthorHtml)
         .use(rehypeRaw, rawHtmlOptions)
