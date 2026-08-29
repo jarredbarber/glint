@@ -87,12 +87,13 @@ const DEMO_PAGES = [
     { name: 'Home.md', content: [
         '---', 'author: Jarred', 'date: 2026-01-08', 'tags: [demo, markdown]', 'status: living document', '---', '',
         '# Glint demo', '',
-        'A tour of what the renderer does. Start here, then see [[Tasks]], [[Diagrams]], [[Code]], [[Math]], and [[Comments]].', '',
+        'A tour of what the renderer does. Start here, then see [[Tasks]], [[Diagrams]], [[Code]], and [[Math]].', '',
         '## Prose', '',
         'Text with *emphasis*, **strong**, `inline code`, and a [link](https://github.com/jarredbarber/glint).', '',
         '> A blockquote, for good measure.', '',
         '## Table', '',
         '| Feature | Fenced as | Renders |', '| --- | --- | --- |', '| Diagrams | `mermaid` | SVG flowchart |', '| Math | `$$` | KaTeX |', '',
+        'Leave a comment with the button in the footer — discussion threads attach to any page.', '',
     ].join('\n') },
     { name: 'Tasks.md', content: [
         '# Tasks', '',
@@ -120,6 +121,7 @@ $$E^2 = (mc^2)^2 + (pc)^2$$
 **Goal:** To find the function $q(t)$ that extremizes the action functional $S[q] = \int_{t_1}^{t_2} \mathcal{L}(q, \dot{q}, t) dt$.
 
 We consider a variation $\delta q(t)$ such that $\delta q(t_1) = \delta q(t_2) = 0$. The extremum condition is $\delta S = 0$:
+
 $$ \delta S = \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} \delta q + \frac{\partial \mathcal{L}}{\partial \dot{q}} \delta \dot{q} \right) dt = 0 $$
 
 Since $\delta \dot{q} = \frac{d}{dt} \delta q$, we apply integration by parts to the second term:
@@ -131,6 +133,7 @@ The boundary term vanishes because $\delta q(t_1) = \delta q(t_2) = 0$. Substitu
 $$ \int_{t_1}^{t_2} \left( \frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) \delta q \, dt = 0 $$
 
 By the Fundamental Lemma of the Calculus of Variations, the integrand must vanish:
+
 $$\frac{\partial \mathcal{L}}{\partial q} - \frac{d}{dt} \left( \frac{\partial \mathcal{L}}{\partial \dot{q}} \right) = 0$$
 
 ## Einstein Field Equations [[#ref:einstein]]
@@ -162,13 +165,6 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
 - [ref:einstein] "The Field Equations of Gravitation" Einstein, A. (1915) <https://en.wikisource.org/wiki/Translation:The_Field_Equations_of_Gravitation>
 - [ref:euler] "Methodus Inveniendi Lineas Curvas Maximi Minive Proprietate Gaudentes" Euler, L. (1744)
 ` },
-    { name: 'Comments.md', content: [
-        '# Comments', '',
-        'The pipeline renders `comment` fences as annotation blocks. Active:', '',
-        '```comment', 'jarred@2026-01-11:14:00 This is a test comment.', '', 'clanker@2026-01-11:14:05 Reply to the test.', '```', '',
-        'And resolved (collapsed by the reader):', '',
-        '```comment', '#resolved', 'jarred@2026-01-11:15:08 Looks good, shipping.', '```', '',
-    ].join('\n') },
     { name: 'Widget.html', content: [
         '<!doctype html><meta charset="utf-8">',
         '<style>body{font:16px system-ui;padding:1.5rem;color:#222}h1{color:#2b6cb0}code{background:#eee;padding:.1rem .3rem;border-radius:3px}</style>',
