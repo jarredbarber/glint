@@ -1,6 +1,7 @@
 // Glint SPA app shell: routing → adapter → auth → list → render + sidebar + editor.
 import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError, isHtmlFile } from './storage/types.js';
 import { FakeAdapter } from './storage/fake.js';
+import { RawUrlAdapter } from './storage/raw-url.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
 import { DriveAdapter, browseDriveFolder, hasCachedDriveToken, forgetDriveToken } from './storage/drive.js';
@@ -211,6 +212,10 @@ function pickSingle(rest: string[]): { adapter: StorageAdapter; fileId: string; 
     if (p.backend === 'drive') {
         // Drive reads any file by id (alt=media), so no folder is needed; path is the file id.
         return { adapter: new DriveAdapter('', CFG.driveClientId ?? ''), fileId: p.path };
+    }
+    if (p.backend === 'url') {
+        // Raw Markdown URL (#152): the URL is both the file id and the fetch target.
+        return { adapter: new RawUrlAdapter(p.path), fileId: p.path };
     }
     return { adapter: new FakeAdapter(DEMO_PAGES), fileId: '', resolveByPath: p.path };
 }

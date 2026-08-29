@@ -53,6 +53,11 @@ export function parseSingleRoute(rest: string[]): { backend: string; owner?: str
         if (!path) throw new Error('Single-file demo link needs a page name.');
         return { backend: 'demo', ref: 'main', path };
     }
+    if (backend === 'url') {
+        const url = args[0] ? decodeURIComponent(args[0]) : '';
+        if (!/^https?:\/\//i.test(url)) throw new Error('Raw URL link needs an http(s) address.');
+        return { backend: 'url', ref: '', path: url };
+    }
     throw new Error(`Single-file links are not supported for “${backend}”.`);
 }
 
@@ -145,6 +150,10 @@ export function parseLandingUrl(raw: string): string | null {
     if (driveFile) return `#/s/drive/${encodeURIComponent(driveFile[1])}`;
     const driveFolder = value.match(/\/folders\/([^/?#]+)/);
     if (driveFolder) return `#/drive/${encodeURIComponent(driveFolder[1])}`;
+
+    // Any other http(s) URL: fetch and render it as a single read-only Markdown file (#152).
+    // Checked after the GitHub/Drive web-URL patterns so those still take their richer routes.
+    if (/^https?:\/\//i.test(value)) return `#/s/url/${encodeURIComponent(value)}`;
 
     // Short forms without a host: `owner/repo/blob/ref/path`, `owner/repo`, etc.
     const clean = value.replace(/^\/+/, '');
