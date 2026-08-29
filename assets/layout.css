@@ -1413,6 +1413,12 @@ tr:nth-child(even) {
     font-size: 1.1em;
 }
 
+/* In headings the 1.1em bump makes math tower over the heading text; match it. */
+h1 .katex, h2 .katex, h3 .katex, h4 .katex, h5 .katex, h6 .katex,
+.article-header h1 .katex {
+    font-size: 1em;
+}
+
 .katex-display {
     margin: 1.5rem 0;
     /* Remove overflow from container so number stays fixed */
@@ -1451,8 +1457,10 @@ tr:nth-child(even) {
     overflow-y: hidden;
     text-align: center;
     vertical-align: middle;
+    /* Top pad: overflow-y:hidden (for the scrollbar) otherwise clips tall
+       superscripts/limits at the top. Bottom pad: room for the scrollbar. */
+    padding-top: 6px;
     padding-bottom: 4px;
-    /* Space for subtle scrollbar */
 
     /* Standard Cross-Browser Scrollbar Support (Firefox) */
     scrollbar-width: thin;
@@ -1475,6 +1483,12 @@ tr:nth-child(even) {
 
 .katex-display>.katex::-webkit-scrollbar-thumb:hover {
     background: var(--text-dim);
+}
+
+/* TikZ figures: center the browser-compiled SVG (#147). */
+.tikz-figure {
+    text-align: center;
+    margin: 2rem 0;
 }
 
 /* Mermaid Diagrams */
@@ -2484,6 +2498,11 @@ h6:hover .heading-edit-icon,
         min-width: 0;   /* ignore the desktop resize var on mobile */
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        /* Shadow only while open; off-screen it bleeds a gradient down the left edge. */
+        box-shadow: none;
+    }
+
+    body.sidebar-open .sidebar {
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
     }
 

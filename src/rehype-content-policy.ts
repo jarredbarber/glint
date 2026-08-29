@@ -151,7 +151,7 @@ export function rehypeClassifyAuthorHtml() {
             // author-embed iframe path and sanitization. These carry no executable JS:
             // the browser never runs an unknown script type, and tikzjax reads the text
             // as sandboxed TeX. See remark-tikz-glint.ts.
-            if (/^\s*<script\b[^>]*\btype="text\/tikz"/i.test(node.value)) return;
+            if (/^\s*(<div class="tikz-figure">)?\s*<script\b[^>]*\btype="text\/tikz"/i.test(node.value)) return;
             const range = rawRange(node);
             const { hasUnknown, complete } = inspectFragment(node.value);
 

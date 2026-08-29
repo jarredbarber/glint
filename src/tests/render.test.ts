@@ -204,6 +204,7 @@ test('tikz (#109): fence becomes a text/tikz script and pulls the loader only wh
     assert.match(diagram, /\\begin\{tikzpicture\}/, 'raw TeX preserved unescaped');
     assert.ok(!/<iframe/.test(diagram), 'tikz not wrapped in a sandbox embed');
     assert.match(diagram, /tikzjax\/tikzjax\.js/, 'loader pulled when used');
+    assert.match(diagram, /<div class="tikz-figure"[^>]*>\s*<script/, 'wrapped in a centered figure (#147)');
 });
 
 test('standalone renderer reads KaTeX macros from frontmatter (#107)', async () => {

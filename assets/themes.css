@@ -322,6 +322,10 @@
 
 /* Page masthead: title block + a ghost action (Settings / Close). */
 [data-theme] .glint-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+/* The masthead h1 is focused programmatically (tabindex=-1) so screen readers
+   land on it when the panel opens; suppress the UA focus ring, which otherwise
+   draws a box around the title (#147). */
+[data-theme] .glint-page-head h1:focus, [data-theme] .glint-page-head h1:focus-visible { outline: none; }
 [data-theme] .glint-ghost-btn {
     display: inline-flex;
     align-items: center;
@@ -791,7 +795,9 @@
     [data-theme] .glint-comment-rail { position: static; flex-basis: auto; width: 100%; border-top: var(--theme-rule) solid var(--border-color); }
 }
 
-/* Mobile overlay: ignore the desktop resize var (matches [data-theme] specificity). */
+/* Mobile overlay: full-screen takeover, ignoring the desktop resize var
+   (matches [data-theme] specificity so it beats the width var, and matches
+   the layout.css mobile .sidebar width). */
 @media (max-width: 768px) {
-    [data-theme] .sidebar { width: 280px; min-width: 0; }
+    [data-theme] .sidebar { width: 100vw; min-width: 0; }
 }

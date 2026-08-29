@@ -14,9 +14,12 @@ export const remarkTikzGlint: Plugin<[], Root> = function () {
     return (tree: Root) => {
         visit(tree, 'code', (node: Code, index, parent) => {
             if (node.lang === 'tikz' && parent && index !== undefined) {
+                // Wrap in a centered figure so the SVG TikZJax swaps in for the
+                // script isn't left-aligned. The classifier in rehype-content-policy.ts
+                // keeps this Glint-generated wrapper raw alongside the script.
                 const htmlNode: Html = {
                     type: 'html',
-                    value: `<script type="text/tikz" data-glint>\n${node.value}\n</script>`,
+                    value: `<div class="tikz-figure"><script type="text/tikz" data-glint>\n${node.value}\n</script></div>`,
                 };
                 parent.children.splice(index, 1, htmlNode);
             }
