@@ -99,6 +99,18 @@ function loadScript(src: string): Promise<void> {
 
 function driveTokenKey(clientId: string): string { return `glint.drive.token.v3.${clientId}`; }
 
+// Exposed so Settings can offer a "sign out of Drive" affordance mirroring GitHub (#140).
+export function hasCachedDriveToken(clientId: string): boolean {
+    if (!clientId) return false;
+    try { return !!localStorage.getItem(driveTokenKey(clientId)); } catch { return false; }
+}
+export function forgetDriveToken(clientId: string): void {
+    // ponytail: just drop the cached token; GIS revoke is optional and needs a live
+    // token we may not have. Next Drive route re-prompts consent. Add revoke if a
+    // lingering server-side grant becomes a problem.
+    try { localStorage.removeItem(driveTokenKey(clientId)); } catch { /* non-fatal */ }
+}
+
 // Mint an OAuth access token via GIS. `prompt: 'none'` is a silent grant (no popup when a
 // Google session already consented); '' shows the interactive consent/chooser.
 function mintAccessToken(clientId: string, prompt: string): Promise<{ token: string; expiresAt: number }> {

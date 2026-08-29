@@ -3,7 +3,7 @@ import { StorageAdapter, FileMeta, AuthExpiredError, ConflictError, isHtmlFile }
 import { FakeAdapter } from './storage/fake.js';
 import { LocalAdapter, localSupported } from './storage/local.js';
 import { reconcileWrite } from './file-mutation.js';
-import { DriveAdapter, browseDriveFolder } from './storage/drive.js';
+import { DriveAdapter, browseDriveFolder, hasCachedDriveToken, forgetDriveToken } from './storage/drive.js';
 import { GitHubAdapter, GitHubAuthChoice, GitHubPushMode, hasCachedGitHubToken, forgetGitHubToken } from './storage/github.js';
 import { withSilentReauth } from './storage/reauth.js';
 import { createStandaloneHtml } from './export.js';
@@ -438,9 +438,10 @@ function renderSettings(): void {
             <p class="glint-setting-note">How edits reach GitHub. Only affects GitHub projects.</p>
             ${GITHUB_PUSH_MODES.map((m) => `<label class="glint-toggle"><input type="radio" name="gh-push-mode" data-gh-push-mode value="${m.key}"${m.key === appState.settings.githubPushMode ? ' checked' : ''}> ${escapeHtml(m.label)}</label>`).join('')}
         </section>
-        ${hasCachedGitHubToken() ? `<section class="glint-setting-group"><h2>Connections</h2>
-            <p class="glint-setting-note">Your GitHub token is saved in this browser so you don't re-enter it. It is never sent to a Glint server.</p>
-            <button class="glint-danger" data-forget-github>Sign out of GitHub (clear saved token)</button>
+        ${(hasCachedGitHubToken() || hasCachedDriveToken(CFG.driveClientId ?? '')) ? `<section class="glint-setting-group"><h2>Connections</h2>
+            <p class="glint-setting-note">Access tokens are saved in this browser so you don't re-enter them. They are never sent to a Glint server.</p>
+            ${hasCachedGitHubToken() ? `<button class="glint-danger" data-forget-github>Sign out of GitHub (clear saved token)</button>` : ''}
+            ${hasCachedDriveToken(CFG.driveClientId ?? '') ? `<button class="glint-danger" data-forget-drive>Sign out of Google Drive (clear saved token)</button>` : ''}
         </section>` : ''}
         <section class="glint-setting-group"><h2>Projects</h2>
             <p class="glint-setting-note">Manage projects from the home page. This clears every local bookmark and setting.</p>
@@ -499,6 +500,11 @@ function renderSettings(): void {
     wrapper.querySelector('[data-forget-github]')?.addEventListener('click', () => {
         forgetGitHubToken();
         showToast('Signed out of GitHub', 'success');
+        renderSettings();
+    });
+    wrapper.querySelector('[data-forget-drive]')?.addEventListener('click', () => {
+        forgetDriveToken(CFG.driveClientId ?? '');
+        showToast('Signed out of Google Drive', 'success');
         renderSettings();
     });
     wrapper.querySelector('[data-reset-projects]')?.addEventListener('click', () => {
