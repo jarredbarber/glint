@@ -1,4 +1,5 @@
 import type { GitHubPushMode } from './storage/github.js';
+import { routeContains } from './single-route.js';
 
 export const STATE_KEY = 'glint-spa-state';
 export const LEGACY_GITHUB_TOKEN_KEY = 'glint-gh-token';
@@ -126,6 +127,18 @@ export function saveState(storage: Storage, state: PersistedStateV1, colorScheme
     if (!valid) throw new Error('refusing to save invalid Projects state');
     storage.setItem(STATE_KEY, JSON.stringify(valid));
     return true;
+}
+
+// The saved project the given live route belongs to (a route inside a saved subtree
+// resolves to its container), or null when the route is not a saved project. The
+// ephemeral #/demo view normalizes to null, so it never surfaces the last real project
+// as active in the switcher (#145). `currentProjectRoute` must already have any
+// `/-/<page>` suffix stripped.
+export function activeProject(state: PersistedStateV1, currentProjectRoute: string): ProjectV1 | null {
+    const normalized = normalizeProjectRoute(currentProjectRoute);
+    if (!normalized) return null;
+    return state.projects.find((project) =>
+        project.route === normalized || routeContains(project.route, normalized)) ?? null;
 }
 
 export function addProject(state: PersistedStateV1, name: string, route: string): PersistedStateV1 {

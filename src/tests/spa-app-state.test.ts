@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addProject, DEFAULT_STATE, loadState, normalizeProjectRoute, reorderProject, saveState } from '../spa/app-state.js';
+import { activeProject, addProject, DEFAULT_STATE, loadState, normalizeProjectRoute, reorderProject, saveState } from '../spa/app-state.js';
 
 const colorSchemes = ['nord', 'one-dark'];
 
@@ -62,4 +62,18 @@ test('reorderProject moves an entry and shifts the rest (#96)', () => {
     assert.equal(reorderProject(state, 1, 1), state);
     assert.equal(reorderProject(state, 5, 0), state);
     assert.equal(reorderProject(state, 0, -1), state);
+});
+
+test('activeProject resolves the live route, isolating the demo view (#145)', () => {
+    let state = addProject(DEFAULT_STATE, 'Repo', '#/gh/owner/repo/docs');
+    // activeProjectRoute still points at the last real project...
+    assert.equal(state.settings.activeProjectRoute, '#/gh/owner/repo/docs');
+    // ...but the ephemeral demo route must not adopt it.
+    assert.equal(activeProject(state, '#/demo'), null);
+    assert.equal(activeProject(state, ''), null);
+    // The real project route (and a subtree of it) resolves to the saved project.
+    assert.equal(activeProject(state, '#/gh/owner/repo/docs')?.name, 'Repo');
+    assert.equal(activeProject(state, '#/gh/owner/repo/docs/sub')?.name, 'Repo');
+    // An unsaved real route selects nothing.
+    assert.equal(activeProject(state, '#/gh/other/repo'), null);
 });

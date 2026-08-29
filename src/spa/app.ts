@@ -11,7 +11,7 @@ import { isManagedSrc, resolveAssetPath } from './assets.js';
 import { matchesWikiSearch, normalizePageName, resolveWikiLink } from './wiki-links.js';
 import { buildFileTree, TreeNode } from './file-tree.js';
 import { escapeHtml } from '../utils/html.js';
-import { addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, reorderProject, saveState, Theme, THEMES } from './app-state.js';
+import { activeProject, addProject, CommentLayout, COMMENT_LAYOUTS, DEFAULT_STATE, defaultProjectName, LEGACY_GITHUB_TOKEN_KEY, loadState, normalizeProjectRoute, PersistedStateV1, renameProject, reorderProject, saveState, Theme, THEMES } from './app-state.js';
 import { GitHubOAuthConfig, takeGitHubOAuthCallback, takeGitHubOAuthReturn } from './github-oauth.js';
 import { parseSingleRoute, buildShareRoute, buildPageRoute, splitPageRoute, parseGhRoute, parseLandingUrl, routeContains, resolveReopen } from './single-route.js';
 import { anchorFromElement, resolveDiscussionAnchors } from './discussions.js';
@@ -382,7 +382,10 @@ function rememberCurrentProject(nameOverride?: string): void {
 }
 
 function projectSwitcher(): string {
-    const active = appState.projects.find((project) => project.route === appState.settings.activeProjectRoute);
+    // Derive the selected project from the *live* route, not the persisted
+    // activeProjectRoute, so an ephemeral view (e.g. #/demo) shows no stale real
+    // project as active (#145).
+    const active = activeProject(appState, splitPageRoute(location.hash).projectRoute);
     const icon = active ? sourceIcon(active.route) : ICON.source;
     const options = appState.projects.map((project) => `<option value="${escapeHtml(project.route)}"${project.route === active?.route ? ' selected' : ''}>${escapeHtml(project.name)}</option>`).join('');
     return `<div class="glint-switcher"><span class="glint-source-icon">${icon}</span><select data-project-switch aria-label="Switch project"><option value="">Choose a project</option>${options}</select></div>`;
