@@ -38,7 +38,7 @@
     "bundle:tikz": "rm -rf assets/tikzjax && mkdir -p assets/tikzjax && cp node_modules/@planktimerr/tikzjax/dist/tikzjax.js node_modules/@planktimerr/tikzjax/dist/run-tex.js node_modules/@planktimerr/tikzjax/dist/core.dump.gz node_modules/@planktimerr/tikzjax/dist/tex.wasm.gz node_modules/@planktimerr/tikzjax/dist/fonts.css assets/tikzjax/ && cp -R node_modules/@planktimerr/tikzjax/dist/fonts node_modules/@planktimerr/tikzjax/dist/tex_files assets/tikzjax/",
     "bundle:editor": "esbuild src/client/editor.ts --bundle --minify --outfile=assets/editor.bundle.js",
     "bundle:render": "esbuild src/browser.ts --bundle --minify --platform=browser --global-name=GlintRender --outfile=assets/glint-render.bundle.js",
-    "bundle:spa": "esbuild src/spa/app.ts --bundle --minify --format=esm --outfile=assets/spa.bundle.js",
+    "bundle:spa": "esbuild src/spa/app.ts --bundle --minify --format=esm --loader:.md=text --outfile=assets/spa.bundle.js",
     "bundle": "rm -f assets/*.bundle.js && npm run bundle:vendor && npm run bundle:tikz && npm run bundle:editor && npm run bundle:render && npm run bundle:spa",
     "build": "tsc && npm run bundle",
     "start": "npm run dev",

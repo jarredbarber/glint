@@ -26,6 +26,9 @@ declare global {
 }
 const CFG = window.GLINT_CONFIG ?? {};
 import { installEditorShortcuts } from './editor/session.js';
+// The real repo README, inlined at build time by esbuild's text loader (bundle:spa).
+// Keeps #/demo showing the actual README with no second copy in source (#144).
+import readmeMd from '../../README.md';
 
 declare const GlintRender: {
     renderMarkdown(src: string, opts?: any): Promise<string>;
@@ -174,6 +177,7 @@ $$R_{\mu\nu} - \frac{1}{2}R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}
         '<p>A <code>.html</code> file in the wiki renders verbatim in a sandboxed iframe (#129):',
         'its own markup, CSS, and images. Page scripts do not run.</p>',
     ].join('\n') },
+    { name: 'README.md', content: readmeMd },
 ];
 
 function pickAdapter(backend: string, rest: string[]): StorageAdapter {
