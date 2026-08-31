@@ -189,7 +189,7 @@ function pickAdapter(backend: string, rest: string[]): StorageAdapter {
         case 'demo': return new FakeAdapter(DEMO_PAGES);
         case 'local':
             if (!localSupported()) throw new Error('Local backend needs a Chromium-based browser (File System Access API).');
-            return new LocalAdapter();
+            { const a = new LocalAdapter(forceLocalPicker); forceLocalPicker = false; return a; }
         case 'drive':
             // #/drive/<folderId>
             return new DriveAdapter(rest[0], CFG.driveClientId ?? '', CFG.drivePickerKey ?? '', CFG.driveAppId ?? '');
@@ -245,6 +245,9 @@ const contentCache = new Map<string, string>();
 // so a hash change mid-load can never render/mutate the wrong project (#65).
 let bootGeneration = 0;
 let searchGeneration = 0;
+// #161: set by the landing "Choose a local folder" action so the next LocalAdapter
+// skips the saved-handle restore and opens the OS picker. Consumed once in pickAdapter.
+let forceLocalPicker = false;
 const expandedFolders = new Set<string>();
 // Which page was open, and in which project, so returning to a project (e.g. after
 // Settings) reopens where you were instead of the default page (#69). Scoped by
@@ -1491,7 +1494,12 @@ function renderLanding(): void {
         if (route) { location.hash = route; return; }
         if (errorEl) errorEl.textContent = value.trim() ? 'Not a recognizable GitHub or Drive link.' : 'Paste a link first.';
     });
-    form?.querySelector<HTMLButtonElement>('[data-pick-local]')?.addEventListener('click', () => { location.hash = '#/local'; });
+    // #161: the explicit "Choose a local folder" action always opens the OS picker.
+    // If we're already on #/local the hash won't change (no re-boot), so re-boot by hand.
+    form?.querySelector<HTMLButtonElement>('[data-pick-local]')?.addEventListener('click', () => {
+        forceLocalPicker = true;
+        if (location.hash === '#/local') void boot(); else location.hash = '#/local';
+    });
     form?.querySelector<HTMLButtonElement>('[data-pick-drive]')?.addEventListener('click', async (event) => {
         const btn = event.currentTarget as HTMLButtonElement;
         btn.disabled = true;

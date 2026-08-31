@@ -40,8 +40,13 @@ type DirHandle = any; // FileSystemDirectoryHandle — types vary by TS lib vers
 export class LocalAdapter implements StorageAdapter {
     private dir: DirHandle | null = null;
 
+    // #161: forcePick skips the saved-handle restore so the landing "Choose a
+    // local folder" action always opens the OS picker; revisiting a saved
+    // project row keeps the default auto-restore.
+    constructor(private forcePick = false) {}
+
     async auth(): Promise<void> {
-        const saved = await idbGet<DirHandle>().catch(() => undefined);
+        const saved = this.forcePick ? undefined : await idbGet<DirHandle>().catch(() => undefined);
         if (saved) {
             const perm = await saved.queryPermission({ mode: 'readwrite' });
             if (perm === 'granted' || (await saved.requestPermission({ mode: 'readwrite' })) === 'granted') {
