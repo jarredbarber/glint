@@ -26,7 +26,7 @@ declare global {
     }
 }
 const CFG = window.GLINT_CONFIG ?? {};
-import { installEditorShortcuts } from './editor/session.js';
+import { installEditorShortcuts, isEditorDirty, closeSectionEditor } from './editor/session.js';
 // The real repo README, inlined at build time by esbuild's text loader (bundle:spa).
 // Keeps #/demo showing the actual README with no second copy in source (#144).
 import readmeMd from '../../README.md';
@@ -666,9 +666,15 @@ function revokeManagedImages(): void {
     managedObjectUrls = [];
 }
 window.addEventListener('beforeunload', revokeManagedImages);
-// Staged edits live only in memory (#60): warn before a close/reload would drop them.
+// #162: single "is there unsaved work?" predicate — an open editor with a dirty
+// buffer, or GitHub edits staged in memory (#60). Guards both close/reload
+// (beforeunload) and in-app hash navigation (which never fires beforeunload).
+function hasUnsavedWork(): boolean {
+    return isEditorDirty() || (adapter instanceof GitHubAdapter && adapter.pendingCount() > 0);
+}
+const UNSAVED_MSG = 'You have unsaved changes. Leave this page and lose them?';
 window.addEventListener('beforeunload', (e) => {
-    if (adapter instanceof GitHubAdapter && adapter.pendingCount() > 0) { e.preventDefault(); e.returnValue = ''; }
+    if (hasUnsavedWork()) { e.preventDefault(); e.returnValue = ''; }
 });
 
 function markImageError(img: HTMLImageElement, label: string, retry: () => void): void {
@@ -713,6 +719,12 @@ async function resolveManagedImages(root: ParentNode, pagePath: string, gen: num
 }
 
 async function openFile(id: string) {
+    // #162: sidebar page-switches navigate via replaceState (no hashchange), so guard
+    // the dirty editor here too. Then tear the editor down — otherwise the module-level
+    // instance keeps its dirty buffer after the page it edited is gone, which would make
+    // hasUnsavedWork() report false positives on the next navigation.
+    if (isEditorDirty() && !window.confirm(UNSAVED_MSG)) return;
+    closeSectionEditor();
     const gen = bootGeneration;
     revokeManagedImages();
     currentFileId = id;
@@ -1624,6 +1636,10 @@ export async function boot(): Promise<void> {
     contentCache.clear();
     // A route change can leave a modal (e.g. a pending GitHub auth prompt) orphaned.
     document.querySelectorAll('.glint-modal-overlay').forEach((overlay) => overlay.remove());
+    // #162: a boot rebuilds the whole view, so tear down any open editor here (the
+    // hashchange guard already confirmed discarding a dirty buffer). This also clears
+    // the module-level editor state so it can't linger as a phantom "unsaved change".
+    closeSectionEditor();
     // Reset per-view chrome so leaving single-file/read-only mode restores the project shell.
     document.body.classList.remove('shared-view');
     document.querySelector('.sidebar')?.classList.remove('shared-view');
@@ -1712,5 +1728,19 @@ window.addEventListener('DOMContentLoaded', () => {
     wireMobileSidebar();
     void boot();
 });
-window.addEventListener('hashchange', () => void boot());
+// #162: hash navigation bypasses beforeunload, so guard it here. hashchange fires
+// after the URL changed; if there's unsaved work and the user cancels, put the old
+// hash back (revertingHash skips re-prompting on that programmatic change).
+let currentHash = location.hash;
+let revertingHash = false;
+window.addEventListener('hashchange', () => {
+    if (revertingHash) { revertingHash = false; currentHash = location.hash; return; }
+    if (hasUnsavedWork() && !window.confirm(UNSAVED_MSG)) {
+        revertingHash = true;
+        location.hash = currentHash;
+        return;
+    }
+    currentHash = location.hash;
+    void boot();
+});
 window.addEventListener('focus', () => void refreshFilesOnFocus());

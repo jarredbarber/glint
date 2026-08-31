@@ -69,6 +69,12 @@ export function getCurrentSection(headerOffset = 0): HTMLElement | null {
     return best ?? wrapper.querySelector<HTMLElement>('[data-source-line]') ?? wrapper;
 }
 
+// #162: true when an editor is open and its buffer differs from what it loaded,
+// so callers can warn before a reload/navigation would drop the edit.
+export function isEditorDirty(): boolean {
+    return !!active && active.getValue() !== (active.options?.initialValue ?? '');
+}
+
 export function closeSectionEditor(): void {
     editorGeneration += 1;
     if (active) { active.destroy(); active = null; }
