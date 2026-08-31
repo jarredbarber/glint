@@ -70,7 +70,8 @@
 /* #131: thick bar under the title text only (like OG glint), not full width. */
 [data-theme] .article-header .glint-doc-title { display: table; margin-left: auto; margin-right: auto; }
 [data-theme] .article-header .glint-doc-title::after { content: ""; display: block; width: 80%; height: 2px; margin: 0.3rem auto 0; background: var(--text-color); }
-[data-theme] .article-header .article-meta,
+/* #163: center the author/date meta line under the (centered) title; tags stay left. */
+[data-theme] .article-header .article-meta { text-align: center; }
 [data-theme] .article-header .article-tags { justify-content: flex-start; }
 [data-theme] .article-header .article-description { text-align: left; margin-left: 0; margin-right: 0; }
 [data-theme] .content-wrapper h2 {
