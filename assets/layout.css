@@ -1494,6 +1494,13 @@ h1 .katex, h2 .katex, h3 .katex, h4 .katex, h5 .katex, h6 .katex,
 .tikz-figure {
     text-align: center;
     margin: 2rem 0;
+    /* #155: TikZjax renders black-on-transparent, illegible on dark schemes.
+       Give the figure a light panel spanning content width so it reads in
+       every color scheme. No scheme defines an always-light surface var, so
+       plain white per the maintainer's call. */
+    background: #fff;
+    padding: 1rem;
+    border-radius: 8px;
 }
 
 /* Mermaid Diagrams */
