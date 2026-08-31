@@ -1611,15 +1611,20 @@ async function bootSingleResolved(single: SingleTarget): Promise<void> {
     adapter = single.adapter;
     showLoading('Opening page…');
     try {
-        await adapter.auth();
-        if (myGen !== bootGeneration) return;
+        // #160: silently re-grant on an expired token instead of dead-ending on the
+        // error card (openFile below already wraps read() the same way).
         let id = single.fileId;
-        if (single.resolveByPath) {
-            const found = (await adapter.list()).find((f) => f.path === single.resolveByPath);
+        await withSilentReauth(adapter, async () => {
+            await adapter.auth();
             if (myGen !== bootGeneration) return;
-            if (!found) throw new Error(`No page named “${single.resolveByPath}”.`);
-            id = found.id;
-        }
+            if (single.resolveByPath) {
+                const found = (await adapter.list()).find((f) => f.path === single.resolveByPath);
+                if (myGen !== bootGeneration) return;
+                if (!found) throw new Error(`No page named “${single.resolveByPath}”.`);
+                id = found.id;
+            }
+        });
+        if (myGen !== bootGeneration) return;
         files = [];
         document.body.classList.add('shared-view');
         document.querySelector('.sidebar')?.classList.add('shared-view');
@@ -1697,11 +1702,18 @@ export async function boot(): Promise<void> {
     adapter = pickAdapter(route.backend, route.rest);
     showLoading('Opening project…');
     try {
-        await adapter.auth();
-        if (myGen !== bootGeneration) return;
-        if (adapter instanceof GitHubAdapter) adapter.setPushMode(appState.settings.githubPushMode);
-        document.body.dataset.access = 'edit';
-        files = await adapter.list();
+        // #160: a bookmarked Drive/GitHub project may carry a token that expired
+        // server-side; the open used to dead-end on the "Could not open source" card.
+        // Wrap auth+list in withSilentReauth so an AuthExpiredError triggers a silent
+        // re-grant (or reconnect prompt) and one retry before the error surfaces,
+        // matching the push/save path (#93).
+        await withSilentReauth(adapter, async () => {
+            await adapter.auth();
+            if (myGen !== bootGeneration) return;
+            if (adapter instanceof GitHubAdapter) adapter.setPushMode(appState.settings.githubPushMode);
+            document.body.dataset.access = 'edit';
+            files = await adapter.list();
+        });
         if (myGen !== bootGeneration) return;
     } catch (error) {
         if (myGen !== bootGeneration) return;
