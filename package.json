@@ -29,7 +29,8 @@
     "assets/mermaid.min.js",
     "assets/tikzjax",
     "assets/katex",
-    "assets/color-schemes"
+    "assets/color-schemes",
+    "dist-spa"
   ],
   "scripts": {
     "stage:spa": "rm -rf dist-spa && mkdir dist-spa && cp src/spa/index.html src/spa/embed-host.html src/spa/config.js src/spa/manifest.webmanifest src/spa/privacy.html src/spa/terms.html src/spa/CNAME dist-spa/ && cp skills/glint-markdown/SKILL.md dist-spa/llm.txt && cp -R assets dist-spa/assets",
@@ -45,7 +46,7 @@
     "build": "npm run gen:export-css && tsc && npm run bundle",
     "start": "npm run dev",
     "test": "tsx --test src/tests/**/*.test.ts",
-    "prepack": "tsc"
+    "prepare": "npm run build && npm run stage:spa"
   },
   "keywords": [],
   "author": "Jarred Barber",

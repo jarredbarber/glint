@@ -30,6 +30,16 @@ Glint is hosted at https://glint.jbarb.io. It is entirely browser-based, so ther
 
 Glint supports either single files or "projects"; a project is a local folder, Google Drive folder, or GitHub repo. Drive/Github files/projects can be accessed by pasting their URLs into the landing page.
 
+### Running it fully local
+
+If your environment won't let the hosted site open a local folder (e.g. a corp policy that blocks sending local data to `glint.jbarb.io`), run the same SPA from your own machine — all origins and data stay local:
+
+```bash
+npm install --global glint-md
+glint-md app          # serves http://localhost:8080/#/local and opens a browser
+glint-md app --port 3000 --no-open
+```
+
 ## Offline rendering
 
 Install the CLI:

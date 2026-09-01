@@ -14,6 +14,7 @@ npm run stage:spa   # Assemble the GitHub Pages deploy root
 npm run bundle      # Rebuild browser assets without type-checking
 npm run start       # Alias for npm run dev
 glint-md render FILE # Render one Markdown file to self-contained HTML
+glint-md app        # Serve the SPA from localhost (fully-local #/local, no hosted origin)
 ```
 
 The Markdown extension reference lives in `skills/glint-markdown/SKILL.md` (published as `/llm.txt` at deploy time).

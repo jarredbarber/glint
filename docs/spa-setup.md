@@ -7,7 +7,7 @@ becomes a wiki. No server, no Glint user database — access control is the back
 
 | Backend | Hash route | Needs |
 |---------|-----------|-------|
-| Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials |
+| Local dir | `#/local` | Chromium/Edge (File System Access API); no credentials. Served by the hosted site, or run `glint-md app` to serve it from `localhost` when policy blocks handing local folders to the hosted origin |
 | Google Drive | `#/drive/<folderId>` | `driveClientId` + `drivePickerKey` + numeric `driveAppId` (Picker authorizes the folder, #92) |
 | GitHub repo | `#/gh/<owner>/<repo>` or `#/gh/<owner>/<repo>/tree/<ref>/<path>` | GitHub OAuth or an explicit fine-grained PAT |
 | GitHub single file | `#/gh/<owner>/<repo>/blob/<ref>/<path>` | same GitHub token |

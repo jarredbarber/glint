@@ -2,7 +2,18 @@
 import { Command } from 'commander';
 import path from 'path';
 import fs from 'node:fs/promises';
+import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { renderFile, renderMarkdown } from './render.js';
+
+// ponytail: hand-rolled static server so `glint-md app` needs no extra dep.
+const MIME: Record<string, string> = {
+    '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
+    '.txt': 'text/plain', '.md': 'text/markdown', '.svg': 'image/svg+xml',
+    '.png': 'image/png', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
+    '.wasm': 'application/wasm', '.gz': 'application/gzip', '.map': 'application/json',
+};
 
 const { version } = JSON.parse(
     await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'),
@@ -56,6 +67,42 @@ program
             await fs.writeFile(outPath, html);
             if (!options.stdin) console.log(`✓ rendered ${path.basename(file!)} -> ${outPath}`);
         }
+    });
+
+program
+    .command('app')
+    .description('Serve the Glint SPA from localhost so local folders never leave your machine')
+    .option('-p, --port <port>', 'Port to listen on', '8080')
+    .option('--no-open', 'Do not open a browser')
+    .action(async (options: { port: string; open: boolean }) => {
+        const root = path.resolve(new URL('../dist-spa', import.meta.url).pathname);
+        if (!(await fs.stat(root).catch(() => null))) {
+            console.error(`✗ SPA assets missing at ${root} (reinstall glint-md)`);
+            process.exit(1);
+        }
+        const server = http.createServer(async (req, res) => {
+            // Strip query/hash and decode, then resolve inside root to block path traversal.
+            const rel = decodeURIComponent((req.url || '/').split('?')[0].split('#')[0]);
+            let filePath = path.join(root, rel === '/' ? 'index.html' : rel);
+            if (!filePath.startsWith(root)) { res.writeHead(403).end(); return; }
+            let data = await fs.readFile(filePath).catch(() => null);
+            if (!data) { // SPA uses hash routes, so any unknown path falls back to index.html
+                data = await fs.readFile(path.join(root, 'index.html')).catch(() => null);
+                filePath = 'index.html';
+            }
+            if (!data) { res.writeHead(404).end(); return; }
+            res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream' });
+            res.end(data);
+        });
+        const port = Number(options.port);
+        server.listen(port, '127.0.0.1', () => {
+            const url = `http://localhost:${port}/#/local`;
+            console.log(`✓ Glint running at ${url}  (Ctrl+C to stop)`);
+            if (options.open) {
+                const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+                spawn(opener, [url], { stdio: 'ignore', detached: true, shell: process.platform === 'win32' }).unref();
+            }
+        });
     });
 
 program.parse();
