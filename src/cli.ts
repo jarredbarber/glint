@@ -24,7 +24,19 @@ const program = new Command();
 program
     .name('glint-md')
     .description('Render Markdown (with server-side math) to self-contained HTML. The wiki/editing surface is the static SPA (src/spa).')
-    .version(version);
+    .version(version)
+    .option('--skill', 'Print the Glint Markdown skill/reference to stdout and exit')
+    .action(async (options: { skill?: boolean }) => {
+        if (!options.skill) { program.help(); return; }
+        // ponytail: read the one skill file we ship (dist-spa/llm.txt) rather than
+        // re-inlining it; fall back to the repo source when running unstaged.
+        for (const rel of ['../dist-spa/llm.txt', '../skills/glint-markdown/SKILL.md']) {
+            const text = await fs.readFile(new URL(rel, import.meta.url), 'utf8').catch(() => null);
+            if (text) { process.stdout.write(text); return; }
+        }
+        console.error('✗ Skill reference not found (reinstall glint-md)');
+        process.exit(1);
+    });
 
 program
     .command('render')

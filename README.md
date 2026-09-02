@@ -51,6 +51,9 @@ glint-md render notes/paper.md --output output.html --color-scheme nord
 
 # Piped mode for use as a markdown processor
 cat notes/paper.md | glint-md render --stdin --body-only
+
+# Print the Glint Markdown extension reference
+glint-md --skill
 ```
 
 ## Development / contribution

@@ -15,6 +15,7 @@ npm run bundle      # Rebuild browser assets without type-checking
 npm run start       # Alias for npm run dev
 glint-md render FILE # Render one Markdown file to self-contained HTML
 glint-md app        # Serve the SPA from localhost (fully-local #/local, no hosted origin)
+glint-md --skill    # Print the Glint Markdown skill/reference to stdout
 ```
 
 The Markdown extension reference lives in `skills/glint-markdown/SKILL.md` (published as `/llm.txt` at deploy time).
