@@ -91,6 +91,19 @@ test('defaultMeta backfills author/updated from the backend (#87)', async () => 
     assert.ok(!bare.includes('Updated'), 'no updated line without a source');
 });
 
+test('frontmatter date is the primary date and never day-shifts across timezones (#167)', async () => {
+    // Backend mtime is 08-31; frontmatter date is 09-01. Frontmatter wins as the
+    // primary meta-date, and the date-only value keeps its calendar day (not Aug 31).
+    const html = await renderMarkdown(
+        '---\ndate: 2026-09-01\n---\n\n# Doc\n\nBody.',
+        { defaultMeta: { updated: '2026-08-31T00:00:00Z' } },
+    );
+    const primary = html.match(/<span class="meta-date">([^<]*)<\/span>/);
+    assert.ok(primary, 'primary meta-date rendered');
+    assert.strictEqual(primary[1], 'September 1, 2026', 'frontmatter date wins, no day-shift');
+    assert.ok(html.includes('Updated August 31, 2026'), 'backend mtime fills the updated slot');
+});
+
 test('SPA render keeps relative image src, never the phantom asset API (#65)', async () => {
     const html = await renderMarkdown('![pic](images/cat.png)');
     assert.ok(!html.includes('/api/asset/resolve'), 'no dead resolver URL in static SPA output');

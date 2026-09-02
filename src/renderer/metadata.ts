@@ -1,12 +1,17 @@
 import { escapeHtml } from '../utils/html.js';
 
+// Format in UTC: YAML parses `date: 2026-09-01` to UTC midnight, so a local
+// toLocaleDateString in a negative-offset zone rolled it back a day (#167).
+// Keep the calendar date the author wrote (and mtime instants consistent with it).
+const DATE_FMT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' };
+
 export const formatDate = (rawDate: unknown): string | null => {
     if (!rawDate) return null;
     if (rawDate instanceof Date) {
-        return rawDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        return rawDate.toLocaleDateString('en-US', DATE_FMT);
     } else if (typeof rawDate === 'string') {
         const parsed = new Date(rawDate);
-        return isNaN(parsed.getTime()) ? rawDate : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        return isNaN(parsed.getTime()) ? rawDate : parsed.toLocaleDateString('en-US', DATE_FMT);
     }
     return String(rawDate);
 };
