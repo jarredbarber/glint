@@ -13,16 +13,21 @@ function escapeHtml(value: string): string {
     }[character]!));
 }
 
-export function createStandaloneHtml(title: string, content: string, options: { allowRemoteMedia?: boolean } = {}): string {
+// `extraCss` carries the live SPA's themes.css and the selected color-scheme override
+// (#169); it follows EXPORT_CSS so its :root palette and [data-theme] rules win by
+// cascade order. `theme` stamps the same root attribute applyTheme sets on the live doc.
+export function createStandaloneHtml(title: string, content: string, options: { allowRemoteMedia?: boolean; extraCss?: string; theme?: string } = {}): string {
     const safeContent = applyExportMediaPolicy(content, options.allowRemoteMedia);
+    const themeAttr = options.theme ? ` data-theme="${escapeHtml(options.theme)}"` : '';
+    const extra = options.extraCss ? `\n<style>${options.extraCss}</style>` : '';
     return `<!doctype html>
-<html lang="en">
+<html lang="en"${themeAttr}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${portableContentSecurityPolicy(options.allowRemoteMedia)}">
 <title>${escapeHtml(title)}</title>
-<style>${EXPORT_CSS}</style>
+<style>${EXPORT_CSS}</style>${extra}
 </head>
 <body>
 <main class="content"><div class="content-wrapper">

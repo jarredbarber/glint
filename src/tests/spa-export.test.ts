@@ -22,3 +22,13 @@ test('export inlines the real theme CSS so it matches the live render (#146)', (
     // Still self-contained: everything lives in the inline <style>, no external refs.
     assert.doesNotMatch(document, /<link\s+[^>]*href=/);
 });
+
+test('export carries the selected theme and color-scheme CSS (#169)', () => {
+    const schemeCss = ':root{--bg-color:#2e3440;--text-color:#eceff4}';
+    const document = createStandaloneHtml('Doc', '<h1>Doc</h1>', { theme: 'almanac', extraCss: schemeCss });
+    // Root attribute matches what applyTheme stamps on the live document.
+    assert.match(document, /<html lang="en" data-theme="almanac">/);
+    // The scheme override is inlined after EXPORT_CSS so its :root palette wins.
+    assert.ok(document.indexOf(schemeCss) > document.indexOf('.katex-mathml'), 'extraCss follows EXPORT_CSS');
+    assert.doesNotMatch(document, /<link\s+[^>]*href=/);
+});

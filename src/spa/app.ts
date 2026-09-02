@@ -899,7 +899,16 @@ async function exportCurrentPage(): Promise<void> {
         alert((error as Error).message);   // abort rather than download a knowingly broken file
         return;
     }
-    const url = URL.createObjectURL(new Blob([createStandaloneHtml(page.name, html)], { type: 'text/html;charset=utf-8' }));
+    // Match the live look offline: inline themes.css plus the selected color-scheme
+    // override, and stamp data-theme (#169). Fonts stay external, as EXPORT_CSS does.
+    const { colorScheme, theme } = appState.settings;
+    const extraCss = (await Promise.all([
+        fetch('./assets/themes.css').then((r) => r.text()),
+        colorScheme !== 'default'
+            ? fetch(`./assets/color-schemes/${colorScheme}.css`).then((r) => r.text())
+            : Promise.resolve(''),
+    ]).catch(() => [] as string[])).join('\n');
+    const url = URL.createObjectURL(new Blob([createStandaloneHtml(page.name, html, { extraCss, theme })], { type: 'text/html;charset=utf-8' }));
     const download = document.createElement('a');
     download.href = url;
     download.download = page.name.replace(/\.md$/i, '') + '.html';
