@@ -5,7 +5,13 @@ integration (and contributors without them in `~/.claude/skills`) can run
 `/work` and `/triage`. They are copied verbatim from the maintainer's setup;
 edit the upstream copies and re-sync rather than forking behavior here.
 
-ponytail: the `ponytail` skill is a plugin, not vendored. Install it from its
-marketplace rather than copying its files into the repo. There is no Claude
-GitHub Action workflow in `.github/` to wire a plugin install into yet; add the
-marketplace/plugin install there if one is introduced.
+ponytail: the `ponytail` skill is a plugin, not vendored. It is enabled via
+config in `settings.json` (`extraKnownMarketplaces` + `enabledPlugins`), which
+both local Claude Code and the `@claude` GitHub bot read, so it loads from its
+marketplace instead of being copied into the repo.
+
+The `@claude` bot runs via `.github/workflows/claude.yml`
+(`anthropics/claude-code-action`). It checks out the repo, so it picks up these
+skills and `settings.json` automatically. It needs an `ANTHROPIC_API_KEY` repo
+secret and the Claude GitHub App installed on the repo (run `/install-github-app`
+in Claude Code, or add the secret under Settings -> Secrets -> Actions).
